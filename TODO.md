@@ -2,7 +2,7 @@
 
 ## A. Gameplay & Systems
 - [x] 0. Grace period (~2.5s) before the flood starts rising at the start of a run
-- [ ] 1. Checkpoint milestone markers every 100m (visual "banner" + announce)
+- [x] 1. Checkpoint milestone markers every 100m (visual "banner" + announce)
 - [ ] 2. New hazard: dropping crane hook (level 4+)
 - [ ] 3. New hazard: flying newspaper swarm (level 5+)
 - [ ] 4. Daily welcome bonus: +50 coins first play of the day
