@@ -55,6 +55,12 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 .card .price{color:#f1c40f;margin-top:4px;font-size:9px}
 .coins{color:#f1c40f;font-size:12px;margin:6px 0}
 .small{font-size:9px;color:#95a5a6;line-height:1.5;max-width:300px;margin:8px 0}
+.hud-btn{width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,.4);background:rgba(12,18,28,.85);font-size:18px;color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:auto;z-index:26;-webkit-appearance:none;appearance:none;touch-action:manipulation;font-family:'Press Start 2P',system-ui,sans-serif}
+.hud-btn:active{transform:translateY(2px) scale(.93);background:rgba(255,255,255,.25)}
+#hudBtns{position:absolute;top:max(52px,calc(env(safe-area-inset-top)+46px));right:12px;display:flex;flex-direction:column;gap:8px;z-index:26;pointer-events:none}
+.help-item{margin:10px 0;text-align:left;font-size:9px;line-height:1.7;color:#dfe4e6}
+.help-item b{color:#f1c40f}
+#dangerWarn{position:absolute;left:0;right:0;bottom:0;height:44%;pointer-events:none;z-index:8;opacity:0;transition:opacity .3s;background:linear-gradient(0deg,rgba(231,76,60,.55),rgba(231,76,60,0))}
 </style>
 </head>
 <body>
@@ -67,6 +73,11 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <div id="weatherLabel" class="hidden">DRIZZLE</div>
 <div id="oxygenBar"><div id="oxygenFill"></div></div>
 <div id="skinBar" class="hidden"></div>
+<div id="dangerWarn"></div>
+<div id="hudBtns" class="hidden">
+<button class="hud-btn" id="muteBtn" title="Sound">🔊</button>
+<button class="hud-btn" id="pauseBtn" title="Pause">⏸️</button>
+</div>
 
 <div id="startScreen" class="screen">
 <div class="screen-scroll">
@@ -87,6 +98,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <button class="menu-btn skin" id="storeBtn">🛒 STORE</button>
 <button class="menu-btn" id="skinsBtn">🎨 CHARACTERS</button>
 <button class="menu-btn gold" id="lbBtn" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 LEADERBOARD</button>
+<button class="menu-btn" id="helpBtn">❓ HOW TO PLAY</button>
 </div>
 </div>
 <div id="lbScreen" class="screen hidden">
@@ -139,6 +151,25 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <button class="menu-btn" id="goMenuFromOver">☰ MENU</button>
 </div>
 </div>
+<div id="pauseScreen" class="screen hidden">
+<div class="screen-scroll">
+<div class="main-title" style="font-size:26px">PAUSED</div>
+<div class="small">The water waits for no one.</div>
+<button class="menu-btn teal" id="resumeBtn">▶ RESUME</button>
+<button class="menu-btn" id="quitBtn">☰ QUIT TO MENU</button>
+</div>
+</div>
+<div id="helpScreen" class="screen hidden">
+<div class="screen-scroll">
+<div class="main-title" style="font-size:20px">HOW TO PLAY</div>
+<div class="help-item"><b>Climb!</b> The flood rises. Jump from ledge to ledge to stay above the water.</div>
+<div class="help-item"><b>Controls</b> — ← → move · ▲ double-jump · 🤿 dive (with Scuba). On touch, swipe up to jump and swipe down to dive.</div>
+<div class="help-item"><b>Dodge</b> angry broom neighbors, dive-bombing birds, sharks, falling bricks and tentacles.</div>
+<div class="help-item"><b>Collect</b> 🐟 fish along the way for coins. Spend coins in the STORE on upgrades, lives and characters.</div>
+<div class="help-item"><b>Pause</b> — Press <b>P</b> or <b>ESC</b> to pause anytime.</div>
+<button class="menu-btn" id="backHelp">← BACK</button>
+</div>
+</div>
 <div id="adOverlay" class="screen hidden" style="z-index:50;background:rgba(0,0,0,.92)">
 <div class="screen-scroll">
 <div class="main-title" style="font-size:22px">📺 AD BREAK</div>
@@ -172,6 +203,8 @@ const levelsScreen=$("levelsScreen"),storeScreen=$("storeScreen"),skinsScreen=$(
 const scoreEl=$("score"),levelEl=$("levelUI"),highScoreUI=$("highScoreUI"),livesUI=$("livesUI"),coinsUI=$("coinsUI");
 const phaseAnnouncer=$("phaseAnnouncer"),controls=$("controls"),skinBar=$("skinBar"),weatherLabel=$("weatherLabel");
 const oxygenBar=$("oxygenBar"),oxygenFill=$("oxygenFill"),btnDive=$("btnDive");
+const pauseBtn=$("pauseBtn"),muteBtn=$("muteBtn"),resumeBtn=$("resumeBtn"),quitBtn=$("quitBtn");
+const pauseScreen=$("pauseScreen"),helpScreen=$("helpScreen");
 
 const safeStorage={
   get(k){try{return localStorage.getItem(k)}catch(e){return null}},
@@ -223,6 +256,8 @@ let ownedUpgrades=safeJSON(safeStorage.get("aow_upgrades"),{});
 if(typeof ownedUpgrades!=="object"||ownedUpgrades===null)ownedUpgrades={};
 let selectedTheme=safeStorage.get("aow_theme")||"nyc";
 let currentTheme=THEMES.find(t=>t.id===selectedTheme)||THEMES[0];
+let soundOn=safeStorage.get("aow_sound")!=="0";
+let musicTimer=null;
 const DIFFS={
   easy:{name:"EASY",waterMul:0.65,hazardMul:0.7,npcForce:12,npcVy:-6,desc:"Slower water · softer hazards"},
   normal:{name:"NORMAL",waterMul:1,hazardMul:1,npcForce:16,npcVy:-9,desc:"Water rises at normal speed"},
@@ -239,6 +274,7 @@ function save(){
   safeStorage.set("aow_skin",currentSkinId);safeStorage.set("aow_unlocked",JSON.stringify(unlockedSkins));
   safeStorage.set("aow_upgrades",JSON.stringify(ownedUpgrades));safeStorage.set("aow_theme",selectedTheme);
   safeStorage.set("aow_diff",difficulty);
+  safeStorage.set("aow_sound",soundOn?"1":"0");
 }
 function refreshCoinUI(){["menuCoins","storeCoins","skinCoins","coinsUI"].forEach(id=>{const e=$(id);if(e)e.innerText=coins})}
 function getUpgradeLevel(id){return ownedUpgrades[id]||0}
@@ -300,6 +336,7 @@ function watchAdSkin(){playRewardedAd("skin")}
 function watchAdCoins(){playRewardedAd("coins")}
 
 let state="START",score=0,time=0,level=1,cameraX=0,cameraY=0,lightningFlash=0,shakeAmount=0;
+let paused=false;let dangerWarn=0;
 let loopId=0; // cancels old RAF loops so restart always works
 let checkpoint=null; // death snapshot for CONTINUE
 let invulnTimer=0;
@@ -313,7 +350,8 @@ let diving=false,oxygen=100,maxOxygen=100;
 let audioCtx;
 
 function initAudio(){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
-function playTone(f,t="sine",d=0.1,v=0.18){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,audioCtx.currentTime);g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}}
+function playTone(f,t="sine",d=0.1,v=0.18){if(!soundOn||!audioCtx)return;try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,audioCtx.currentTime);g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}}
+function buzz(pattern){try{if(navigator.vibrate)navigator.vibrate(pattern)}catch(e){}}
 function sfxJump(){playTone(520,"sine",0.06,0.25);setTimeout(()=>playTone(780,"sine",0.08,0.18),28)}
 function sfxDouble(){playTone(680,"square",0.04,0.2);setTimeout(()=>playTone(920,"square",0.1,0.14),20)}
 function sfxCollect(){playTone(1400,"square",0.03,0.18);setTimeout(()=>playTone(2100,"square",0.08,0.14),40)}
@@ -322,6 +360,27 @@ function sfxThunder(){playTone(32,"sawtooth",0.7,0.3);setTimeout(()=>playTone(18
 function sfxBuy(){playTone(800,"sine",0.08,0.2);setTimeout(()=>playTone(1200,"sine",0.12,0.15),50)}
 function sfxDive(){playTone(200,"sine",0.15,0.2);setTimeout(()=>playTone(120,"sine",0.2,0.15),80)}
 function sfxBubble(){playTone(400+Math.random()*200,"sine",0.05,0.08)}
+
+// Minimal ambient music — a slow pentatonic arpeggio via Web Audio
+const MUSIC_NOTES=[261.6,293.7,329.6,392.0,440.0,523.3,587.3];
+function musicStep(){
+  if(!soundOn||!audioCtx)return;
+  const n=MUSIC_NOTES[Math.floor(Math.random()*MUSIC_NOTES.length)];
+  playTone(n,"triangle",0.35,0.035);
+  setTimeout(()=>playTone(n*1.5,"sine",0.4,0.02),340);
+}
+function startMusic(){
+  if(!soundOn||musicTimer)return;
+  initAudio();
+  musicTimer=setInterval(musicStep,540);
+}
+function stopMusic(){if(musicTimer){clearInterval(musicTimer);musicTimer=null}}
+function updateMuteBtn(){if(muteBtn)muteBtn.innerText=soundOn?"🔊":"🔇"}
+function toggleSound(){
+  soundOn=!soundOn;save();
+  if(soundOn)startMusic();else stopMusic();
+  updateMuteBtn();buzz(soundOn?20:60);
+}
 
 function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}
 window.addEventListener("resize",resize);resize();
@@ -376,7 +435,7 @@ function tap(el,fn){
   el.style.cursor="pointer";
 }
 const lbScreen=$("lbScreen");
-function show(screen){[startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen].forEach(s=>s&&s.classList.add("hidden"));screen.classList.remove("hidden");refreshCoinUI()}
+function show(screen){[startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen].forEach(s=>s&&s.classList.add("hidden"));screen.classList.remove("hidden");refreshCoinUI()}
 function renderLB(){
   const list=$("lbList");if(!list)return;list.innerHTML="";
   if(!leaderboard.length){list.innerHTML='<div class="small">No scores yet — climb high!</div>';return}
@@ -428,6 +487,34 @@ tap($("restartBtn"),()=>{
   resetKeys();
   checkpoint=null;
   startGame(false); // false = full restart, ignore lives gate for try-again
+});
+tap($("continueBtn"),()=>{
+  continueFromCheckpoint();
+});
+// Pause / resume / quit
+function openPause(){if(state!=="PLAYING")return;paused=true;if(pauseScreen)pauseScreen.classList.remove("hidden")}
+function closePause(){paused=false;if(pauseScreen)pauseScreen.classList.add("hidden")}
+function goToMenu(){
+  closePause();state="START";loopId++;
+  resetKeys();paused=false;
+  [startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen].forEach(s=>{if(s)s.classList.add("hidden")});
+  if(ui)ui.classList.add("hidden");if(controls)controls.classList.add("hidden");
+  if(skinBar)skinBar.classList.add("hidden");if(weatherLabel)weatherLabel.classList.add("hidden");
+  if(oxygenBar)oxygenBar.style.display="none";
+  const hb=$("hudBtns");if(hb)hb.classList.add("hidden");
+  const de=$("dangerWarn");if(de)de.style.opacity="0";
+  if(startScreen){startScreen.classList.remove("hidden");refreshCoinUI()}
+}
+tap($("pauseBtn"),openPause);
+tap($("resumeBtn"),closePause);
+tap($("quitBtn"),()=>{goToMenu()});
+tap($("helpBtn"),()=>{show(helpScreen)});
+tap($("backHelp"),()=>show(startScreen));
+tap($("muteBtn"),toggleSound);
+window.addEventListener("keydown",e=>{
+  if((e.code==="KeyP"||e.code==="Escape")&&state==="PLAYING"){
+    if(paused)closePause();else openPause();
+  }
 });
 tap($("continueBtn"),()=>{
   continueFromCheckpoint();
@@ -530,8 +617,8 @@ function jumpCat(){
     return;
   }
   const jp=cat.jumpPower*(1+getUpgradeLevel("jumpPower")*0.14);
-  if(cat.grounded){cat.vy=jp;cat.grounded=false;cat.jumps=1;sfxJump();createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h,"#fff",5)}
-  else if(cat.jumps<cat.maxJumps){cat.vy=jp*0.86;cat.jumps++;sfxDouble();createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h,"#5dade2",8)}
+  if(cat.grounded){cat.vy=jp;cat.grounded=false;cat.jumps=1;sfxJump();createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h,"#fff",5);buzz(12)}
+  else if(cat.jumps<cat.maxJumps){cat.vy=jp*0.86;cat.jumps++;sfxDouble();createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h,"#5dade2",8);buzz(10)}
 }
 
 function tryDive(){
@@ -628,11 +715,12 @@ function startGame(freeRestart){
     loopId++;
     const myLoop=loopId;
     initAudio();
+    if(soundOn)startMusic();
     resetKeys();
     knockbackTimer=0;invulnTimer=0;checkpoint=null;
-    state="PLAYING";score=0;time=0;level=1;
+    state="PLAYING";score=0;time=0;level=1;paused=false;
     cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
-    diving=false;oxygen=100;
+    diving=false;oxygen=100;dangerWarn=0;
     maxOxygen=100+getUpgradeLevel("oxygen")*35;
     oxygen=maxOxygen;
     weather={intensity:0.2,wind:4,stormName:"DRIZZLE",flashCooldown:50,gust:0,gustTimer:40};
@@ -643,6 +731,8 @@ function startGame(freeRestart){
 
     ui.classList.remove("hidden");skinBar.classList.remove("hidden");weatherLabel.classList.remove("hidden");
     controls.classList.remove("hidden");
+    updateMuteBtn();
+    if($("hudBtns"))$("hudBtns").classList.remove("hidden");
     if(oxygenBar)oxygenBar.style.display="none";
     if(hasScuba())btnDive.classList.remove("hidden");else btnDive.classList.add("hidden");
 
@@ -680,7 +770,7 @@ function startGame(freeRestart){
     function tick(){
       if(myLoop!==loopId)return; // aborted by a newer startGame
       if(state!=="PLAYING")return;
-      try{gameLoopFrame()}catch(err){console.error("frame",err)}
+      if(!paused)try{gameLoopFrame()}catch(err){console.error("frame",err)}
       if(state==="PLAYING"&&myLoop===loopId)requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
@@ -730,13 +820,14 @@ function knockback(dir,force,upForce){
   cat.jumps=1; // force off platform — must air-recover
   knockbackTimer=28;
   shakeAmount=12;
+  buzz([20,30,40]);
   playTone(150,"square",0.12,0.25);
   createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h/2,"#fff",8,10);
 }
 let knockbackTimer=0;
 
 function gameLoopFrame(){
-  if(state!=="PLAYING"||!cat||!water)return;
+  if(state!=="PLAYING"||!cat||!water||paused)return;
   time++;
   updateWeather();
 
@@ -784,6 +875,14 @@ function gameLoopFrame(){
   score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   if(score>highestScore){highestScore=score;safeStorage.set("afraidWaterHS",highestScore)}
   scoreEl.innerText=score+"m";highScoreUI.innerText=highestScore;
+
+  // Water danger warning (red vignette when the flood is nearly under you)
+  if(!diving&&water){
+    const d=Math.max(0,1-(water.worldY-(cat.worldY+cat.h))/90);
+    dangerWarn+=(d-dangerWarn)*0.12;
+  }else dangerWarn*=0.85;
+  const dangerEl=$("dangerWarn");
+  if(dangerEl){dangerEl.style.opacity=String(Math.min(1,dangerWarn*1.4)).slice(0,4)}
 
   const curSec=Math.floor(cat.worldY/420);
   generateWorldSector(curSec);generateWorldSector(curSec-1);generateWorldSector(curSec+1);
@@ -880,7 +979,7 @@ function gameLoopFrame(){
     const c=collectibles[i];if(!c.active)continue;
     if(Math.hypot(cat.worldX+cat.w/2-c.worldX,cat.worldY+cat.h/2-c.worldY)<magnetR){
       c.active=false;score+=340;if(score>highestScore)highestScore=score;
-      coins+=3*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();
+      coins+=3*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(8);
     }
   }
 
@@ -954,6 +1053,7 @@ function loseLife(){
   state="OVER";
   resetKeys();
   sfxSplash();shakeAmount=20;
+  buzz([30,40,60]);
   diving=false;
   if(oxygenBar)oxygenBar.style.display="none";
 
@@ -989,6 +1089,8 @@ function loseLife(){
   controls.classList.add("hidden");
   skinBar.classList.add("hidden");
   weatherLabel.classList.add("hidden");
+  if($("hudBtns"))$("hudBtns").classList.add("hidden");
+  const de=$("dangerWarn");if(de)de.style.opacity="0";
   if(gameOverScreen){gameOverScreen.classList.remove("hidden");gameOverScreen.style.display=""}
 }
 
@@ -1009,12 +1111,14 @@ function continueFromCheckpoint(){
   knockbackTimer=0;
   invulnTimer=90; // ~1.5s invulnerability so you don't die instantly
   state="PLAYING";
-  diving=false;
+  diving=false;paused=false;
   if(oxygenBar)oxygenBar.style.display="none";
 
   [startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen].forEach(s=>{if(s)s.classList.add("hidden")});
   ui.classList.remove("hidden");skinBar.classList.remove("hidden");weatherLabel.classList.remove("hidden");
   controls.classList.remove("hidden");
+  updateMuteBtn();
+  if($("hudBtns"))$("hudBtns").classList.remove("hidden");
   if(hasScuba())btnDive.classList.remove("hidden");else btnDive.classList.add("hidden");
 
   const skin=getSkin();
@@ -1043,7 +1147,7 @@ function continueFromCheckpoint(){
   function tick(){
     if(myLoop!==loopId)return;
     if(state!=="PLAYING")return;
-    try{gameLoopFrame()}catch(err){console.error("frame",err)}
+    if(!paused)try{gameLoopFrame()}catch(err){console.error("frame",err)}
     if(state==="PLAYING"&&myLoop===loopId)requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -1364,6 +1468,8 @@ try{
   if(highScoreUI)highScoreUI.innerText=highestScore;
   refreshCoinUI();
   if(hasScuba()&&btnDive)btnDive.classList.remove("hidden");
+  updateMuteBtn();
+  document.addEventListener("pointerdown",function once(){startMusic();document.removeEventListener("pointerdown",once)},false);
   // Ensure start screen is visible
   if(startScreen)startScreen.classList.remove("hidden");
 }catch(err){console.error("boot",err)}

@@ -24,8 +24,11 @@ Or open `index.html` locally in any browser.
 - Weather (rain, lightning, wind)
 - Breakable ledges, stairs, falling bricks, pigeons, steam vents
 - Scuba diving with oxygen + sea creatures
-- Skins, upgrades, coins, local leaderboard
+- Skin, upgrades, coins, local leaderboard
 - Mobile touch controls
+- Pause (P / ESC), sound on-off toggle, mint-ambient background music
+- Mobile vibration feedback (haptic) on jump, hits, and collecting
+- Water-danger red vignette warning + in-game how-to-play guide
 
 ## Deploy on Render
 
