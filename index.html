@@ -80,6 +80,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <button class="hud-btn" id="muteBtn" title="Sound">🔊</button>
 <button class="hud-btn" id="pauseBtn" title="Pause">⏸️</button>
 </div>
+<div id="toast" class="hidden" style="position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(20,30,44,.95);border:2px solid #f1c40f;color:#fff;font-size:10px;padding:10px 16px;border-radius:10px;z-index:60;text-align:center;max-width:86%;box-shadow:0 4px 20px rgba(0,0,0,.6);pointer-events:none"></div>
 
 <div id="startScreen" class="screen">
 <div class="screen-scroll">
@@ -99,8 +100,11 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <button class="menu-btn blue" id="levelsBtn">🗺️ LEVELS</button>
 <button class="menu-btn skin" id="storeBtn">🛒 STORE</button>
 <button class="menu-btn" id="skinsBtn">🎨 CHARACTERS</button>
-<button class="menu-btn gold" id="lbBtn" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 LEADERBOARD</button>
-<button class="menu-btn" id="helpBtn">❓ HOW TO PLAY</button>
+  <button class="menu-btn gold" id="lbBtn" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 LEADERBOARD</button>
+  <button class="menu-btn" id="achBtn" style="position:relative">🎖️ ACHIEVEMENTS <span id="menuAchBadge" class="hidden" style="position:absolute;top:-6px;right:-6px;background:#e74c3c;color:#fff;font-size:8px;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;line-height:1">!</span></button>
+  <button class="menu-btn" id="helpBtn">❓ HOW TO PLAY</button>
+  <div style="margin-top:14px;font-size:8px;color:#555">AFRAID OF WATER</div>
+  <div style="font-size:8px;color:#555;margin-top:2px">🏆 <span id="achCount">0/9</span> trophies · v<span id="verText">1.3.0</span></div>
 </div>
 </div>
 <div id="lbScreen" class="screen hidden">
@@ -109,6 +113,15 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <div class="small">Top climbs on this device</div>
 <div id="lbList" style="margin:12px 0;min-height:120px;font-size:11px"></div>
 <button class="menu-btn" id="backLb">← BACK</button>
+</div>
+</div>
+<div id="achScreen" class="screen hidden">
+<div class="screen-scroll">
+<div class="main-title" style="font-size:24px">🎖️ ACHIEVEMENTS</div>
+<div class="small">Earn trophies by climbing, diving and collecting fish.</div>
+<div id="achList" style="margin:12px 0;min-height:120px;font-size:10px;width:100%;max-width:340px;text-align:left"></div>
+<button class="menu-btn" id="resetProgBtn" style="background:#c0392b;border-color:#922b21;box-shadow:0 5px 0 #641e16">🗑️ RESET PROGRESS</button>
+<button class="menu-btn" id="backAch">← BACK</button>
 </div>
 </div>
 <div id="levelsScreen" class="screen hidden">
@@ -201,7 +214,7 @@ const canvas=document.getElementById("gameCanvas");
 const ctx=canvas.getContext("2d",{alpha:false});
 const $=id=>document.getElementById(id);
 const ui=$("ui"),startScreen=$("startScreen"),gameOverScreen=$("gameOverScreen");
-const levelsScreen=$("levelsScreen"),storeScreen=$("storeScreen"),skinsScreen=$("skinsScreen");
+const levelsScreen=$("levelsScreen"),storeScreen=$("storeScreen"),skinsScreen=$("skinsScreen"),achScreen=$("achScreen");
 const scoreEl=$("score"),levelEl=$("levelUI"),highScoreUI=$("highScoreUI"),livesUI=$("livesUI"),coinsUI=$("coinsUI");
 const phaseAnnouncer=$("phaseAnnouncer"),controls=$("controls"),skinBar=$("skinBar"),weatherLabel=$("weatherLabel");
 const oxygenBar=$("oxygenBar"),oxygenFill=$("oxygenFill"),btnDive=$("btnDive");
@@ -212,6 +225,21 @@ const safeStorage={
   get(k){try{return localStorage.getItem(k)}catch(e){return null}},
   set(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 };
+
+// Global toast banner for achievements, daily bonus and other notifications
+let toastTimer=null;
+function toast(msg){
+  const el=$("toast");
+  if(!el)return;
+  el.textContent=msg;
+  el.classList.remove("hidden");
+  el.style.opacity="1";
+if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{
+    el.classList.add("hidden");
+  },2600);
+}
+
 
 const THEMES=[
   {id:"nyc",name:"NYC Flood",emoji:"🏙️",unlock:0,bgTop:"#0a1520",bgBot:"#122433",water:"rgba(16,125,115,.93)",waterMid:"rgba(14,58,80,.97)",building:"#16212c",hazard:"shark"},
@@ -269,6 +297,64 @@ const DIFFS={
 let difficulty=safeStorage.get("aow_diff")||"normal";
 if(!DIFFS[difficulty])difficulty="normal";
 let currentDiff=DIFFS[difficulty];
+
+// Game version — shown in footer + could gate future migrations
+const GAME_VERSION="1.3.0";
+
+// Achievements system (trophies that persist locally)
+const ACHIEVEMENTS=[
+  {id:"first_climb",emoji:"🐾",name:"First Climb",desc:"Reach 50m in a run"},
+  {id:"reach_300",emoji:"🌆",name:"Rooftop Runner",desc:"Reach 300m in a run"},
+  {id:"reach_500",emoji:"🏙️",name:"Sky Scraper",desc:"Reach 500m in a run"},
+  {id:"dive_10",emoji:"🤿",name:"Deep Diver",desc:"Take 10 dives total"},
+  {id:"collect_50",emoji:"🐟",name:"Fish Friends",desc:"Collect 50 fish total"},
+  {id:"unlock_3",emoji:"🎨",name:"Fashionista",desc:"Unlock 3 character skins"},
+  {id:"buy_3",emoji:"🛒",name:"Big Spender",desc:"Buy 3 store upgrades"},
+  {id:"spend_500",emoji:"🪙",name:"Coin Hoarder",desc:"Own 500 coins at once"},
+  {id:"survive_hard",emoji:"💀",name:"Flood Survivor",desc:"Reach 400m on HARD/INSANE difficulty"}
+];
+let achieved=safeJSON(safeStorage.get("aow_achievements"),[]);
+if(!Array.isArray(achieved))achieved=[];
+let seenAchievements=safeJSON(safeStorage.get("aow_seenAch"),[]);
+if(!Array.isArray(seenAchievements))seenAchievements=[];
+let totalDives=parseInt(safeStorage.get("aow_dives")||"0",10)||0;
+let totalFish=parseInt(safeStorage.get("aow_fish")||"0",10)||0;
+let milestoneShown=parseInt(safeStorage.get("aow_milestone")||"0",10)||0;
+
+function unlockAchievement(id){
+  if(achieved.includes(id))return false;
+  achieved.push(id);
+  // Fire a toast banner
+  const a=ACHIEVEMENTS.find(x=>x.id===id);
+  if(a)toast(a.emoji+" "+a.name+" unlocked!");
+  save();refreshAchBadge();
+  try{sfxBuy()}catch(e){}
+  return true;
+}
+function refreshAchBadge(){
+  const unread=ACHIEVEMENTS.filter(a=>achieved.includes(a.id)&&!seenAchievements.includes(a.id)).length;
+  const badge=$("achBadge");
+  if(badge)badge.classList.toggle("hidden",unread===0);
+  const menuBadge=$("menuAchBadge");
+  if(menuBadge)menuBadge.classList.toggle("hidden",unread===0);
+}
+function markAchievementsSeen(){
+  seenAchievements=achieved.slice();
+  safeStorage.set("aow_seenAch",JSON.stringify(seenAchievements));
+  refreshAchBadge();
+}
+
+// Welcome bonus — reward the first play of each calendar day
+function grantDailyBonus(){
+  const today=new Date().toDateString();
+  const last=safeStorage.get("aow_lastBonus");
+  if(last!==today){
+    coins+=50;
+    safeStorage.set("aow_lastBonus",today);
+    save();
+    toast("🎁 Welcome back! +50 coins");
+  }
+}
 
 function save(){
   safeStorage.set("aow_coins",coins);safeStorage.set("aow_lives",lives);
@@ -339,11 +425,13 @@ function watchAdCoins(){playRewardedAd("coins")}
 
 let state="START",score=0,time=0,level=1,cameraX=0,cameraY=0,lightningFlash=0,shakeAmount=0;
 let paused=false;let dangerWarn=0;
+let waterDelay=0; // grace period before the flood starts rising
 let loopId=0; // cancels old RAF loops so restart always works
 let checkpoint=null; // death snapshot for CONTINUE
 let invulnTimer=0;
 let cat,water,platforms=[],rain=[],sharks=[],tentacles=[],debris=[],particles=[],collectibles=[],fog=[],seaCreatures=[],birds=[],windowNPCs=[];
 let fallingBricks=[],hangingSigns=[],pigeons=[],steamVents=[];
+let drifts=[],floaters=[];
 const keys={left:false,right:false,up:false,dive:false};
 const generatedSectors={},windowRegistry={};
 let weather={intensity:0.2,wind:3,stormName:"DRIZZLE",flashCooldown:0,gust:0,gustTimer:0};
@@ -352,8 +440,10 @@ let diving=false,oxygen=100,maxOxygen=100;
 let streak=0,streakTimer=0,comboMult=1,comboFlash=0;
 let audioCtx;
 
-function initAudio(){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
-function playTone(f,t="sine",d=0.1,v=0.18){if(!soundOn||!audioCtx)return;try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,audioCtx.currentTime);g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}}
+function initAudio(){try{if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();masterFilter=audioCtx.createBiquadFilter();masterFilter.type="lowpass";masterFilter.frequency.value=16000;masterGain=audioCtx.createGain();masterGain.gain.value=1;masterFilter.connect(masterGain);masterGain.connect(audioCtx.destination)}if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
+function setUnderwaterAudio(on){if(!audioCtx||!masterFilter)return;const t=audioCtx.currentTime;try{masterFilter.frequency.setTargetAtTime(on?600:15000,t,0.12);masterGain.gain.setTargetAtTime(on?0.5:1,t,0.12)}catch(e){}}
+let masterFilter=null,masterGain=null;
+function playTone(f,t="sine",d=0.1,v=0.18){if(!soundOn||!audioCtx)return;try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,audioCtx.currentTime);g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(g);g.connect(masterFilter||audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}}
 function buzz(pattern){try{if(navigator.vibrate)navigator.vibrate(pattern)}catch(e){}}
 function sfxJump(){playTone(520,"sine",0.06,0.25);setTimeout(()=>playTone(780,"sine",0.08,0.18),28)}
 function sfxDouble(){playTone(680,"square",0.04,0.2);setTimeout(()=>playTone(920,"square",0.1,0.14),20)}
@@ -635,6 +725,7 @@ function tryDive(){
       oxygenBar.style.display="block";
       cat.vy=2;
       sfxDive();
+      setUnderwaterAudio(true);
       createSplash(cat.worldX+cat.w/2,water.worldY,12);
       createBubbles(cat.worldX,cat.worldY,8);
     }
@@ -655,6 +746,7 @@ function exitDive(){
   oxygenBar.style.display="none";
   cat.vy=-10;
   cat.jumps=0;
+  setUnderwaterAudio(false);
   createSplash(cat.worldX+cat.w/2,water.worldY,10);
   createBubbles(cat.worldX,water.worldY,6);
   sfxSplash();
@@ -721,7 +813,8 @@ function startGame(freeRestart){
     initAudio();
     if(soundOn)startMusic();
     resetKeys();
-    knockbackTimer=0;invulnTimer=0;checkpoint=null;
+knockbackTimer=0;invulnTimer=0;checkpoint=null;
+    waterDelay=150; // ~2.5s grace before the flood starts rising
     state="PLAYING";score=0;time=0;level=1;paused=false;
     cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
     diving=false;oxygen=100;dangerWarn=0;
@@ -756,6 +849,7 @@ function startGame(freeRestart){
     water={worldY:(canvas.height||640)-48,baseSpeed:0.88*(currentDiff.waterMul||1)};
     platforms=[];sharks=[];tentacles=[];debris=[];rain=[];particles=[];collectibles=[];fog=[];seaCreatures=[];
     birds=[];windowNPCs=[];fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];
+    drifts=[];floaters=[];
     for(let k in generatedSectors)delete generatedSectors[k];
     for(let k in windowRegistry)delete windowRegistry[k];
 
@@ -982,7 +1076,12 @@ function gameLoopFrame(){
     if(hs.worldY>water.worldY+60)hangingSigns.splice(i,1);
   }
 
-  if(!diving)water.worldY-=water.baseSpeed;
+// Grace period: hold the flood still for a couple seconds at the start
+  if(waterDelay>0){
+    waterDelay--;
+  }else if(!diving){
+    water.worldY-=water.baseSpeed;
+  }
 
   // Collectibles
   const magnetR=34+getUpgradeLevel("magnet")*16;
@@ -1059,7 +1158,7 @@ function loseLife(){
   if(shieldActive){
     shieldActive=false;
     createParticles(cat.worldX,cat.worldY,"#5dade2",18);
-    shakeAmount=10;diving=false;
+    shakeAmount=10;diving=false;setUnderwaterAudio(false);
     if(oxygenBar)oxygenBar.style.display="none";
     if(cat&&water){cat.worldY=Math.min(cat.worldY,water.worldY-50);cat.vy=-10}
     invulnTimer=45;
@@ -1069,6 +1168,7 @@ function loseLife(){
   resetKeys();
   sfxSplash();shakeAmount=20;
   buzz([30,40,60]);
+  diving=false;setUnderwaterAudio(false);
   streak=0;comboMult=1;
   const ch=$("comboHud");if(ch)ch.classList.add("hidden");
   diving=false;
