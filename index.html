@@ -130,12 +130,23 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <h1 style="font-family:'Creepster',cursive;color:#cd6155;font-size:36px;margin:0 0 6px;text-shadow:3px 3px 0 #000">WASHED AWAY</h1>
 <p style="font-size:18px;margin:0 0 4px">MAX <span id="finalScore" style="color:#5dade2">0m</span></p>
 <p style="font-size:12px;margin:0 0 4px;color:#aaa">+ <span id="earnedCoins">0</span> coins · Rank <span id="rankText">—</span></p>
-<p style="font-size:12px;margin:0 0 14px;color:#aaa">Lives: <span id="livesLeft">0</span></p>
-<button class="menu-btn" id="restartBtn">▶ TRY AGAIN</button>
-<button class="menu-btn ad" id="extraLifeAdBtn">📺 AD = +1 LIFE</button>
+<p style="font-size:12px;margin:0 0 10px;color:#aaa">Lives: <span id="livesLeft">0</span></p>
+<button class="menu-btn teal" id="continueBtn">♥ CONTINUE (−1 life)</button>
+<button class="menu-btn" id="restartBtn">▶ TRY AGAIN (free)</button>
+<button class="menu-btn ad" id="extraLifeAdBtn">📺 WATCH AD → +1 LIFE</button>
 <button class="menu-btn gold" id="goLbFromOver" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 BOARD</button>
 <button class="menu-btn skin" id="goStoreFromOver">🛒 STORE</button>
 <button class="menu-btn" id="goMenuFromOver">☰ MENU</button>
+</div>
+</div>
+<div id="adOverlay" class="screen hidden" style="z-index:50;background:rgba(0,0,0,.92)">
+<div class="screen-scroll">
+<div class="main-title" style="font-size:22px">📺 AD BREAK</div>
+<p class="small" id="adMessage" style="margin:16px 0;line-height:1.6">Watching rewarded ad…</p>
+<div id="adProgress" style="width:200px;height:10px;background:#222;border-radius:6px;overflow:hidden;margin:12px 0">
+<div id="adProgressFill" style="height:100%;width:0%;background:linear-gradient(90deg,#27ae60,#2ecc71);transition:width .2s"></div>
+</div>
+<p class="small" id="adTimer">3…</p>
 </div>
 </div>
 
@@ -233,17 +244,65 @@ function refreshCoinUI(){["menuCoins","storeCoins","skinCoins","coinsUI"].forEac
 function getUpgradeLevel(id){return ownedUpgrades[id]||0}
 function hasScuba(){return getUpgradeLevel("scuba")>0}
 
-window.AdMobBridge={
-  onRewardedExtraLife(){lives=Math.min(lives+1,maxLives);livesUI.innerText=lives;save();if(state==="OVER")$("livesLeft").innerText=lives},
-  onRewardedSkin(){const locked=ALL_SKINS.filter(s=>!unlockedSkins.includes(s.id));if(!locked.length)return;const p=locked[Math.floor(Math.random()*locked.length)];unlockedSkins.push(p.id);currentSkinId=p.id;save();renderSkins();updateSkinBar()},
-  onRewardedCoins(){coins+=50;save();refreshCoinUI()}
-};
-function watchAdLife(){if(confirm("Watch ad for +1 Life?"))setTimeout(()=>window.AdMobBridge.onRewardedExtraLife(),400)}
-function watchAdSkin(){if(confirm("Watch ad for random skin?"))setTimeout(()=>window.AdMobBridge.onRewardedSkin(),400)}
-function watchAdCoins(){if(confirm("Watch ad for +50 coins?"))setTimeout(()=>window.AdMobBridge.onRewardedCoins(),400)}
+// Ad system: uses native AdMobBridge when available (Capacitor/Android),
+// otherwise a short in-browser rewarded-ad simulation so web players still get rewards.
+window.AdMobBridge=window.AdMobBridge||{};
+window.AdMobBridge.onRewardedExtraLife=function(){lives=Math.min(lives+1,maxLives);if(livesUI)livesUI.innerText=lives;save();const ll=$("livesLeft");if(ll)ll.innerText=lives;refreshCoinUI()};
+window.AdMobBridge.onRewardedSkin=function(){const locked=ALL_SKINS.filter(s=>!unlockedSkins.includes(s.id));if(!locked.length){alert("All skins unlocked!");return}const p=locked[Math.floor(Math.random()*locked.length)];unlockedSkins.push(p.id);currentSkinId=p.id;save();try{renderSkins();updateSkinBar()}catch(e){}refreshCoinUI()};
+window.AdMobBridge.onRewardedCoins=function(){coins+=50;save();refreshCoinUI()};
+
+let adBusy=false;
+function playRewardedAd(kind){
+  if(adBusy)return;
+  adBusy=true;
+  // Native path (Play Store / Capacitor injects this)
+  if(typeof window.AdMobBridge.showRewarded==="function"){
+    try{
+      window.AdMobBridge.showRewarded(kind,function(ok){
+        adBusy=false;
+        if(ok){
+          if(kind==="life")window.AdMobBridge.onRewardedExtraLife();
+          else if(kind==="skin")window.AdMobBridge.onRewardedSkin();
+          else window.AdMobBridge.onRewardedCoins();
+        }
+      });
+      return;
+    }catch(e){console.warn(e)}
+  }
+  // Web fallback: timed ad break UI
+  const overlay=$("adOverlay"),msg=$("adMessage"),fill=$("adProgressFill"),timer=$("adTimer");
+  const labels={life:"+1 Life",skin:"Random Skin",coins:"+50 Coins"};
+  if(msg)msg.textContent="Rewarded ad for "+(labels[kind]||"reward")+"\n(Simulator — real ads on the app store build)";
+  if(fill)fill.style.width="0%";
+  if(overlay){overlay.classList.remove("hidden");overlay.style.display=""}
+  let t=3;
+  if(timer)timer.textContent=t+"…";
+  const tick=setInterval(()=>{
+    t--;
+    if(fill)fill.style.width=((3-t)/3*100)+"%";
+    if(timer)timer.textContent=t>0?(t+"…"):"Reward!";
+    if(t<=0){
+      clearInterval(tick);
+      if(fill)fill.style.width="100%";
+      setTimeout(()=>{
+        if(overlay){overlay.classList.add("hidden")}
+        adBusy=false;
+        if(kind==="life")window.AdMobBridge.onRewardedExtraLife();
+        else if(kind==="skin")window.AdMobBridge.onRewardedSkin();
+        else window.AdMobBridge.onRewardedCoins();
+        sfxBuy();
+      },400);
+    }
+  },1000);
+}
+function watchAdLife(){playRewardedAd("life")}
+function watchAdSkin(){playRewardedAd("skin")}
+function watchAdCoins(){playRewardedAd("coins")}
 
 let state="START",score=0,time=0,level=1,cameraX=0,cameraY=0,lightningFlash=0,shakeAmount=0;
 let loopId=0; // cancels old RAF loops so restart always works
+let checkpoint=null; // death snapshot for CONTINUE
+let invulnTimer=0;
 let cat,water,platforms=[],rain=[],sharks=[],tentacles=[],debris=[],particles=[],collectibles=[],fog=[],seaCreatures=[],birds=[],windowNPCs=[];
 let fallingBricks=[],hangingSigns=[],pigeons=[],steamVents=[];
 const keys={left:false,right:false,up:false,dive:false};
@@ -363,11 +422,15 @@ tap($("backLevels"),()=>show(startScreen));
 tap($("backStore"),()=>show(startScreen));
 tap($("backFromSkins"),()=>show(startScreen));
 tap($("restartBtn"),()=>{
-  // Force clean restart even if previous loop was stuck
+  // Free restart from the bottom — no life cost
   state="OVER";
   loopId++;
   resetKeys();
-  startGame();
+  checkpoint=null;
+  startGame(false); // false = full restart, ignore lives gate for try-again
+});
+tap($("continueBtn"),()=>{
+  continueFromCheckpoint();
 });
 tap($("extraLifeAdBtn"),watchAdLife);
 tap($("unlockSkinAdBtn"),watchAdSkin);
@@ -555,15 +618,18 @@ function resetKeys(){
   ["btnLeft","btnRight","btnJump","btnDive"].forEach(id=>{const b=$(id);if(b)b.classList.remove("pressed")});
 }
 
-function startGame(){
+function startGame(freeRestart){
   try{
-    if(lives<=0){alert("No lives! Watch an ad or buy a refill in the store.");return}
-    // Kill any previous animation loop so restart never stacks/freezes
+    // Try Again is free (no life gate). First PLAY from menu still allows 0 lives message.
+    if(!freeRestart&&lives<=0&&state==="START"){
+      alert("No lives! Watch an ad or buy a refill in the store.");
+      return;
+    }
     loopId++;
     const myLoop=loopId;
     initAudio();
     resetKeys();
-    knockbackTimer=0;
+    knockbackTimer=0;invulnTimer=0;checkpoint=null;
     state="PLAYING";score=0;time=0;level=1;
     cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
     diving=false;oxygen=100;
@@ -571,8 +637,8 @@ function startGame(){
     oxygen=maxOxygen;
     weather={intensity:0.2,wind:4,stormName:"DRIZZLE",flashCooldown:50,gust:0,gustTimer:40};
 
-    // Force-hide every menu / game-over overlay
     [startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen].forEach(s=>{if(s){s.classList.add("hidden");s.style.display=""}});
+    const adO=$("adOverlay");if(adO)adO.classList.add("hidden");
     if(gameOverScreen)gameOverScreen.classList.add("hidden");
 
     ui.classList.remove("hidden");skinBar.classList.remove("hidden");weatherLabel.classList.remove("hidden");
@@ -723,6 +789,7 @@ function gameLoopFrame(){
   generateWorldSector(curSec);generateWorldSector(curSec-1);generateWorldSector(curSec+1);
 
   if(knockbackTimer>0)knockbackTimer--;
+  if(invulnTimer>0)invulnTimer--;
   // Platform collisions (breakable cracked ledges)
   if(!diving||cat.worldY<water.worldY+20){
     let wasG=cat.grounded;cat.grounded=false;
@@ -873,24 +940,34 @@ function gameLoopFrame(){
 }
 
 function loseLife(){
-  // Only die once per run
   if(state!=="PLAYING")return;
+  if(invulnTimer>0)return; // brief protection after CONTINUE
   if(shieldActive){
     shieldActive=false;
     createParticles(cat.worldX,cat.worldY,"#5dade2",18);
     shakeAmount=10;diving=false;
     if(oxygenBar)oxygenBar.style.display="none";
-    // Nudge out of the hazard so we don't instantly die again
-    if(cat&&water){cat.worldY=Math.min(cat.worldY,water.worldY-40);cat.vy=-8}
+    if(cat&&water){cat.worldY=Math.min(cat.worldY,water.worldY-50);cat.vy=-10}
+    invulnTimer=45;
     return;
   }
-  state="OVER"; // stop loop immediately
+  state="OVER";
   resetKeys();
-  lives=Math.max(0,lives-1);save();
-  if(livesUI)livesUI.innerText=lives;
   sfxSplash();shakeAmount=20;
   diving=false;
   if(oxygenBar)oxygenBar.style.display="none";
+
+  // Snapshot for CONTINUE (resume costs 1 life)
+  checkpoint={
+    worldX:cat.worldX,
+    worldY:Math.min(cat.worldY,water.worldY-80),
+    score:score,
+    level:level,
+    cameraX:cameraX,
+    cameraY:cameraY,
+    waterY:water.worldY,
+    dir:cat.dir
+  };
 
   try{
     const earned=Math.floor(score/11);
@@ -900,16 +977,76 @@ function loseLife(){
     const ec=$("earnedCoins");if(ec)ec.innerText=earned;
     const ll=$("livesLeft");if(ll)ll.innerText=lives;
     const rt=$("rankText");if(rt)rt.innerText=rank;
+    // Show/hide continue based on lives
+    const cb=$("continueBtn");
+    if(cb){
+      if(lives>0){cb.classList.remove("hidden");cb.textContent="♥ CONTINUE (−1 life)";cb.style.opacity="1"}
+      else{cb.textContent="♥ CONTINUE (need lives)";cb.style.opacity="0.5"}
+    }
   }catch(e){console.error(e)}
 
   ui.classList.add("hidden");
   controls.classList.add("hidden");
   skinBar.classList.add("hidden");
   weatherLabel.classList.add("hidden");
-  if(gameOverScreen){
-    gameOverScreen.classList.remove("hidden");
-    gameOverScreen.style.display="";
+  if(gameOverScreen){gameOverScreen.classList.remove("hidden");gameOverScreen.style.display=""}
+}
+
+function continueFromCheckpoint(){
+  if(!checkpoint){alert("Nothing to continue — try again from the bottom.");return}
+  if(lives<=0){
+    alert("No lives left! Watch an ad for +1 life, then CONTINUE.");
+    return;
   }
+  // Cost 1 life to resume where you died
+  lives=Math.max(0,lives-1);save();
+  if(livesUI)livesUI.innerText=lives;
+
+  loopId++;
+  const myLoop=loopId;
+  initAudio();
+  resetKeys();
+  knockbackTimer=0;
+  invulnTimer=90; // ~1.5s invulnerability so you don't die instantly
+  state="PLAYING";
+  diving=false;
+  if(oxygenBar)oxygenBar.style.display="none";
+
+  [startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen].forEach(s=>{if(s)s.classList.add("hidden")});
+  ui.classList.remove("hidden");skinBar.classList.remove("hidden");weatherLabel.classList.remove("hidden");
+  controls.classList.remove("hidden");
+  if(hasScuba())btnDive.classList.remove("hidden");else btnDive.classList.add("hidden");
+
+  const skin=getSkin();
+  const spd=7.0*(1+getUpgradeLevel("speed")*0.1);
+  score=checkpoint.score;
+  level=checkpoint.level;
+  cameraX=checkpoint.cameraX;cameraY=checkpoint.cameraY;
+  cat={
+    worldX:checkpoint.worldX,
+    worldY:checkpoint.worldY,
+    w:32,h:24,vx:0,vy:-6,speed:spd,jumpPower:-15.5,gravity:0.65,
+    grounded:false,dir:checkpoint.dir||1,jumps:0,maxJumps:2,
+    body:skin.body||"#e07a2f",dark:skin.dark||"#c45f1a",style:skin.style||"cat"
+  };
+  if(!water)water={worldY:checkpoint.waterY,baseSpeed:0.88*(currentDiff.waterMul||1)};
+  else water.worldY=checkpoint.waterY;
+
+  if(scoreEl)scoreEl.innerText=score+"m";
+  if(levelEl)levelEl.innerText=level;
+  if(livesUI)livesUI.innerText=lives;
+  updateSkinBar();
+  announcePhase("CONTINUED −1 LIFE");
+  shieldActive=false;
+  createParticles(cat.worldX,cat.worldY,"#f1c40f",14,8);
+
+  function tick(){
+    if(myLoop!==loopId)return;
+    if(state!=="PLAYING")return;
+    try{gameLoopFrame()}catch(err){console.error("frame",err)}
+    if(state==="PLAYING"&&myLoop===loopId)requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 }
 
 function shade(color,percent){
@@ -1144,6 +1281,7 @@ function draw(){
   ctx.beginPath();ctx.moveTo(-13,0);ctx.quadraticCurveTo(-20,4,-14,12);ctx.stroke();
   if(shieldActive){ctx.strokeStyle="rgba(93,173,226,0.75)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,19,0,Math.PI*2);ctx.stroke()}
   if(diving){ctx.strokeStyle="rgba(26,188,156,0.85)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,-1,17,0,Math.PI*2);ctx.stroke()}
+  if(invulnTimer>0&&Math.floor(invulnTimer/4)%2===0){ctx.strokeStyle="rgba(241,196,15,0.9)";ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,21,0,Math.PI*2);ctx.stroke()}
   ctx.restore();
 
   // Surface hazards
