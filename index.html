@@ -9,16 +9,26 @@
 <title>Afraid of Water</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Press+Start+2P&display=swap');
-*{box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;margin:0;padding:0}
+*{box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
 html,body{margin:0;padding:0;overflow:hidden;width:100%;height:100%;background:#010408;color:#fff;font-family:'Press Start 2P',system-ui,sans-serif;position:fixed;overscroll-behavior:none;-webkit-text-size-adjust:100%}
-canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-index:1}
+canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-index:1;touch-action:none}
 #ui{position:absolute;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;display:flex;justify-content:space-between;align-items:flex-start;font-size:10px;text-shadow:2px 2px 0 #000;pointer-events:none;z-index:10;line-height:1.5}
 #phaseAnnouncer{font-family:'Creepster',cursive;color:#e74c3c;font-size:20px;text-align:center;opacity:0;transition:opacity .3s;text-shadow:0 0 12px #000;max-width:42%}
-.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(2,4,8,.97);z-index:30;text-align:center;padding:14px;padding-bottom:max(14px,env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;background:rgba(2,4,8,.97);z-index:30;text-align:center;padding:0;overflow:hidden}
+.screen-scroll{width:100%;flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:16px 14px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(24px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center}
+.screen-scroll::-webkit-scrollbar{width:6px}
+.screen-scroll::-webkit-scrollbar-thumb{background:#e67e22;border-radius:4px}
+.scroll-hint{font-size:8px;color:#7f8c8d;margin:4px 0 8px;opacity:.8}
 .main-title{font-family:'Creepster',cursive;font-size:clamp(34px,11vw,56px);color:#b2babb;margin:0 0 4px;text-shadow:0 0 18px #e74c3c,4px 4px 0 #000;line-height:1;letter-spacing:1px}
 .rule-bold{font-family:'Creepster',cursive;font-size:clamp(22px,7vw,36px);color:#e74c3c;text-shadow:3px 3px 0 #000;margin:6px 0}
 .hidden{display:none!important}
-.menu-btn{background:#e67e22;border:3px solid #d35400;color:#fff;font-family:'Press Start 2P',system-ui,sans-serif;font-size:11px;padding:14px 18px;margin:6px;border-radius:12px;box-shadow:0 5px 0 #a04000;min-width:170px;min-height:50px;cursor:pointer;-webkit-appearance:none;appearance:none}
+.menu-btn{background:#e67e22;border:3px solid #d35400;color:#fff;font-family:'Press Start 2P',system-ui,sans-serif;font-size:11px;padding:14px 18px;margin:6px;border-radius:12px;box-shadow:0 5px 0 #a04000;min-width:170px;min-height:50px;cursor:pointer;-webkit-appearance:none;appearance:none;touch-action:manipulation;flex-shrink:0}
+.diff-row{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px 0;max-width:340px}
+.diff-btn{font-family:'Press Start 2P',system-ui,sans-serif;font-size:9px;padding:10px 12px;border-radius:10px;border:3px solid #555;background:#1a2330;color:#bbb;min-width:72px;cursor:pointer;touch-action:manipulation}
+.diff-btn.selected{border-color:#f1c40f;color:#fff;background:#2c3e50;box-shadow:0 0 10px rgba(241,196,15,.4)}
+.diff-btn[data-d="easy"].selected{border-color:#27ae60;color:#2ecc71}
+.diff-btn[data-d="hard"].selected{border-color:#e67e22;color:#e67e22}
+.diff-btn[data-d="insane"].selected{border-color:#e74c3c;color:#e74c3c}
 .menu-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #a04000}
 .menu-btn.ad{background:#27ae60;border-color:#1e8449;box-shadow:0 5px 0 #145a32}
 .menu-btn.skin{background:#8e44ad;border-color:#6c3483;box-shadow:0 5px 0 #4a235a}
@@ -59,56 +69,74 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <div id="skinBar" class="hidden"></div>
 
 <div id="startScreen" class="screen">
+<div class="screen-scroll">
 <div class="main-title">AFRAID OF WATER</div>
 <div class="rule-bold">DON'T GET WET</div>
 <div class="coins">🪙 <span id="menuCoins">0</span></div>
-<div class="small">Climb. Dive with Scuba. Survive the flood.</div>
+<div class="small">Climb. Dive. Survive the flood.</div>
+<div class="small" style="margin-top:8px;color:#85c1e9">DIFFICULTY</div>
+<div class="diff-row" id="diffRow">
+<button class="diff-btn" data-d="easy">EASY</button>
+<button class="diff-btn selected" data-d="normal">NORMAL</button>
+<button class="diff-btn" data-d="hard">HARD</button>
+<button class="diff-btn" data-d="insane">INSANE</button>
+</div>
+<div class="small" id="diffDesc">Water rises at normal speed</div>
 <button class="menu-btn" id="startBtn">▶ PLAY</button>
 <button class="menu-btn blue" id="levelsBtn">🗺️ LEVELS</button>
 <button class="menu-btn skin" id="storeBtn">🛒 STORE</button>
 <button class="menu-btn" id="skinsBtn">🎨 CHARACTERS</button>
 <button class="menu-btn gold" id="lbBtn" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 LEADERBOARD</button>
 </div>
+</div>
 <div id="lbScreen" class="screen hidden">
+<div class="screen-scroll">
 <div class="main-title" style="font-size:24px">🏆 LEADERBOARD</div>
 <div class="small">Top climbs on this device</div>
 <div id="lbList" style="margin:12px 0;min-height:120px;font-size:11px"></div>
 <button class="menu-btn" id="backLb">← BACK</button>
 </div>
-
+</div>
 <div id="levelsScreen" class="screen hidden">
+<div class="screen-scroll">
 <div class="main-title" style="font-size:24px">SELECT LEVEL</div>
+<div class="scroll-hint">↕ scroll for more</div>
 <div class="grid" id="levelGrid"></div>
 <button class="menu-btn" id="backLevels">← BACK</button>
 </div>
-
+</div>
 <div id="storeScreen" class="screen hidden">
+<div class="screen-scroll">
 <div class="main-title" style="font-size:24px">STORE</div>
 <div class="coins">🪙 <span id="storeCoins">0</span></div>
-<div class="small">Upgrades change how you play. Scuba lets you dive under the flood.</div>
+<div class="scroll-hint">↕ scroll for all upgrades</div>
 <div class="grid" id="storeGrid"></div>
 <button class="menu-btn ad" id="watchAdCoins">📺 AD = +50 COINS</button>
 <button class="menu-btn" id="backStore">← BACK</button>
 </div>
-
+</div>
 <div id="skinsScreen" class="screen hidden">
+<div class="screen-scroll">
 <div class="main-title" style="font-size:24px">CHARACTERS</div>
 <div class="coins">🪙 <span id="skinCoins">0</span></div>
+<div class="scroll-hint">↕ scroll for all skins</div>
 <div class="grid" id="skinList"></div>
 <button class="menu-btn ad" id="unlockSkinAdBtn">📺 AD = RANDOM SKIN</button>
 <button class="menu-btn" id="backFromSkins">← BACK</button>
 </div>
-
+</div>
 <div id="gameOverScreen" class="screen hidden">
+<div class="screen-scroll">
 <h1 style="font-family:'Creepster',cursive;color:#cd6155;font-size:36px;margin:0 0 6px;text-shadow:3px 3px 0 #000">WASHED AWAY</h1>
 <p style="font-size:18px;margin:0 0 4px">MAX <span id="finalScore" style="color:#5dade2">0m</span></p>
 <p style="font-size:12px;margin:0 0 4px;color:#aaa">+ <span id="earnedCoins">0</span> coins · Rank <span id="rankText">—</span></p>
 <p style="font-size:12px;margin:0 0 14px;color:#aaa">Lives: <span id="livesLeft">0</span></p>
-<button class="menu-btn gold" id="goLbFromOver" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 BOARD</button>
 <button class="menu-btn" id="restartBtn">▶ TRY AGAIN</button>
 <button class="menu-btn ad" id="extraLifeAdBtn">📺 AD = +1 LIFE</button>
+<button class="menu-btn gold" id="goLbFromOver" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 BOARD</button>
 <button class="menu-btn skin" id="goStoreFromOver">🛒 STORE</button>
 <button class="menu-btn" id="goMenuFromOver">☰ MENU</button>
+</div>
 </div>
 
 <div id="controls" class="hidden">
@@ -184,12 +212,22 @@ let ownedUpgrades=safeJSON(safeStorage.get("aow_upgrades"),{});
 if(typeof ownedUpgrades!=="object"||ownedUpgrades===null)ownedUpgrades={};
 let selectedTheme=safeStorage.get("aow_theme")||"nyc";
 let currentTheme=THEMES.find(t=>t.id===selectedTheme)||THEMES[0];
+const DIFFS={
+  easy:{name:"EASY",waterMul:0.65,hazardMul:0.7,npcForce:12,npcVy:-6,desc:"Slower water · softer hazards"},
+  normal:{name:"NORMAL",waterMul:1,hazardMul:1,npcForce:16,npcVy:-9,desc:"Water rises at normal speed"},
+  hard:{name:"HARD",waterMul:1.45,hazardMul:1.35,npcForce:20,npcVy:-12,desc:"Fast water · meaner NPCs"},
+  insane:{name:"INSANE",waterMul:2.0,hazardMul:1.7,npcForce:24,npcVy:-15,desc:"Flood speed · brutal knockback"}
+};
+let difficulty=safeStorage.get("aow_diff")||"normal";
+if(!DIFFS[difficulty])difficulty="normal";
+let currentDiff=DIFFS[difficulty];
 
 function save(){
   safeStorage.set("aow_coins",coins);safeStorage.set("aow_lives",lives);
   safeStorage.set("aow_maxLives",maxLives);safeStorage.set("afraidWaterHS",highestScore);
   safeStorage.set("aow_skin",currentSkinId);safeStorage.set("aow_unlocked",JSON.stringify(unlockedSkins));
   safeStorage.set("aow_upgrades",JSON.stringify(ownedUpgrades));safeStorage.set("aow_theme",selectedTheme);
+  safeStorage.set("aow_diff",difficulty);
 }
 function refreshCoinUI(){["menuCoins","storeCoins","skinCoins","coinsUI"].forEach(id=>{const e=$(id);if(e)e.innerText=coins})}
 function getUpgradeLevel(id){return ownedUpgrades[id]||0}
@@ -242,7 +280,10 @@ bindTouch($("btnLeft"),"left",false);
 bindTouch($("btnRight"),"right",false);
 bindTouch($("btnJump"),"up",true);
 bindTouch($("btnDive"),"dive",false);
-document.addEventListener("touchmove",e=>e.preventDefault(),{passive:false});
+// Only lock page scroll during gameplay — menus need to scroll freely
+document.addEventListener("touchmove",e=>{
+  if(state==="PLAYING")e.preventDefault();
+},{passive:false});
 
 let touchStartX=0,touchStartY=0;
 canvas.addEventListener("touchstart",e=>{if(state!=="PLAYING")return;const t=e.changedTouches[0];touchStartX=t.clientX;touchStartY=t.clientY},{passive:true});
@@ -291,6 +332,27 @@ function submitScore(sc){
   return rank>0?rank:"—";
 }
 
+// Difficulty selectors
+(function initDiff(){
+  const row=$("diffRow"),desc=$("diffDesc");
+  if(!row)return;
+  row.querySelectorAll(".diff-btn").forEach(btn=>{
+    if(btn.getAttribute("data-d")===difficulty)btn.classList.add("selected");
+    else btn.classList.remove("selected");
+    const pick=e=>{
+      e.preventDefault();e.stopPropagation();
+      difficulty=btn.getAttribute("data-d")||"normal";
+      currentDiff=DIFFS[difficulty];
+      row.querySelectorAll(".diff-btn").forEach(b=>b.classList.remove("selected"));
+      btn.classList.add("selected");
+      if(desc)desc.textContent=currentDiff.desc;
+      save();
+    };
+    btn.addEventListener("touchend",pick,{passive:false});
+    btn.addEventListener("click",pick);
+  });
+  if(desc)desc.textContent=currentDiff.desc;
+})();
 tap($("startBtn"),()=>{state="START";startGame()});
 tap($("levelsBtn"),()=>{show(levelsScreen);renderLevels()});
 tap($("storeBtn"),()=>{show(storeScreen);renderStore()});
@@ -530,7 +592,7 @@ function startGame(){
       grounded:false,dir:1,jumps:0,maxJumps:2,
       body:skin.body||skin.color||"#e07a2f",dark:skin.dark||"#c45f1a",style:skin.style||"cat"
     };
-    water={worldY:(canvas.height||640)-48,baseSpeed:0.88};
+    water={worldY:(canvas.height||640)-48,baseSpeed:0.88*(currentDiff.waterMul||1)};
     platforms=[];sharks=[];tentacles=[];debris=[];rain=[];particles=[];collectibles=[];fog=[];seaCreatures=[];
     birds=[];windowNPCs=[];fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];
     for(let k in generatedSectors)delete generatedSectors[k];
@@ -592,7 +654,19 @@ function generateWorldSector(sectorY){
     }
   }
 }
-function knockback(dir,force){if(typeof knockbackTimer!=="undefined"&&knockbackTimer>0)return;cat.vx=dir*force;cat.vy=-4;cat.grounded=false;knockbackTimer=22;shakeAmount=8;playTone(150,"square",0.1,0.2)}
+function knockback(dir,force,upForce){
+  if(typeof knockbackTimer!=="undefined"&&knockbackTimer>0)return;
+  const f=force||14;
+  const up=upForce!=null?upForce:-8;
+  cat.vx=dir*f;
+  cat.vy=up;
+  cat.grounded=false;
+  cat.jumps=1; // force off platform — must air-recover
+  knockbackTimer=28;
+  shakeAmount=12;
+  playTone(150,"square",0.12,0.25);
+  createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h/2,"#fff",8,10);
+}
 let knockbackTimer=0;
 
 function gameLoopFrame(){
@@ -603,7 +677,7 @@ function gameLoopFrame(){
   const newLevel=Math.floor(highestScore/260)+1;
   if(newLevel>level){
     level=newLevel;levelEl.innerText=level;
-    water.baseSpeed=0.88+level*0.22;
+    water.baseSpeed=(0.88+level*0.22)*(currentDiff.waterMul||1);
     if(level===2)announcePhase("STORM RISING");
     if(level===3)announcePhase("DEEP WATERS");
     if(level===4)announcePhase("KRAKEN ZONE");
@@ -681,9 +755,19 @@ function gameLoopFrame(){
   // Window broom NPCs
   for(let i=windowNPCs.length-1;i>=0;i--){
     const n=windowNPCs[i];if(n.swinging>0)n.swinging--;n.cooldown--;
-    if(n.cooldown<=0&&Math.abs(n.worldX-cat.worldX)<85&&Math.abs(n.worldY-cat.worldY)<48){
-      n.swinging=18;n.cooldown=85;
-      if(Math.abs(n.worldX-cat.worldX)<52&&Math.abs(n.worldY-cat.worldY)<38)knockback(n.worldX<cat.worldX?1:-1,10);
+    // Aggressive range — they wind up when you're near their window
+    if(n.cooldown<=0&&Math.abs(n.worldX-cat.worldX)<110&&Math.abs(n.worldY-cat.worldY)<55){
+      n.swinging=22;n.cooldown=70;
+      // Full hit: knock completely off the ledge
+      if(Math.abs(n.worldX-cat.worldX)<70&&Math.abs(n.worldY-cat.worldY)<45){
+        const dir=n.worldX<cat.worldX?1:-1;
+        const force=(currentDiff.npcForce||16)*(currentDiff.hazardMul||1);
+        const up=currentDiff.npcVy||-9;
+        knockback(dir,force,up);
+        // Extra shove so you leave the platform
+        cat.worldX+=dir*18;
+        cat.grounded=false;
+      }
     }
     if(n.worldY>water.worldY+80)windowNPCs.splice(i,1);
   }
@@ -946,17 +1030,21 @@ function draw(){
     const b=birds[i];
     ctx.fillText(b.diving?"🦅":"🐦",b.worldX-cameraX,b.worldY-cameraY);
   }
-  // Window broom NPCs
+  // Window broom NPCs — angry neighbors
   for(let i=0;i<windowNPCs.length;i++){
     const n=windowNPCs[i],nx=n.worldX-cameraX,ny=n.worldY-cameraY;
-    if(nx<-40||nx>canvas.width+40)continue;
-    ctx.fillStyle="#8e44ad";ctx.fillRect(nx-8,ny-10,16,18);
-    ctx.fillStyle="#f5cba7";ctx.beginPath();ctx.arc(nx,ny-14,6,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle="#5d4e37";ctx.fillRect(nx-7,ny-18,14,4);
-    const swing=n.swinging>0?Math.sin(n.swinging*0.5)*12:0;
-    ctx.strokeStyle="#6d4c41";ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(nx+6,ny);ctx.lineTo(nx+14+swing,ny+8);ctx.stroke();
-    ctx.fillStyle="#c4a574";ctx.fillRect(nx+12+swing,ny+6,8,4);
+    if(nx<-50||nx>canvas.width+50)continue;
+    // window frame glow when swinging
+    if(n.swinging>0){ctx.fillStyle="rgba(231,76,60,0.25)";ctx.fillRect(nx-18,ny-28,36,40)}
+    ctx.fillStyle="#6c3483";ctx.fillRect(nx-9,ny-12,18,20); // dress
+    ctx.fillStyle="#f5cba7";ctx.beginPath();ctx.arc(nx,ny-16,7,0,Math.PI*2);ctx.fill(); // head
+    ctx.fillStyle="#4a3728";ctx.fillRect(nx-8,ny-22,16,5); // hair bun
+    ctx.fillStyle="#c0392b";ctx.beginPath();ctx.arc(nx-3,ny-17,1.2,0,Math.PI*2);ctx.arc(nx+3,ny-17,1.2,0,Math.PI*2);ctx.fill(); // angry eyes
+    const swing=n.swinging>0?Math.sin(n.swinging*0.55)*22:Math.sin(time*0.05+n.worldX)*2;
+    ctx.strokeStyle="#5d4037";ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(nx+8,ny-2);ctx.lineTo(nx+18+swing,ny+14);ctx.stroke(); // broom stick
+    ctx.fillStyle="#a1887f";ctx.fillRect(nx+14+swing,ny+10,14,7); // bristles
+    if(n.swinging>10){ctx.fillStyle="rgba(255,255,255,0.5)";ctx.font="10px Arial";ctx.fillText("!",nx+20,ny-20)}
   }
   // Hanging signs / laundry
   for(let i=0;i<hangingSigns.length;i++){
