@@ -28,7 +28,9 @@ Or open `index.html` locally in any browser.
 - Mobile touch controls
 - Pause (P / ESC), sound on-off toggle, mint-ambient background music
 - Mobile vibration feedback (haptic) on jump, hits, and collecting
+- Combo multiplier system for chained fish pickups (bigger coins + score)
 - Water-danger red vignette warning + in-game how-to-play guide
+- Layered realism: drifting cloud banks, atmospheric haze, glinting water, mist hugging the flood, dynamic rain drop shadows, wind-gust streaks and an immersive screen vignette
 
 ## Deploy on Render
 

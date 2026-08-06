@@ -61,6 +61,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 .help-item{margin:10px 0;text-align:left;font-size:9px;line-height:1.7;color:#dfe4e6}
 .help-item b{color:#f1c40f}
 #dangerWarn{position:absolute;left:0;right:0;bottom:0;height:44%;pointer-events:none;z-index:8;opacity:0;transition:opacity .3s;background:linear-gradient(0deg,rgba(231,76,60,.55),rgba(231,76,60,0))}
+#comboHud{position:absolute;top:max(12px,calc(env(safe-area-inset-top)+8px));left:50%;transform:translateX(-50%);font-family:'Creepster',cursive;color:#f1c40f;font-size:26px;text-shadow:0 0 14px #e67e22,2px 2px 0 #000;pointer-events:none;z-index:12}
 </style>
 </head>
 <body>
@@ -72,6 +73,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 </div>
 <div id="weatherLabel" class="hidden">DRIZZLE</div>
 <div id="oxygenBar"><div id="oxygenFill"></div></div>
+<div id="comboHud" class="hidden">COMBO ×<span id="comboVal">1</span></div>
 <div id="skinBar" class="hidden"></div>
 <div id="dangerWarn"></div>
 <div id="hudBtns" class="hidden">
@@ -347,6 +349,7 @@ const generatedSectors={},windowRegistry={};
 let weather={intensity:0.2,wind:3,stormName:"DRIZZLE",flashCooldown:0,gust:0,gustTimer:0};
 let shieldActive=false;
 let diving=false,oxygen=100,maxOxygen=100;
+let streak=0,streakTimer=0,comboMult=1,comboFlash=0;
 let audioCtx;
 
 function initAudio(){try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
@@ -503,6 +506,7 @@ function goToMenu(){
   if(oxygenBar)oxygenBar.style.display="none";
   const hb=$("hudBtns");if(hb)hb.classList.add("hidden");
   const de=$("dangerWarn");if(de)de.style.opacity="0";
+  const ch=$("comboHud");if(ch)ch.classList.add("hidden");
   if(startScreen){startScreen.classList.remove("hidden");refreshCoinUI()}
 }
 tap($("pauseBtn"),openPause);
@@ -721,6 +725,7 @@ function startGame(freeRestart){
     state="PLAYING";score=0;time=0;level=1;paused=false;
     cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
     diving=false;oxygen=100;dangerWarn=0;
+    streak=0;streakTimer=0;comboMult=1;comboFlash=0;
     maxOxygen=100+getUpgradeLevel("oxygen")*35;
     oxygen=maxOxygen;
     weather={intensity:0.2,wind:4,stormName:"DRIZZLE",flashCooldown:50,gust:0,gustTimer:40};
@@ -829,6 +834,13 @@ let knockbackTimer=0;
 function gameLoopFrame(){
   if(state!=="PLAYING"||!cat||!water||paused)return;
   time++;
+  if(streakTimer>0){streakTimer--;if(streakTimer<=0){streak=0;comboMult=1}}
+  if(comboFlash>0)comboFlash*=0.94;
+  const comboEl=$("comboHud");
+  if(comboEl){
+    if(comboMult>1&&comboFlash>0){comboEl.classList.remove("hidden");const cv=$("comboVal");if(cv)cv.innerText=comboMult;comboEl.style.transform=`translateX(-50%) scale(${1.15+comboFlash*0.25})`}
+    else{comboEl.classList.add("hidden")}
+  }
   updateWeather();
 
   const newLevel=Math.floor(highestScore/260)+1;
@@ -978,8 +990,11 @@ function gameLoopFrame(){
   for(let i=collectibles.length-1;i>=0;i--){
     const c=collectibles[i];if(!c.active)continue;
     if(Math.hypot(cat.worldX+cat.w/2-c.worldX,cat.worldY+cat.h/2-c.worldY)<magnetR){
-      c.active=false;score+=340;if(score>highestScore)highestScore=score;
-      coins+=3*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(8);
+      c.active=false;
+      streak++;streakTimer=120;comboFlash=1;
+      comboMult=Math.min(1+Math.floor(streak/4),8);
+      score+=340*comboMult;if(score>highestScore)highestScore=score;
+      coins+=(3+comboMult)*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
     }
   }
 
@@ -1054,6 +1069,8 @@ function loseLife(){
   resetKeys();
   sfxSplash();shakeAmount=20;
   buzz([30,40,60]);
+  streak=0;comboMult=1;
+  const ch=$("comboHud");if(ch)ch.classList.add("hidden");
   diving=false;
   if(oxygenBar)oxygenBar.style.display="none";
 
@@ -1166,6 +1183,29 @@ function draw(){
   const bg=ctx.createLinearGradient(0,0,0,canvas.height);
   bg.addColorStop(0,currentTheme.bgTop);bg.addColorStop(1,currentTheme.bgBot);
   ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Atmospheric depth: soft vertical haze on the upper sky
+  const haze=ctx.createLinearGradient(0,0,0,canvas.height*0.5);
+  haze.addColorStop(0,"rgba(110,150,220,0.10)");haze.addColorStop(1,"rgba(80,110,180,0)");
+  ctx.fillStyle=haze;ctx.fillRect(0,0,canvas.width,canvas.height*0.5);
+
+  // Distant drifting cloud bank (slow parallax) for depth
+  ctx.fillStyle="rgba(130,150,210,0.08)";
+  const span=canvas.width+300,cBaseY=canvas.height*0.30-cameraY*0.02;
+  for(let k=0;k<10;k++){
+    const cx=(((k*span/10+cameraX*0.05)%span)+span)%span-150;
+    const cy=cBaseY+Math.sin(k*1.7+time*0.004)*22;
+    ctx.beginPath();ctx.ellipse(cx,cy,150+((k*7)%90),26,0,0,Math.PI*2);ctx.fill();
+  }
+  // Pinprick rain-light glimmer between clouds (weather depth)
+  if(weather.intensity>0.2){
+    ctx.fillStyle=`rgba(255,255,255,${0.02+weather.intensity*0.03})`;
+    for(let k=0;k<26;k++){
+      const gx=(((k*97+time*0.6)%span)+span)%span-60;
+      const gy=((k*31)%(canvas.height*0.4));
+      ctx.fillRect(gx,gy,1,1);
+    }
+  }
 
   // Distant buildings
   ctx.fillStyle="rgba(8,14,22,0.85)";
@@ -1335,6 +1375,13 @@ function draw(){
   }
   ctx.globalAlpha=1;
 
+  // Soft drop-shadow under the character for grounding
+  const shx=cat.worldX-cameraX+cat.w/2,shy=cat.worldY-cameraY+cat.h+4;
+  ctx.fillStyle="rgba(0,0,0,0.35)";
+  ctx.beginPath();ctx.ellipse(shx,shy,cat.w*0.5,3.5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle="rgba(0,0,0,0.12)";
+  ctx.beginPath();ctx.ellipse(shx,shy+2,cat.w*0.7,5,0,0,Math.PI*2);ctx.fill();
+
   // Character — full body, walk bounce, no face emoji overlay
   ctx.save();
   const cx=cat.worldX-cameraX+cat.w/2,cy=cat.worldY-cameraY+cat.h/2;
@@ -1443,11 +1490,51 @@ function draw(){
     ctx.stroke();
   }
 
+  // Water surface glimmers — scattered twinkles riding the waves
+  ctx.fillStyle="rgba(255,255,255,0.5)";
+  for(let i=0;i<15;i++){
+    const tw=Math.max(0,Math.sin(time*0.05+i*2.6));
+    if(tw<0.25)continue;
+    const gx=(((i*79+time*1.4)%(canvas.width+40)+canvas.width+40)%(canvas.width+40))-20;
+    const gy=wsy+Math.sin((gx+cameraX)*0.015)*waveH + tw*2 - 1;
+    ctx.fillStyle=`rgba(255,240,220,${tw*0.55})`;
+    ctx.fillRect(gx-1,gy,2,2);
+    ctx.fillRect(gx-3,gy,1,1);
+  }
+  ctx.fillStyle="rgba(255,255,255,0.5)";
+
+  // Building light reflections mirrored into the flood
+  for(let k=0;k<canvas.width;k+=160){
+    const warm=((k/160)%2===0)?"rgba(255,190,120,":"rgba(255,235,150,";
+    ctx.fillStyle=warm+"0.05)";
+    ctx.fillRect(k-cameraX*0.5,wsy+10,46,canvas.height-wsy);
+    ctx.fillStyle=warm+"0.04)";
+    ctx.fillRect(k-cameraX*0.5+24,wsy+18,30,canvas.height-wsy-16);
+  }
+
   // Underwater tint when diving
   if(diving){
     ctx.fillStyle="rgba(10,40,60,0.25)";
     ctx.fillRect(0,wsy,canvas.width,canvas.height-wsy);
   }
+
+  // Misty vapor hugging the flood's surface (weather rolls it thicker)
+  const mistA=0.10+weather.intensity*0.16;
+  const mist=ctx.createLinearGradient(0,wsy-26,0,wsy+8);
+  mist.addColorStop(0,"rgba(160,190,220,0)");mist.addColorStop(0.5,`rgba(160,190,220,${mistA})`);mist.addColorStop(1,"rgba(160,190,220,0)");
+  ctx.fillStyle=mist;ctx.fillRect(0,wsy-26,canvas.width,34);
+  // Horizontal vapor slabs drifting along the flood
+  ctx.fillStyle=`rgba(180,205,235,${0.05+weather.intensity*0.06})`;
+  for(let k=0;k<5;k++){
+    const vx=(((k*211+time*weather.wind*0.3)%(canvas.width+200)+canvas.width+200)%(canvas.width+200))-100;
+    const vyo=(k%2)*3;
+    ctx.fillRect(vx,wsy-14+vyo,90+((k*23)%70),5);
+  }
+
+  // Immersive vignette at the screen edges
+  const vg=ctx.createRadialGradient(canvas.width/2,canvas.height*0.45,canvas.height*0.3,canvas.width/2,canvas.height*0.5,canvas.height*0.85);
+  vg.addColorStop(0,"rgba(0,0,0,0)");vg.addColorStop(1,"rgba(0,0,0,0.42)");
+  ctx.fillStyle=vg;ctx.fillRect(0,0,canvas.width,canvas.height);
 
   // Rain
   ctx.lineWidth=1.3;
@@ -1457,6 +1544,37 @@ function draw(){
     ctx.beginPath();
     const dx=weather.wind*(0.3+r.z*0.22);
     ctx.moveTo(r.x,r.y);ctx.lineTo(r.x-dx,r.y+r.len);ctx.stroke();
+  }
+  // Heavy rain overlay — bigger, faster streaks in the closer layer
+  ctx.lineWidth=2.2;
+  ctx.strokeStyle=`rgba(220,230,250,${0.10+weather.intensity*0.20})`;
+  for(let i=0;i<rain.length;i+=3){
+    const r=rain[i];
+    const dx=weather.wind*(0.5+r.z*0.3);
+    ctx.beginPath();ctx.moveTo(r.x*0.3+80,r.y*0.7);ctx.lineTo(r.x*0.3+80-dx,r.y*0.7+r.len*1.6);ctx.stroke();
+  }
+  ctx.lineWidth=1.3;
+  // Wind gust streak lines for drama
+  if(weather.gust>4&&weather.intensity>0.2){
+    ctx.strokeStyle=`rgba(255,255,255,${0.03+weather.intensity*0.05})`;
+    ctx.lineWidth=1;
+    for(let i=0;i<12;i++){
+      const gy=((i*57+cameraY*0.3)%canvas.height);
+      const gx=((i*91+time*weather.gust)% (canvas.width+300))-150;
+      ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(gx+120+weather.gust*2,gy);ctx.stroke();
+    }
+    ctx.lineWidth=1.3;
+  }
+  // Rain lightly dimples the water surface
+  if(weather.intensity>0.15){
+    ctx.fillStyle="rgba(255,255,255,0.3)";
+    for(let i=0;i<9;i++){
+      const sx=(((i*113+time*2)%canvas.width+canvas.width)%canvas.width);
+      const pulse=Math.abs(Math.sin(time*0.4+i*1.3));
+      if(wsy>=0&&wsy<=canvas.height&&pulse>0.6){
+        ctx.fillRect(sx,wsy+Math.sin(sx+cameraX*0.015)*6+pulse*2,2,2);
+      }
+    }
   }
 
   ctx.restore();
