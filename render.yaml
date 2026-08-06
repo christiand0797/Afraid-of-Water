@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: afraid-of-water
+    runtime: static
+    plan: free
+    buildCommand: ""
+    staticPublishPath: .
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=300
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
