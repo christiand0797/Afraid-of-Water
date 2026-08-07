@@ -1453,14 +1453,14 @@ knockbackTimer=0;invulnTimer=0;checkpoint=null;
 function generateWorldSector(sectorY){
   if(generatedSectors[sectorY])return;
   generatedSectors[sectorY]=true;
-  const BSPAN=720; // wider gaps between buildings
+  const BSPAN=600; // middle-ground spacing
   const baseY=sectorY*480;let cy=baseY+420;
   while(cy>baseY+25){
     // Bigger vertical gaps between platform rows — breathing room
     cy-=(Math.random()*40+95);
-    for(let bo=-2;bo<=2;bo++){
-      // Skip some buildings on this row so not every facade is packed
-      if(Math.random()<0.28)continue;
+    for(let bo=-3;bo<=3;bo++){
+      // occasional skip for a bit of air
+      if(Math.random()<0.15)continue;
       const bx=bo*BSPAN+80,bw=380;
       let t="ledge",ph=16;const r=Math.random();
       if(r>0.88)t="stairs";
@@ -1479,8 +1479,8 @@ function generateWorldSector(sectorY){
       if(Math.random()>0.96)steamVents.push({worldX:bx+30+Math.random()*320,worldY:cy+5,timer:Math.random()*60});
       if(level>=2&&Math.random()>0.93)acBlows.push({worldX:bx+20+Math.random()*(bw-60),worldY:cy-26,timer:Math.random()*120,on:0});
       // Bridges rarer — longer spans between buildings
-      if(Math.random()<0.12&&bo<2&&t!=="stairs"&&t!=="cracked"){
-        platforms.push({worldX:bx+bw-80,worldY:cy-6,w:Math.random()*50+200,h:8,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
+      if(Math.random()<0.16&&bo<3&&t!=="stairs"&&t!=="cracked"){
+        platforms.push({worldX:bx+bw-120,worldY:cy-6,w:Math.random()*40+140,h:8,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
       }
     }
   }
@@ -1519,14 +1519,16 @@ function gameLoopFrame(){
   }
   updateWeather();
 
-  const newLevel=Math.floor(highestScore/260)+1;
+  // Zone from THIS run's climb — not all-time high (that made Kraken spawn on start)
+  const newLevel=Math.min(6, Math.floor(score/280)+1);
   if(newLevel>level){
     level=newLevel;levelEl.innerText=level;
     water.baseSpeed=(0.88+level*0.22)*(currentDiff.waterMul||1);
     if(level===2)announcePhase("STORM RISING");
     if(level===3)announcePhase("DEEP WATERS");
     if(level===4)announcePhase("KRAKEN ZONE");
-    if(level===5)cat.maxJumps=3;
+    if(level===5){announcePhase("SURGE");cat.maxJumps=3}
+    if(level===6)announcePhase("FINAL FLOOD");
   }
 
   // Movement
@@ -1627,7 +1629,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
       const p=platforms[i];
       if(p.broken)continue;
       p.worldX+=p.vx||0;
-      const bLeft=p.buildingIdx*720+80;
+      const bLeft=p.buildingIdx*600+80;
       if(p.worldX<bLeft+10||p.worldX+p.w>bLeft+380)p.vx=-(p.vx||0);
       if(cat.vy>0&&cat.worldY+cat.h>=p.worldY&&cat.worldY+cat.h<=p.worldY+p.h+Math.abs(cat.vy)+2&&cat.worldX+cat.w>p.worldX&&cat.worldX<p.worldX+p.w){
         cat.grounded=true;cat.vy=0;cat.worldY=p.worldY-cat.h;cat.worldX+=(p.vx||0)*0.85;cat.jumps=0;
@@ -1834,8 +1836,8 @@ if(c.kind==="gold"){
       if(Math.hypot(cat.worldX-s.worldX,cat.worldY-water.worldY)<40){loseLife();return}
       if(Math.abs(s.worldX-cat.worldX)>1200)sharks.splice(i,1);
     }
-    // Kraken tentacles — actively track the cat and lunge
-    if(level>=4&&Math.random()<0.012*difficultyRamp()&&tentacles.length<3){
+    // Kraken tentacles — only after you've climbed into the zone (not at game start)
+    if(level>=4&&score>=700&&Math.random()<0.009*difficultyRamp()&&tentacles.length<2){
       tentacles.push({
         worldX:cat.worldX+(Math.random()*200-100),
         height:0,
@@ -2288,7 +2290,7 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
 
   // Buildings + rooftop clutter
   for(let bo=-3;bo<=3;bo++){
-    const bwx=bo*720+80,bsx=bwx-cameraX,bw=380;
+    const bwx=bo*600+80,bsx=bwx-cameraX,bw=420;
     if(bsx+bw<-30||bsx>canvas.width+30)continue;
     ctx.fillStyle=currentTheme.building;ctx.fillRect(bsx,0,bw,canvas.height);
     ctx.fillStyle="rgba(0,0,0,0.3)";ctx.fillRect(bsx,0,14,canvas.height);ctx.fillRect(bsx+bw-14,0,14,canvas.height);
