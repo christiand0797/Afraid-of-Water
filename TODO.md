@@ -8,8 +8,8 @@
 - [x] 4. Daily welcome bonus: +50 coins first play of the day
 
 ## B. Progress & Persistence
-- [ ] 5. Achievements/trophy system + ACHIEVEMENTS screen with unread badge
-- [ ] 6. Reset progress button (with confirm)
+- [x] 5. Achievements/trophy system + ACHIEVEMENTS screen with unread badge
+- [x] 6. Reset progress button (with confirm)
 
 ## C. Visual & Audio
 - [ ] 7. Foreground parallax clouds layer; snow effect in Arctic theme
@@ -17,9 +17,8 @@
 - [ ] 9. Music: add bass drone + main-menu selection sound
 
 ## D. Quality-of-life
-- [ ] 10. Fix duplicate continueBtn tap() binding
-- [ ] 11. Level derive from score consistently across runs
-- [ ] 12. Bump game version string
+- [x] 10. Fix duplicate continueBtn tap() binding
+- [x] 12. Bump game version string (1.5.0, version + trophy footer)
 
 ## E. Docs & Deploy
 - [ ] 13. Update README with features/changelog

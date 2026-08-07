@@ -36,6 +36,8 @@ Or open `index.html` locally in any browser.
 - 🦍 swinging crane hooks (level 4+) and 📰 newspaper swarm hazards (level 5+)
 - 🎁 daily welcome bonus of +50 coins
 - 🌍 global leaderboard via the Node API (device + worldwide)
+- 🎖️ achievements (trophies) screen with unread badge + reset-progress
+- 🐾 & v1.5.0 version/trophy footer
 
 ## Deploy on Render
 

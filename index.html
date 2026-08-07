@@ -87,7 +87,6 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <div class="main-title">AFRAID OF WATER</div>
 <div class="rule-bold">DON'T GET WET</div>
 <div class="coins">🪙 <span id="menuCoins">0</span></div>
-<div id="dailyBanner" class="hidden" style="font-family:'Press Start 2P',system-ui,sans-serif;font-size:9px;color:#2ecc71;margin:4px 0 8px">🎁 DAILY BONUS +50 COINS!</div>
 <div class="small">Climb. Dive. Survive the flood.</div>
 <div class="small" style="margin-top:8px;color:#85c1e9">DIFFICULTY</div>
 <div class="diff-row" id="diffRow">
@@ -310,7 +309,7 @@ if(!DIFFS[difficulty])difficulty="normal";
 let currentDiff=DIFFS[difficulty];
 
 // Game version — shown in footer + could gate future migrations
-const GAME_VERSION="1.4.0";
+const GAME_VERSION="1.5.0";
 
 // Achievements system (trophies that persist locally)
 const ACHIEVEMENTS=[
@@ -353,6 +352,38 @@ function markAchievementsSeen(){
   seenAchievements=achieved.slice();
   safeStorage.set("aow_seenAch",JSON.stringify(seenAchievements));
   refreshAchBadge();
+}
+
+function renderAchievements(){
+  const list=$("achList");if(!list)return;
+  list.innerHTML="";
+  const unlocked=ACHIEVEMENTS.filter(a=>achieved.includes(a.id)).length;
+  const ac=$("achCount");if(ac)ac.innerText=unlocked+"/"+ACHIEVEMENTS.length;
+  ACHIEVEMENTS.forEach(a=>{
+    const isDone=achieved.includes(a.id);
+    const isNew=isDone&&!seenAchievements.includes(a.id);
+    const row=document.createElement("div");
+    row.style.cssText="display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.06);opacity:"+(isDone?"1":"0.45");
+    row.innerHTML=`<span style="font-size:20px">${a.emoji}</span><div style="flex:1"><div style="color:${isDone?"#f1c40f":"#95a5a6"}">${a.name} ${isNew?"<span style='color:#2ecc71'>(NEW)</span>":""}</div><div style="font-size:8px;color:#95a5a6">${a.desc}</div></div><span style="color:${isDone?"#2ecc71":"#555"}">${isDone?"✓":"🔒"}</span>`;
+    list.appendChild(row);
+  });
+  const rp=$("resetProgBtn");
+  if(rp)rp.addEventListener("click",function reset(e){if(e){e.preventDefault();e.stopPropagation()}if(confirm("Reset ALL progress (coins, skins, upgrades, trophies, leaderboard)? This cannot be undone.")){try{["aow_coins","aow_lives","aow_maxLives","afraidWaterHS","aow_skin","aow_unlocked","aow_upgrades","aow_theme","aow_diff","aow_achievements","aow_seenAch","aow_dives","aow_fish","aow_lb","aow_name"].forEach(k=>localStorage.removeItem(k))}catch(e){}location.reload()}});
+}
+function openAchievements(){
+  renderAchievements();
+  show(achScreen);
+  markAchievementsSeen();
+  refreshAchBadge();
+}
+function tickAwards(){
+  if(highestScore>=50)unlockAchievement("first_climb");
+  if(highestScore>=300)unlockAchievement("reach_300");
+  if(highestScore>=500)unlockAchievement("reach_500");
+  if(coins>=500)unlockAchievement("spend_500");
+  if(unlockedSkins.length>=3)unlockAchievement("unlock_3");
+  let own=0;for(const k in ownedUpgrades)own+=ownedUpgrades[k];if(own>=3)unlockAchievement("buy_3");
+  if((difficulty==="hard"||difficulty==="insane")&&highestScore>=400)unlockAchievement("survive_hard");
 }
 
 // Welcome bonus — reward the first play of each calendar day
@@ -541,7 +572,7 @@ function tap(el,fn){
   el.style.cursor="pointer";
 }
 const lbScreen=$("lbScreen");
-function show(screen){[startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen].forEach(s=>s&&s.classList.add("hidden"));screen.classList.remove("hidden");refreshCoinUI()}
+function show(screen){[startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen,achScreen].forEach(s=>s&&s.classList.add("hidden"));screen.classList.remove("hidden");refreshCoinUI()}
 
 // ---- Global leaderboard (backend API) + local (device) ----
 let globalScores=[];let globalTab=true;
@@ -690,15 +721,14 @@ window.addEventListener("keydown",e=>{
     if(paused)closePause();else openPause();
   }
 });
-tap($("continueBtn"),()=>{
-  continueFromCheckpoint();
-});
 tap($("extraLifeAdBtn"),watchAdLife);
 tap($("unlockSkinAdBtn"),watchAdSkin);
 tap($("watchAdCoins"),watchAdCoins);
 tap($("goStoreFromOver"),()=>{show(storeScreen);renderStore()});
 tap($("goMenuFromOver"),()=>show(startScreen));
 tap($("goLbFromOver"),()=>{show(lbScreen);renderLB()});
+tap($("achBtn"),()=>{openAchievements()});
+tap($("backAch"),()=>show(startScreen));
 
 function getSkin(){return ALL_SKINS.find(s=>s.id===currentSkinId)||ALL_SKINS[0]}
 
@@ -806,6 +836,7 @@ function tryDive(){
       cat.vy=2;
       sfxDive();
       setUnderwaterAudio(true);
+      totalDives++;safeStorage.set("aow_dives",totalDives);if(totalDives>=10)unlockAchievement("dive_10");
       createSplash(cat.worldX+cat.w/2,water.worldY,12);
       createBubbles(cat.worldX,cat.worldY,8);
     }
@@ -1062,6 +1093,7 @@ function gameLoopFrame(){
 score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   if(score>highestScore){highestScore=score;safeStorage.set("afraidWaterHS",highestScore)}
   scoreEl.innerText=score+"m";highScoreUI.innerText=highestScore;
+  tickAwards();
 
   // Milestone checkpoint banners every 100m
   if(score>=100&&Math.floor(score/100)>milestone){
@@ -1216,6 +1248,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
       comboMult=Math.min(1+Math.floor(streak/4),8);
       score+=340*comboMult;if(score>highestScore)highestScore=score;
       coins+=(3+comboMult)*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
+      totalFish++;safeStorage.set("aow_fish",totalFish);if(totalFish>=50)unlockAchievement("collect_50");
     }
   }
 
@@ -1941,14 +1974,12 @@ try{
   if(livesUI)livesUI.innerText=lives;
   if(highScoreUI)highScoreUI.innerText=highestScore;
   refreshCoinUI();
-  if(hasScuba()&&btnDive)btnDive.classList.remove("hidden");
+if(hasScuba()&&btnDive)btnDive.classList.remove("hidden");
   updateMuteBtn();
-  // Daily welcome bonus: +50 coins on your first play of each day
-const today=new Date().toISOString().slice(0,10);
-  if(safeStorage.get("aow_day")!==today){
-    coins+=50;safeStorage.set("aow_day",today);save();refreshCoinUI();
-    const db=$("dailyBanner");if(db){db.classList.remove("hidden");setTimeout(()=>{if(db)db.classList.add("hidden")},4000)}
-  }
+  grantDailyBonus(); // welcome bonus first play of the day (uses toast banner)
+  refreshAchBadge();
+  const vt=$("verText");if(vt)vt.innerText=VERSION;
+  const ac=$("achCount");if(ac)ac.innerText=achieved.length+"/"+ACHIEVEMENTS.length;
   document.addEventListener("pointerdown",function once(){startMusic();document.removeEventListener("pointerdown",once)},false);
   // Ensure start screen is visible
   if(startScreen)startScreen.classList.remove("hidden");
