@@ -489,6 +489,8 @@ function watchAdSkin(){playRewardedAd("skin")}
 function watchAdCoins(){playRewardedAd("coins")}
 
 let state="START",score=0,time=0,level=1,cameraX=0,cameraY=0,lightningFlash=0,shakeAmount=0;
+let shakeOn=safeStorage.get("aow_shake")!=="0";
+let hapticsOn=safeStorage.get("aow_haptic")!=="0";
 let paused=false;let dangerWarn=0;
 let waterDelay=0; // grace period before the flood starts rising
 let milestone=0; // last 100m checkpoint banner shown
@@ -517,7 +519,7 @@ function initAudio(){try{if(!audioCtx){audioCtx=new(window.AudioContext||window.
 function setUnderwaterAudio(on){if(!audioCtx||!masterFilter)return;const t=audioCtx.currentTime;try{masterFilter.frequency.setTargetAtTime(on?600:15000,t,0.12);masterGain.gain.setTargetAtTime(on?0.5:1,t,0.12)}catch(e){}}
 let masterFilter=null,masterGain=null;
 function playTone(f,t="sine",d=0.1,v=0.18){if(!soundOn||!audioCtx)return;try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,audioCtx.currentTime);g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+d);o.connect(g);g.connect(masterFilter||audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}}
-function buzz(pattern){try{if(navigator.vibrate)navigator.vibrate(pattern)}catch(e){}}
+function buzz(pattern){if(!hapticsOn)return;try{if(navigator.vibrate)navigator.vibrate(pattern)}catch(e){}}
 function sfxJump(){playTone(520,"sine",0.06,0.25);setTimeout(()=>playTone(780,"sine",0.08,0.18),28)}
 function sfxDouble(){playTone(680,"square",0.04,0.2);setTimeout(()=>playTone(920,"square",0.1,0.14),20)}
 function sfxCollect(){playTone(1400,"square",0.03,0.18);setTimeout(()=>playTone(2100,"square",0.08,0.14),40)}
