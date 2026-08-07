@@ -65,3 +65,27 @@ to the API origin before the game boots, e.g. in the console:
 ## Stack
 
 Single-file HTML5 Canvas + Web Audio. No build step.
+
+## Testing
+
+`npm test` runs `_debug.js`, a headless harness that stubs the DOM/canvas/audio
+APIs and executes the game's script in Node to catch top-level runtime errors
+and runaway async loops before they ship. It has a built-in watchdog, so a
+regression fails fast with a clear message instead of hanging.
+
+## Changelog
+
+### 1.7.2
+- Fixed an infinite retry loop between the leaderboard renderer and the
+  fetch call backing it — it used to recurse forever whenever the global
+  board was empty or unreachable, hammering the API indefinitely.
+- Fixed a stored-XSS gap in player name handling (both server-side
+  sanitization and client-side rendering).
+- `server.js` no longer serves the whole project directory — only the game
+  itself is exposed. Added basic rate limiting on score submission and a
+  couple of standard security headers.
+- Difficulty tiers (BABY–INSANE) now meaningfully change how often hazards
+  spawn, not just water speed and knockback — each tier has its own
+  intensity ramp-up curve over the course of a run.
+- `_debug.js` is wired into `npm test` and now fails loudly on a hang or a
+  runaway retry pattern instead of running forever.

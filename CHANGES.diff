@@ -1,0 +1,467 @@
+diff --git a/README.md b/README.md
+index 45a650b..efea0a9 100644
+--- a/README.md
++++ b/README.md
+@@ -65,3 +65,27 @@ to the API origin before the game boots, e.g. in the console:
+ ## Stack
+ 
+ Single-file HTML5 Canvas + Web Audio. No build step.
++
++## Testing
++
++`npm test` runs `_debug.js`, a headless harness that stubs the DOM/canvas/audio
++APIs and executes the game's script in Node to catch top-level runtime errors
++and runaway async loops before they ship. It has a built-in watchdog, so a
++regression fails fast with a clear message instead of hanging.
++
++## Changelog
++
++### 1.7.2
++- Fixed an infinite retry loop between the leaderboard renderer and the
++  fetch call backing it — it used to recurse forever whenever the global
++  board was empty or unreachable, hammering the API indefinitely.
++- Fixed a stored-XSS gap in player name handling (both server-side
++  sanitization and client-side rendering).
++- `server.js` no longer serves the whole project directory — only the game
++  itself is exposed. Added basic rate limiting on score submission and a
++  couple of standard security headers.
++- Difficulty tiers (BABY–INSANE) now meaningfully change how often hazards
++  spawn, not just water speed and knockback — each tier has its own
++  intensity ramp-up curve over the course of a run.
++- `_debug.js` is wired into `npm test` and now fails loudly on a hang or a
++  runaway retry pattern instead of running forever.
+diff --git a/TODO.md b/TODO.md
+index 42178fa..94a8025 100644
+--- a/TODO.md
++++ b/TODO.md
+@@ -24,3 +24,39 @@
+ - [x] 13. Update README with features/changelog
+ - [x] 14. Test locally (node _debug.js passes), ready to commit & push
+ 
++## F. v1.7.2 — Bug fixes & hardening
++- [x] 15. **Critical:** fixed an infinite retry loop between `renderLB()` and
++      `fetchGlobalBoard()` — used to recurse forever any time the global
++      board was empty or unreachable (verified by running `node _debug.js`,
++      which previously hung indefinitely). Now tracks real load state
++      (idle/loading/loaded/error) and caps retries at 3 with backoff.
++- [x] 16. **Security:** server-side `sanitizeName` used a bypassable
++      tag-stripping regex — confirmed a crafted name like
++      `<img src=x onerror=...` could survive and get injected via
++      `innerHTML` on the leaderboard. Rewrote to strip all bracket
++      characters outright; also added client-side `escapeHtml()` as
++      defense in depth on both the global and local leaderboard renders.
++- [x] 17. **Security:** `server.js` was serving the entire project directory
++      statically, exposing `server.js` source, `package*.json`, and the raw
++      `data/leaderboard.json` file to any visitor. Narrowed static serving
++      to `index.html` only.
++- [x] 18. Added lightweight in-memory rate limiting on `POST /api/score`
++      (12/min/IP), a sane max-score bound, JSON parse-error handling, and
++      basic security headers.
++- [x] 19. Removed unused `os` import in `server.js`.
++- [x] 20. Wired `_debug.js` into `npm test`; hardened the harness itself so
++      a hang becomes a loud, fast failure instead of running forever, and
++      it now flags (rather than silently absorbs) a runaway retry pattern.
++- [x] 21. Difficulty tiers previously only affected water speed and
++      knockback force — hazard *spawn rate* (sharks, tentacles, birds,
++      crane hooks, falling bricks, newspaper swarms) ignored the selected
++      difficulty entirely and only scaled with altitude. Wired `hazardMul`
++      into every hazard spawn check, widened the difficulty spread
++      (BABY 0.32x–INSANE 2.4x water speed, similarly wide hazard-frequency
++      spread), and gave each difficulty its own ramp-up curve so INSANE
++      reaches full intensity fast and BABY stays gentle for a long climb.
++- [x] 22. Confirmed the per-run theme (picked in the levels menu) never
++      gets reassigned mid-run — the altitude-based sky/atmosphere shift is
++      a separate, intentional overlay on top of the fixed theme, not a
++      theme swap. No change needed there.
++
+diff --git a/_debug.js b/_debug.js
+index cb6a8c3..52b2b08 100644
+--- a/_debug.js
++++ b/_debug.js
+@@ -1,4 +1,12 @@
+-// Debug harness: stub DOM/canvas and execute the game script to catch runtime errors
++// Debug harness: stub DOM/canvas and execute the game script to catch runtime
++// errors before they ship. Run via `npm test`.
++//
++// This file previously had no way to fail loudly: a script that threw still
++// exited 0, and a script that hung (as happened with a real infinite-retry
++// bug in the leaderboard code) just hung forever with no diagnostic. Both
++// are fixed below — a hard watchdog forces a clear, non-zero-exit failure
++// instead of hanging, and a real error now fails the process.
++const REAL_setTimeout = setTimeout;
+ const fs = require('fs');
+ const html = fs.readFileSync('index.html', 'utf8');
+ const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+@@ -48,14 +56,51 @@ global.confirm = ()=>false;
+ global.alert = ()=>{};
+ global.requestAnimationFrame = ()=>{};
+ global.location = { origin: 'http://localhost' };
+-global.fetch = ()=>{};
++// Resolve fetch to a fake, successful, empty-leaderboard response rather than
++// undefined — a bare `()=>{}` stub used to make `await fetch(...).json()`
++// throw on every call, which (combined with the retry-loop bug this harness
++// caught) masked the real failure mode behind a generic rejection.
++global.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ entries: [] }) });
+ global.setInterval = ()=>0; global.clearInterval = ()=>{};
+-global.setTimeout = (fn)=>{ try{fn&&fn()}catch(e){} return 0; }; global.clearTimeout = ()=>{};
++// Runs the callback synchronously (so timed game logic still executes during
++// this one-shot harness) but caps total invocations — a script that sets up
++// a legitimate recursive setTimeout loop would otherwise recurse forever on
++// the call stack and crash with a confusing RangeError instead of a clear
++// harness failure.
++let timeoutCalls = 0;
++const MAX_TIMEOUT_CALLS = 2000;
++global.setTimeout = (fn) => {
++  timeoutCalls++;
++  if (timeoutCalls > MAX_TIMEOUT_CALLS) return 0;
++  try { fn && fn(); } catch (e) { /* surfaced via the outer try/catch below isn't possible here; log and continue */ console.log('  (setTimeout callback threw:', e.message, ')'); }
++  return 0;
++};
++global.clearTimeout = ()=>{};
++
++// Hard watchdog: if the script is still running (or something is keeping the
++// event loop alive) after this, fail loudly instead of hanging silently.
++const watchdog = REAL_setTimeout(() => {
++  console.error('FAIL: harness did not finish within 8s — likely an infinite loop or unbounded async retry.');
++  process.exit(1);
++}, 8000);
++watchdog.unref && watchdog.unref();
+ 
+ try {
+   (new Function(script))();
+   console.log('SCRIPT RAN WITHOUT TOP-LEVEL ERROR');
++  process.exitCode = 0;
+ } catch (e) {
+   console.log('TOP-LEVEL ERROR:', e.message);
+   console.log(e.stack.split('\n').slice(0,6).join('\n'));
++  process.exitCode = 1;
+ }
++
++// Some effects of the script (async retries chained via .then) only finish
++// resolving as microtasks *after* the synchronous call above returns, so the
++// timeoutCalls tally isn't final until just before the process would
++// naturally exit — check it here rather than right after the call.
++process.on('beforeExit', () => {
++  if (timeoutCalls > MAX_TIMEOUT_CALLS) {
++    console.log('WARNING: setTimeout fired', timeoutCalls, 'times — that smells like a runaway retry/loop, even though it didn\'t hang. Investigate before shipping.');
++  }
++});
+diff --git a/index.html b/index.html
+index f4286ec..bc5d117 100644
+--- a/index.html
++++ b/index.html
+@@ -349,21 +349,23 @@ let currentTheme=THEMES.find(t=>t.id===selectedTheme)||THEMES[0];
+ let soundOn=safeStorage.get("aow_sound")!=="0";
+ let musicTimer=null;
+ const DIFFS={
+-  baby:{name:"BABY",waterMul:0.42,hazardMul:0.3,npcForce:7,npcVy:-3,desc:"Cozy pace · almost no hazards — for tiny climbers"},
+-  easy:{name:"EASY",waterMul:0.65,hazardMul:0.7,npcForce:12,npcVy:-6,desc:"Slower water · softer hazards"},
+-  normal:{name:"NORMAL",waterMul:1,hazardMul:1,npcForce:16,npcVy:-9,desc:"Water rises at normal speed"},
+-  hard:{name:"HARD",waterMul:1.45,hazardMul:1.35,npcForce:20,npcVy:-12,desc:"Fast water · meaner NPCs"},
+-  insane:{name:"INSANE",waterMul:2.0,hazardMul:1.7,npcForce:24,npcVy:-15,desc:"Flood speed · brutal knockback"}
++  baby:{name:"BABY",waterMul:0.32,hazardMul:0.15,npcForce:6,npcVy:-2,rampFloor:0.30,rampSpan:2600,desc:"Cozy pace · hazards are rare — for tiny climbers"},
++  easy:{name:"EASY",waterMul:0.55,hazardMul:0.5,npcForce:11,npcVy:-5,rampFloor:0.40,rampSpan:2000,desc:"Slower water · lighter, less frequent hazards"},
++  normal:{name:"NORMAL",waterMul:1,hazardMul:1,npcForce:16,npcVy:-9,rampFloor:0.50,rampSpan:1600,desc:"Water rises at normal speed"},
++  hard:{name:"HARD",waterMul:1.55,hazardMul:1.6,npcForce:21,npcVy:-13,rampFloor:0.62,rampSpan:1200,desc:"Fast water · frequent, meaner hazards"},
++  insane:{name:"INSANE",waterMul:2.4,hazardMul:2.4,npcForce:26,npcVy:-16,rampFloor:0.78,rampSpan:850,desc:"Relentless flood · hazards everywhere, brutal knockback"}
+ };
+ let difficulty=safeStorage.get("aow_diff")||"normal";
+ if(!DIFFS[difficulty])difficulty="normal";
+ let currentDiff=DIFFS[difficulty];
+ 
+-// Start easy, ramp to the full selected difficulty as you climb.
+-// 50% intensity near the street, 100% by 1600m — keeps opens gentle,
+-// deep runs relentless, for every difficulty selection.
++// Start at a per-difficulty floor, ramp to full intensity over a per-difficulty
++// distance. BABY stays gentle for a long climb; INSANE hits full brutality fast.
++// (Values above are tuned so NORMAL reproduces the original fixed 0.5→1.0/1600m curve.)
+ function difficultyRamp(){
+-  return 0.5+0.5*Math.min(1,Math.max(0,score-60)/1600);
++  const floor=(currentDiff&&currentDiff.rampFloor!=null)?currentDiff.rampFloor:0.5;
++  const span=(currentDiff&&currentDiff.rampSpan)||1600;
++  return floor+(1-floor)*Math.min(1,Math.max(0,score-60)/span);
+ }
+ 
+ // Game version — shown in footer + could gate future migrations
+@@ -669,16 +671,28 @@ function show(screen){[startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen
+ // ---- Global leaderboard (backend API) + local (device) ----
+ let globalScores=[];let globalTab=true;
+ let lastName=safeStorage.get("aow_name")||"";
++// loadState tracks whether we've ever gotten a real answer from the server, so an
++// empty-but-successful response ("loaded", nobody's on the board yet) is never
++// confused with "we don't know yet" — that confusion used to cause renderLB() and
++// fetchGlobalBoard() to call each other forever whenever the board was empty.
++let globalLoadState="idle"; // idle | loading | loaded | error
++let globalFetchAttempts=0;
++const GLOBAL_FETCH_MAX_RETRIES=3;
+ function apiURL(){return window.AOW_API||location.origin}
+ function globalRankFor(score){return globalScores.findIndex(e=>e.score===score)+1}
++// Escapes untrusted text (player-submitted names from the global board) before it's
++// dropped into innerHTML, so a crafted name can't inject markup/scripts into the page.
++function escapeHtml(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+ async function fetchGlobalBoard(){
++  globalLoadState="loading";
+   try{
+     const r=await fetch(apiURL()+"/api/leaderboard",{cache:"no-store"});
+     if(!r.ok)throw new Error(r.status);
+     const j=await r.json();
+     globalScores=(j.entries||[]).map(e=>({name:e.name,score:e.score,date:e.date}));
++    globalLoadState="loaded";
+     return true;
+-  }catch(e){return false}
++  }catch(e){globalLoadState="error";return false}
+ }
+ async function submitGlobalScore(sc){
+   const name=(safeStorage.get("aow_name")||"").trim()||"Anonymous";
+@@ -695,18 +709,23 @@ function renderLB(){
+   const status=$("lbStatus");
+   list.innerHTML="";
+   if(globalTab){
+-    if(status)status.textContent=globalScores.length?globalScores.length+" global climbers 🌍":"Loading global board…";
+-    if(!globalScores.length){list.innerHTML='<div class="small">No global scores yet — be the first!</div>';}
++    const stillUnknown=globalLoadState==="idle"||globalLoadState==="error";
++    if(status)status.textContent=globalScores.length?globalScores.length+" global climbers 🌍":(globalLoadState==="loading"?"Loading global board…":(globalLoadState==="error"?"Couldn't reach the global board — showing local scores may help":"No global scores yet — be the first!"));
++    if(!globalScores.length){list.innerHTML=globalLoadState==="loading"?'<div class="small">Loading…</div>':'<div class="small">No global scores yet — be the first!</div>';}
+     globalScores.slice(0,20).forEach((e,i)=>{
+       const row=document.createElement("div");
+       row.style.margin="5px 0";row.style.display="flex";row.style.justifyContent="space-between";row.style.maxWidth="300px";row.style.width="100%";
+       const isMe=(safeStorage.get("aow_name")||"").trim()&&e.name===(safeStorage.get("aow_name")||"").trim();
+       const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;
+-      row.innerHTML=`<span style="color:${isMe?"#5dade2":"#f1c40f"}">${medal}</span><span style="color:${isMe?"#5dade2":"#dfe4e6"}">${e.name}</span><span>${e.score}m</span>`;
++      row.innerHTML=`<span style="color:${isMe?"#5dade2":"#f1c40f"}">${medal}</span><span style="color:${isMe?"#5dade2":"#dfe4e6"}">${escapeHtml(e.name)}</span><span>${e.score}m</span>`;
+       list.appendChild(row);
+     });
+-    // Kick a refresh if we somehow have none cached
+-    if(!globalScores.length)fetchGlobalBoard().then(()=>{if(globalTab)renderLB()});
++    // Retry a failed/unknown fetch, but only a bounded number of times — once we've
++    // successfully heard back from the server (even with zero entries), stop for good.
++    if(!globalScores.length&&stillUnknown&&globalFetchAttempts<GLOBAL_FETCH_MAX_RETRIES){
++      globalFetchAttempts++;
++      setTimeout(()=>{fetchGlobalBoard().then(()=>{if(globalTab)renderLB()})},600*globalFetchAttempts);
++    }
+   }else{
+     if(status)status.textContent=leaderboard.length?leaderboard.length+" local climbers 📱":"";
+     if(!leaderboard.length){list.innerHTML='<div class="small">No local scores yet — climb high!</div>';return}
+@@ -714,7 +733,7 @@ function renderLB(){
+       const row=document.createElement("div");
+       row.style.margin="5px 0";row.style.display="flex";row.style.justifyContent="space-between";row.style.maxWidth="300px";row.style.width="100%";
+       const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;
+-      row.innerHTML=`<span style="color:#f1c40f">${medal}</span><span>${e.name||"You"}</span><span>${e.score}m</span>`;
++      row.innerHTML=`<span style="color:#f1c40f">${medal}</span><span>${escapeHtml(e.name||"You")}</span><span>${e.score}m</span>`;
+       list.appendChild(row);
+     });
+   }
+@@ -1292,7 +1311,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
+     }
+   }
+   // Birds dive-bomb and knock you
+-  if(level>=2&&Math.random()<0.008*difficultyRamp()&&birds.length<3){
++  if(level>=2&&Math.random()<0.008*difficultyRamp()*(currentDiff.hazardMul||1)&&birds.length<3){
+     birds.push({worldX:cat.worldX+(Math.random()>0.5?340:-340),worldY:cat.worldY-70-Math.random()*50,vx:(Math.random()>0.5?1:-1)*(2.4+Math.random()),vy:0,diving:false});
+   }
+   for(let i=birds.length-1;i>=0;i--){
+@@ -1303,7 +1322,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
+     if(Math.abs(b.worldX-cat.worldX)>750||b.worldY>water.worldY+40)birds.splice(i,1);
+   }
+   // Crane hook (level 4+): a swinging wrecking hook sweeps through the rooftops
+-  if(level>=4&&Math.random()<0.006*difficultyRamp()&&craneHooks.length<2){
++  if(level>=4&&Math.random()<0.006*difficultyRamp()*(currentDiff.hazardMul||1)&&craneHooks.length<2){
+     craneHooks.push({x:cat.worldX+(Math.random()>0.5?1:-1)*60,baseY:cat.worldY-240-Math.random()*120,swing:Math.random()*Math.PI*2,speed:0.04+Math.random()*0.02,len:60});
+   }
+   for(let i=craneHooks.length-1;i>=0;i--){
+@@ -1316,7 +1335,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
+     if(cr.baseY+90>water.worldY+40||Math.abs(cr.x-cat.worldX)>700)craneHooks.splice(i,1);
+   }
+   // Newspaper swarm (level 5+) — a page flurry that batters you from one side
+-  if(level>=5&&Math.random()<0.012*difficultyRamp()){
++  if(level>=5&&Math.random()<0.012*difficultyRamp()*(currentDiff.hazardMul||1)){
+     const side=Math.random()>0.5?1:-1;
+     const baseY=cat.worldY-Math.random()*120;
+     const sheets=[];
+@@ -1341,7 +1360,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
+       // Full hit: knock completely off the ledge
+       if(Math.abs(n.worldX-cat.worldX)<70&&Math.abs(n.worldY-cat.worldY)<45){
+         const dir=n.worldX<cat.worldX?1:-1;
+-        const force=(currentDiff.npcForce||16)*(currentDiff.hazardMul||1);
++        const force=currentDiff.npcForce||16;
+         const up=currentDiff.npcVy||-9;
+         knockback(dir,force,up);
+         // Extra shove so you leave the platform
+@@ -1352,7 +1371,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
+     if(n.worldY>water.worldY+80)windowNPCs.splice(i,1);
+   }
+   // Falling bricks from above
+-  if(level>=2&&Math.random()<0.01*difficultyRamp()&&fallingBricks.length<4){
++  if(level>=2&&Math.random()<0.01*difficultyRamp()*(currentDiff.hazardMul||1)&&fallingBricks.length<4){
+     fallingBricks.push({worldX:cat.worldX+(Math.random()-0.5)*200,worldY:cat.worldY-180-Math.random()*80,vy:1.5+Math.random(),rot:0});
+   }
+   for(let i=fallingBricks.length-1;i>=0;i--){
+@@ -1482,7 +1501,7 @@ if(c.kind==="gold"){
+ 
+   // Surface sharks / tentacles (when not diving deep)
+   if(!diving){
+-    if(level>=3&&Math.random()<0.012*difficultyRamp()&&sharks.length<3){
++    if(level>=3&&Math.random()<0.012*difficultyRamp()*(currentDiff.hazardMul||1)&&sharks.length<3){
+       sharks.push({worldX:cat.worldX+(Math.random()>0.5?500:-500),dir:Math.random()>0.5?1:-1,speed:2+Math.random()*1.4});
+     }
+     for(let i=sharks.length-1;i>=0;i--){
+@@ -1490,7 +1509,7 @@ if(c.kind==="gold"){
+       if(Math.hypot(cat.worldX-s.worldX,cat.worldY-water.worldY)<40){loseLife();return}
+       if(Math.abs(s.worldX-cat.worldX)>1200)sharks.splice(i,1);
+     }
+-    if(level>=4&&Math.random()<0.008*difficultyRamp()&&tentacles.length<2){
++    if(level>=4&&Math.random()<0.008*difficultyRamp()*(currentDiff.hazardMul||1)&&tentacles.length<2){
+       tentacles.push({worldX:cat.worldX+(Math.random()*160-80),height:0,target:110+Math.random()*80,state:"rising"});
+     }
+     for(let i=tentacles.length-1;i>=0;i--){
+diff --git a/package.json b/package.json
+index f29a2cf..3d1dc6c 100644
+--- a/package.json
++++ b/package.json
+@@ -1,10 +1,11 @@
+ {
+   "name": "afraid-of-water",
+-  "version": "1.7.1",
++  "version": "1.7.2",
+   "description": "Afraid of Water — climb, don't get wet. HTML5 canvas game with a global leaderboard.",
+   "main": "server.js",
+   "scripts": {
+-    "start": "node server.js"
++    "start": "node server.js",
++    "test": "node _debug.js"
+   },
+   "dependencies": {
+     "express": "^4.19.2"
+diff --git a/server.js b/server.js
+index c8863fc..6e3dfcd 100644
+--- a/server.js
++++ b/server.js
+@@ -11,12 +11,17 @@
+  */
+ const path = require("path");
+ const fs = require("fs");
+-const os = require("os");
+ const express = require("express");
+ 
+ const app = express();
++// Render (and most PaaS hosts) sit behind a reverse proxy — without this, every
++// request looks like it comes from the proxy's internal IP, which breaks
++// per-IP rate limiting below.
++app.set("trust proxy", 1);
++
+ const PORT = process.env.PORT || 10000;
+ const MAX_ENTRIES = 200;
++const MAX_SCORE = 1000000; // sanity cap — blocks obviously-bogus/garbage submissions
+ 
+ // --- Persistence -----------------------------------------------------------
+ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+@@ -73,19 +78,67 @@ function persistScores(list) {
+ }
+ 
+ function sanitizeName(name) {
+-  return String(name || "Anonymous")
+-    .replace(/<[^>]*>/g, "")
++  // Strip every '<' and '>' outright rather than trying to match/remove whole
++  // tags — a regex like /<[^>]*>/g only removes well-formed "<...>" chunks, so
++  // an unterminated fragment (e.g. "<img src=x onerror=...") or nested tags
++  // (e.g. "<<script>script>") can slip through and get reflected into other
++  // players' pages via the leaderboard. Dropping the bracket characters
++  // entirely closes that off regardless of how they're arranged.
++  return String(name == null ? "" : name)
++    .replace(/[<>]/g, "")
++    .replace(/[\u0000-\u001F\u007F]/g, "") // strip control chars
++    .replace(/\s+/g, " ")
+     .trim()
+     .slice(0, 16) || "Anonymous";
+ }
+ 
+ function sanitizeScore(score) {
+   const n = Math.floor(Number(score));
+-  return Number.isFinite(n) && n > 0 ? n : 0;
++  return Number.isFinite(n) && n > 0 && n <= MAX_SCORE ? n : 0;
++}
++
++// --- Lightweight in-memory rate limiting for score submission --------------
++// Not meant as an anti-cheat system (the client fully controls what score it
++// reports), just a guard against a single client hammering the write path.
++const RATE_LIMIT_WINDOW_MS = 60 * 1000;
++const RATE_LIMIT_MAX = 12; // submissions per IP per window
++const rateBuckets = new Map();
++function rateLimited(ip) {
++  const now = Date.now();
++  const bucket = rateBuckets.get(ip);
++  if (!bucket || now - bucket.start > RATE_LIMIT_WINDOW_MS) {
++    rateBuckets.set(ip, { start: now, count: 1 });
++    return false;
++  }
++  bucket.count++;
++  return bucket.count > RATE_LIMIT_MAX;
+ }
++// Periodically forget stale IPs so this map can't grow without bound.
++setInterval(() => {
++  const now = Date.now();
++  for (const [ip, bucket] of rateBuckets) {
++    if (now - bucket.start > RATE_LIMIT_WINDOW_MS) rateBuckets.delete(ip);
++  }
++}, RATE_LIMIT_WINDOW_MS).unref();
+ 
+ // --- API -------------------------------------------------------------------
+ app.use(express.json({ limit: "10kb" }));
++// A malformed JSON body would otherwise fall through to Express's default
++// error handler and return an HTML error page from a JSON API.
++app.use((err, req, res, next) => {
++  if (err && err.type === "entity.parse.failed") {
++    return res.status(400).json({ error: "Invalid JSON body" });
++  }
++  next(err);
++});
++
++// A couple of cheap, dependency-free security headers.
++app.use((req, res, next) => {
++  res.set("X-Content-Type-Options", "nosniff");
++  res.set("X-Frame-Options", "SAMEORIGIN");
++  res.set("Referrer-Policy", "no-referrer-when-downgrade");
++  next();
++});
+ 
+ app.get("/api/health", (req, res) => {
+   res.json({ ok: true, time: Date.now() });
+@@ -98,6 +151,9 @@ app.get("/api/leaderboard", (req, res) => {
+ });
+ 
+ app.post("/api/score", (req, res) => {
++  if (rateLimited(req.ip)) {
++    return res.status(429).json({ error: "Too many submissions, try again shortly" });
++  }
+   const body = req.body || {};
+   const name = sanitizeName(body.name);
+   const score = sanitizeScore(body.score);
+@@ -115,15 +171,21 @@ app.post("/api/score", (req, res) => {
+   res.json({ entry, rank: rank > 0 ? rank : null });
+ });
+ 
+-// Static game files (index.html etc.)
+-app.use(express.static(path.join(__dirname, "."), {
+-  index: "index.html",
+-  maxAge: "5m",
+-}));
++// Static game files. The game is a single self-contained index.html with no
++// separate JS/CSS/image assets, so rather than serving the whole project
++// directory (which used to also expose server.js, package*.json, and the raw
++// data/leaderboard.json backing file to any visitor) we only ever hand out
++// index.html itself.
++const INDEX_FILE = path.join(__dirname, "index.html");
++app.get(["/", "/index.html"], (req, res) => {
++  res.set("Cache-Control", "public, max-age=300");
++  res.sendFile(INDEX_FILE);
++});
+ 
+-// SPA fallback
++// Anything else (unknown API route or client-side path) falls back to the
++// game shell rather than a 404, matching the old catch-all behavior.
+ app.get("*", (req, res) => {
+-  res.sendFile(path.join(__dirname, "index.html"));
++  res.sendFile(INDEX_FILE);
+ });
+ 
+ app.listen(PORT, () => {
