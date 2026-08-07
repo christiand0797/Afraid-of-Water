@@ -482,6 +482,7 @@ let weather={intensity:0.2,wind:3,stormName:"DRIZZLE",flashCooldown:0,gust:0,gus
 let shieldActive=false;
 let diving=false,oxygen=100,maxOxygen=100;
 let streak=0,streakTimer=0,comboMult=1,comboFlash=0;
+let coyoteTimer=0,jumpBuffer=0,popups=[];
 let audioCtx;
 
 function initAudio(){try{if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();masterFilter=audioCtx.createBiquadFilter();masterFilter.type="lowpass";masterFilter.frequency.value=16000;masterGain=audioCtx.createGain();masterGain.gain.value=1;masterFilter.connect(masterGain);masterGain.connect(audioCtx.destination)}if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
@@ -823,8 +824,20 @@ function jumpCat(){
     return;
   }
   const jp=cat.jumpPower*(1+getUpgradeLevel("jumpPower")*0.14);
-  if(cat.grounded){cat.vy=jp;cat.grounded=false;cat.jumps=1;sfxJump();createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h,"#fff",5);buzz(12)}
-  else if(cat.jumps<cat.maxJumps){cat.vy=jp*0.86;cat.jumps++;sfxDouble();createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h,"#5dade2",8);buzz(10)}
+  // Not on the ground yet — either double-jump or buffer the press for the next landing
+  if(!cat.grounded&&coyoteTimer<=0){
+    if(cat.jumps<cat.maxJumps){
+      cat.vy=jp*0.86;cat.jumps++;sfxDouble();createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h,"#5dade2",8);buzz(10);
+    }else{
+      jumpBuffer=7; // remembered press → jumps on landing (input buffering)
+    }
+    return;
+  }
+  cat.vy=jp;cat.grounded=false;cat.jumps=1;coyoteTimer=0;jumpBuffer=0;
+  sfxJump();createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h,"#fff",5);buzz(12);
+}
+function riseText(x,y,str,color){
+  popups.push({x:x,y:y,str:String(str),color:color||"#f1c40f",vy:-1.5,t:1,size:11});
 }
 
 function tryDive(){
@@ -961,7 +974,7 @@ knockbackTimer=0;invulnTimer=0;checkpoint=null;
       body:skin.body||skin.color||"#e07a2f",dark:skin.dark||"#c45f1a",style:skin.style||"cat"
     };
     water={worldY:(canvas.height||640)-48,baseSpeed:0.88*(currentDiff.waterMul||1)};
-    platforms=[];sharks=[];tentacles=[];debris=[];rain=[];particles=[];collectibles=[];fog=[];seaCreatures=[];
+    platforms=[];sharks=[];tentacles=[];debris=[];rain=[];particles=[];collectibles=[];fog=[];popups=[];seaCreatures=[];
     birds=[];windowNPCs=[];fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];
     drifts=[];floaters=[];craneHooks=[];newspaperSwarm=[];
     for(let k in generatedSectors)delete generatedSectors[k];
@@ -1096,6 +1109,11 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   if(score>highestScore){highestScore=score;safeStorage.set("afraidWaterHS",highestScore)}
   scoreEl.innerText=score+"m";highScoreUI.innerText=highestScore;
   tickAwards();
+  // coyote time + jump buffering
+  if(cat.grounded)coyoteTimer=10;else if(coyoteTimer>0)coyoteTimer--;
+  if(jumpBuffer>0){jumpBuffer--;if((cat.grounded||coyoteTimer>0)&&jumpBuffer>0){jumpCat();jumpBuffer=0;}}
+  // advance floating popups
+  for(let i=popups.length-1;i>=0;i--){const p=popups[i];p.t+=0.07;p.y+=p.vy;p.vy=p.vy*0.97;if(p.t>1)popups.splice(i,1);}
 
   // Milestone checkpoint banners every 100m
   if(score>=100&&Math.floor(score/100)>milestone){
@@ -1251,6 +1269,8 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
       score+=340*comboMult;if(score>highestScore)highestScore=score;
       coins+=(3+comboMult)*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
       totalFish++;safeStorage.set("aow_fish",totalFish);if(totalFish>=50)unlockAchievement("collect_50");
+      riseText(c.worldX+c.w/2,c.worldY,"+"+Math.round(340*comboMult));
+      if(comboMult>1)riseText(c.worldX+c.w/2+14,c.worldY+14,"x"+comboMult,"#e67e22");
     }
   }
 
@@ -1714,7 +1734,15 @@ function draw(){
   }
   ctx.globalAlpha=1;
 
-  // Soft drop-shadow under the character for grounding
+  // Floating score popups
+  ctx.textAlign="center";
+  for(const p of popups){
+    ctx.globalAlpha=Math.max(0,1-p.t);
+    ctx.fillStyle=p.color;
+    ctx.font="bold "+Math.round(p.size+(p.t*6))+"px system-ui";
+    ctx.fillText(p.str,p.x-cameraX,p.y-cameraY);
+  }
+  ctx.globalAlpha=1;
   const shx=cat.worldX-cameraX+cat.w/2,shy=cat.worldY-cameraY+cat.h+4;
   ctx.fillStyle="rgba(0,0,0,0.35)";
   ctx.beginPath();ctx.ellipse(shx,shy,cat.w*0.5,3.5,0,0,Math.PI*2);ctx.fill();
