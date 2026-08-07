@@ -1140,6 +1140,13 @@ function gameLoopFrame(){
     oxygen-=0.18;
     if(time%12===0)createBubbles(cat.worldX+cat.w/2,cat.worldY,1);
     oxygenFill.style.width=Math.max(0,(oxygen/maxOxygen)*100)+"%";
+    // Low-oxygen emergency: audio beep + red pulsing wash
+    if(oxygen<0.25*maxOxygen){
+      oxygenFill.style.background="linear-gradient(180deg,#ff7b6b,#e74c3c)";
+      if(time%40===0){playTone(430,"sine",0.09,0.16);setTimeout(()=>playTone(390,"sine",0.09,0.16),120)}
+    } else {
+      oxygenFill.style.background="";
+    }
     if(oxygen<=0){loseLife();return}
 
     // Surface automatically if above water
@@ -2195,6 +2202,12 @@ ctx.fillStyle=body;ctx.fillRect(1,-28,3,15);ctx.fillRect(7,-28,3,15);
   // Icy blue wash while the flood is time-frozen
   if(ampTimer>0){
     ctx.fillStyle=`rgba(0,223,224,${0.05+Math.sin(time*0.2)*0.02})`;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  // Panic red wash while diving on borrowed air
+  if(diving&&oxygen<0.25*maxOxygen){
+    ctx.fillStyle=`rgba(231,76,60,${0.06+Math.sin(time*0.25)*0.04})`;
     ctx.fillRect(0,0,canvas.width,canvas.height);
   }
 
