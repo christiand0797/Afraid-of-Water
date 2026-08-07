@@ -515,7 +515,8 @@ let ampTimer=0;
 let bestAtStart=0;
 let comboBanner=0,comboBannerText="";
 let comboBannerColor="#f1c40f";
-let surgeTimer=0,surgeTarget=0;
+let surgeTimer=0,surgeNext=0;
+let nextBountyTarget=500;
 let audioCtx;
 
 function initAudio(){try{if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();masterFilter=audioCtx.createBiquadFilter();masterFilter.type="lowpass";masterFilter.frequency.value=16000;masterGain=audioCtx.createGain();masterGain.gain.value=1;masterFilter.connect(masterGain);masterGain.connect(audioCtx.destination)}if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
@@ -983,7 +984,7 @@ function startGame(freeRestart){
 knockbackTimer=0;invulnTimer=0;checkpoint=null;
     milestone=0;milestoneBanner={text:"",t:0}; // reset milestone checkpoints
     waterDelay=150; // ~2.5s grace before the flood starts rising
-    state="PLAYING";score=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;ampTimer=0;bestAtStart=highestScore||0;surgeTimer=0;surgeTarget=0;
+    state="PLAYING";score=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;ampTimer=0;bestAtStart=highestScore||0;surgeTimer=0;surgeNext=0;nextBountyTarget=500;
     cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
     diving=false;oxygen=100;dangerWarn=0;
     streak=0;streakTimer=0;comboMult=1;comboFlash=0;
@@ -1329,6 +1330,12 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     surgeTimer=120;
     comboBanner=100;comboBannerText="SURGE!";comboBannerColor="#e74c3c";
     sfxSurge();shakeAmount=14;
+  }
+  // Height milestone bounty (coins each 500 m)
+  if(score>=nextBountyTarget){
+    const b=level>=3?25:15;
+    coins+=b;nextBountyTarget=Math.floor(score/500)*500+500;save();refreshCoinUI();
+    toast("🎁 Height bonus +"+b+" coins!");
   }
 
   // Collectibles
