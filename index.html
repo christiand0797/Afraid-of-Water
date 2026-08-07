@@ -336,6 +336,13 @@ let difficulty=safeStorage.get("aow_diff")||"normal";
 if(!DIFFS[difficulty])difficulty="normal";
 let currentDiff=DIFFS[difficulty];
 
+// Start easy, ramp to the full selected difficulty as you climb.
+// 50% intensity near the street, 100% by 1600m — keeps opens gentle,
+// deep runs relentless, for every difficulty selection.
+function difficultyRamp(){
+  return 0.5+0.5*Math.min(1,Math.max(0,score-60)/1600);
+}
+
 // Game version — shown in footer + could gate future migrations
 const GAME_VERSION="1.6.1";
 
@@ -1335,10 +1342,10 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   }else if(!diving){
     const surging=surgeTimer>0;
     if(surging)surgeTimer--;
-    water.worldY-=water.baseSpeed*(surging?2.4:1);
+    water.worldY-=water.baseSpeed*difficultyRamp()*(surging?2.4:1);
   }
-  // Periodic flood surges add drama at higher zones
-  if(level>=2&&score>=surgeNext&&surgeTimer<=0){
+  // Periodic flood surges add drama — never before the first 1000m
+  if(level>=2&&score>=1000&&score>=surgeNext&&surgeTimer<=0){
     surgeNext=score+260+level*30;
     surgeTimer=120;
     comboBanner=100;comboBannerText="SURGE!";comboBannerColor="#e74c3c";

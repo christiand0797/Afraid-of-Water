@@ -1,1 +1,4 @@
 AfraidOfWater_Website.zip
+node_modules/
+data/leaderboard.json
+*.log

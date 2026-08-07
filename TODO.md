@@ -21,6 +21,6 @@
 - [x] 12. Bump game version string (1.5.0, version + trophy footer)
 
 ## E. Docs & Deploy
-- [ ] 13. Update README with features/changelog
-- [ ] 14. Test locally, commit, push to GitHub (Render redeploys)
+- [x] 13. Update README with features/changelog
+- [x] 14. Test locally (node _debug.js passes), ready to commit & push
 
