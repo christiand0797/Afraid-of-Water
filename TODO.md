@@ -12,9 +12,9 @@
 - [x] 6. Reset progress button (with confirm)
 
 ## C. Visual & Audio
-- [ ] 7. Foreground parallax clouds layer; snow effect in Arctic theme
-- [ ] 8. Credit/version footer; unread-achievements badge indicator
-- [ ] 9. Music: add bass drone + main-menu selection sound
+- [x] 7. Foreground parallax clouds layer; snow effect in Arctic theme
+- [x] 8. Credit/version footer; unread-achievements badge indicator
+- [x] 9. Music: add bass drone + main-menu selection sound
 
 ## D. Quality-of-life
 - [x] 10. Fix duplicate continueBtn tap() binding
