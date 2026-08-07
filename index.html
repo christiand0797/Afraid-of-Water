@@ -87,6 +87,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <div class="main-title">AFRAID OF WATER</div>
 <div class="rule-bold">DON'T GET WET</div>
 <div class="coins">🪙 <span id="menuCoins">0</span></div>
+<div id="dailyBanner" class="hidden" style="font-family:'Press Start 2P',system-ui,sans-serif;font-size:9px;color:#2ecc71;margin:4px 0 8px">🎁 DAILY BONUS +50 COINS!</div>
 <div class="small">Climb. Dive. Survive the flood.</div>
 <div class="small" style="margin-top:8px;color:#85c1e9">DIFFICULTY</div>
 <div class="diff-row" id="diffRow">
@@ -269,6 +270,8 @@ const ALL_SKINS=[
   {id:"rabbit",name:"Flood Bunny",body:"#f5c6c6",dark:"#d98880",price:180,style:"rabbit"}
 ];
 let leaderboard=(()=>{try{const v=JSON.parse(localStorage.getItem("aow_lb")||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}})();
+let playerName=safeStorage.get("aow_name")||"Anonymous";
+const VERSION="1.5.0";
 
 const UPGRADES=[
   {id:"maxLives",name:"Max Lives",emoji:"❤️",desc:"+1 max life",max:5,prices:[100,200,400,800,1200]},
@@ -441,7 +444,7 @@ let checkpoint=null; // death snapshot for CONTINUE
 let invulnTimer=0;
 let cat,water,platforms=[],rain=[],sharks=[],tentacles=[],debris=[],particles=[],collectibles=[],fog=[],seaCreatures=[],birds=[],windowNPCs=[];
 let fallingBricks=[],hangingSigns=[],pigeons=[],steamVents=[];
-let drifts=[],floaters=[];
+let drifts=[],floaters=[],craneHooks=[],newspaperSwarm=[];
 const keys={left:false,right:false,up:false,dive:false};
 const generatedSectors={},windowRegistry={};
 let weather={intensity:0.2,wind:3,stormName:"DRIZZLE",flashCooldown:0,gust:0,gustTimer:0};
@@ -927,7 +930,7 @@ knockbackTimer=0;invulnTimer=0;checkpoint=null;
     water={worldY:(canvas.height||640)-48,baseSpeed:0.88*(currentDiff.waterMul||1)};
     platforms=[];sharks=[];tentacles=[];debris=[];rain=[];particles=[];collectibles=[];fog=[];seaCreatures=[];
     birds=[];windowNPCs=[];fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];
-    drifts=[];floaters=[];
+    drifts=[];floaters=[];craneHooks=[];newspaperSwarm=[];
     for(let k in generatedSectors)delete generatedSectors[k];
     for(let k in windowRegistry)delete windowRegistry[k];
 
@@ -1112,6 +1115,36 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     b.worldX+=b.vx;b.worldY+=b.vy;if(b.diving)b.vy+=0.14;
     if(Math.hypot(cat.worldX-b.worldX,cat.worldY-b.worldY)<26){knockback(b.vx>0?1:-1,9);birds.splice(i,1);continue}
     if(Math.abs(b.worldX-cat.worldX)>750||b.worldY>water.worldY+40)birds.splice(i,1);
+  }
+  // Crane hook (level 4+): a swinging wrecking hook sweeps through the rooftops
+  if(level>=4&&Math.random()<0.006&&craneHooks.length<2){
+    craneHooks.push({x:cat.worldX+(Math.random()>0.5?1:-1)*60,baseY:cat.worldY-240-Math.random()*120,swing:Math.random()*Math.PI*2,speed:0.04+Math.random()*0.02,len:60});
+  }
+  for(let i=craneHooks.length-1;i>=0;i--){
+    const cr=craneHooks[i];cr.swing+=cr.speed;
+    const ox=Math.sin(cr.swing)*cr.len,oy=Math.cos(cr.swing)*70;
+    cr.hx=cr.x+ox;cr.hy=cr.baseY+oy;
+    if(cr.hy>cat.worldY-6&&cr.hy<cat.worldY+cat.h*2&&Math.abs(cr.hx-(cat.worldX+cat.w/2))<16){
+      knockback(cr.hx<cat.worldX+cat.w/2?1:-1,10);buzz([20,40]);
+    }
+    if(cr.baseY+90>water.worldY+40||Math.abs(cr.x-cat.worldX)>700)craneHooks.splice(i,1);
+  }
+  // Newspaper swarm (level 5+) — a page flurry that batters you from one side
+  if(level>=5&&Math.random()<0.012){
+    const side=Math.random()>0.5?1:-1;
+    const baseY=cat.worldY-Math.random()*120;
+    const sheets=[];
+    for(let k=0;k<4;k++)sheets.push({x:cat.worldX+side*(420+k*26),y:baseY+(Math.random()-0.5)*40,vx:-side*(3.2+Math.random()),vy:(Math.random()-0.5)*0.6,rot:Math.random()*Math.PI,flap:Math.random()*6});
+    newspaperSwarm.push({sheets:sheets,life:110});
+  }
+  for(let i=newspaperSwarm.length-1;i>=0;i--){
+    const sw=newspaperSwarm[i];sw.life--;
+    for(let k=sw.sheets.length-1;k>=0;k--){
+      const paper=sw.sheets[k];
+      paper.x+=paper.vx;paper.y+=paper.vy;paper.rot+=0.12;paper.flap+=0.3;
+      if(Math.hypot(paper.x-(cat.worldX+cat.w/2),paper.y-(cat.worldY+cat.h/2))<24){knockback(paper.vx<0?1:-1,8);sw.sheets.splice(k,1)}
+    }
+    if(sw.life<=0||!sw.sheets.length)newspaperSwarm.splice(i,1);
   }
   // Window broom NPCs
   for(let i=windowNPCs.length-1;i>=0;i--){
@@ -1604,6 +1637,28 @@ function draw(){
     ctx.fillStyle="#8b4513";ctx.fillRect(-6,-4,12,2);
     ctx.restore();
   }
+  // Crane hooks — steel line up to a swinging hook
+  for(let i=0;i<craneHooks.length;i++){
+    const cr=craneHooks[i];
+    ctx.strokeStyle="#445";ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(cr.x-cameraX,cr.baseY-cameraY);ctx.lineTo(cr.hx-cameraX,cr.hy-cameraY);ctx.stroke();
+    ctx.save();ctx.translate(cr.hx-cameraX,cr.hy-cameraY);ctx.rotate(Math.atan2(cr.baseY-cr.hy,cr.x-cr.hx));
+    ctx.fillStyle="#8b4513";ctx.fillRect(-8,-3,16,6);
+    ctx.fillStyle="#5a2d0c";ctx.fillRect(-11,-5,6,10);
+    ctx.restore();
+  }
+  // Newspaper swarm pages
+  for(let i=0;i<newspaperSwarm.length;i++){
+    const sw=newspaperSwarm[i];
+    for(let k=0;k<sw.sheets.length;k++){
+      const paper=sw.sheets[k];
+      ctx.save();ctx.translate(paper.x-cameraX,paper.y-cameraY);ctx.rotate(paper.rot);
+      ctx.fillStyle="#f5f0e6";ctx.fillRect(-7,-5,14,10);
+      ctx.fillStyle="#9aa5b1";ctx.fillRect(-7,-5,14,2);
+      ctx.fillStyle="rgba(0,0,0,0.12)";ctx.fillRect(-7,-5,14,10);
+      ctx.restore();
+    }
+  }
   // Steam vents
   for(let i=0;i<steamVents.length;i++){
     const sv=steamVents[i],sx=sv.worldX-cameraX,sy=sv.worldY-cameraY;
@@ -1888,6 +1943,12 @@ try{
   refreshCoinUI();
   if(hasScuba()&&btnDive)btnDive.classList.remove("hidden");
   updateMuteBtn();
+  // Daily welcome bonus: +50 coins on your first play of each day
+const today=new Date().toISOString().slice(0,10);
+  if(safeStorage.get("aow_day")!==today){
+    coins+=50;safeStorage.set("aow_day",today);save();refreshCoinUI();
+    const db=$("dailyBanner");if(db){db.classList.remove("hidden");setTimeout(()=>{if(db)db.classList.add("hidden")},4000)}
+  }
   document.addEventListener("pointerdown",function once(){startMusic();document.removeEventListener("pointerdown",once)},false);
   // Ensure start screen is visible
   if(startScreen)startScreen.classList.remove("hidden");

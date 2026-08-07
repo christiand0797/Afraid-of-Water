@@ -33,6 +33,9 @@ Or open `index.html` locally in any browser.
 - Layered realism: drifting cloud banks, atmospheric haze, glinting water, mist hugging the flood, dynamic rain drop shadows, wind-gust streaks and an immersive screen vignette
 - Underwater audio muffling when you dive, wind-blown litter tumbling by, floating flood debris you can hop across, and dawn light breaking through as you climb above the storm
 - 🏁 milestone checkpoint banners every 100 m
+- 🦍 swinging crane hooks (level 4+) and 📰 newspaper swarm hazards (level 5+)
+- 🎁 daily welcome bonus of +50 coins
+- 🌍 global leaderboard via the Node API (device + worldwide)
 
 ## Deploy on Render
 
