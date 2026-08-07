@@ -1564,7 +1564,7 @@ function startGame(freeRestart){
     const spawnY=Math.max(80,(canvas.height||640)-220);
     cat={
       worldX:(canvas.width||360)/2,worldY:spawnY,
-      w:32,h:24,vx:0,vy:0,speed:spd,jumpPower:-16.2,gravity:0.58,
+      w:32,h:24,vx:0,vy:0,speed:spd,jumpPower:-16.8,gravity:0.55,
       grounded:false,dir:1,jumps:0,maxJumps:2,
       body:skin.body||skin.color||"#e07a2f",dark:skin.dark||"#c45f1a",style:skin.style||"cat"
     };
@@ -1574,9 +1574,10 @@ function startGame(freeRestart){
     drifts=[];floaters=[];craneHooks=[];newspaperSwarm=[];
     for(let k in generatedSectors)delete generatedSectors[k];
     for(let k in windowRegistry)delete windowRegistry[k];
+    for(let k in genFloors)delete genFloors[k];
+    genTopY=null;genBotY=null;
 
     shieldActive=getUpgradeLevel("shield")>0;
-    generateWorldSector(0);generateWorldSector(-1);generateWorldSector(-2);generateWorldSector(1);
 
     for(let i=0;i<9;i++)debris.push({worldX:Math.random()*canvas.width*5-canvas.width*2.5,type:Math.random()>0.5?"cab":"pallet",seed:Math.random()*300});
     for(let i=0;i<45;i++)rain.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,z:0.5+Math.random()*2,len:9+Math.random()*14,speed:0.7+Math.random()*0.5});
@@ -1603,102 +1604,107 @@ function startGame(freeRestart){
   }
 }
 
-function generateWorldSector(sectorY){
-  if(generatedSectors[sectorY])return;
-  generatedSectors[sectorY]=true;
-  const BSPAN=480;
-  const BW=420;
-  const baseY=sectorY*480;let cy=baseY+420;
-  let row=0;
-  while(cy>baseY+20){
-    // Tighter vertical gaps so normal jumps always reach the next ledge
-    cy-=(Math.random()*22+58); // ~58–80px (was 88–124 — too tall)
-    row++;
-    for(let bo=-2;bo<=2;bo++){
-      // Always place platforms on every building face
-      const bx=bo*BSPAN+50,bw=BW;
-      let t="ledge",ph=16;const r=Math.random();
-      if(r>0.9)t="stairs";
-      else if(r>0.84)t="cracked";
-      else if(r>0.68)t="scaffolding";
-      else if(r>0.52)t="fire-escape";
-      else if(r>0.38){t="ac";ph=22}
-      // Wider ledges — easier to land
-      const pw=t==="stairs"?Math.random()*50+110:Math.random()*50+110;
-      const px=bx+Math.random()*Math.max(20,bw-pw-20);
-      const mv=level>=4&&Math.random()<0.12&&t!=="stairs"&&t!=="cracked";
-      platforms.push({worldX:px,worldY:cy,w:pw,h:ph,type:t,vx:mv?(Math.random()>0.5?1.5:-1.5):0,buildingIdx:bo,hp:t==="cracked"?2:99,broken:false});
+// ---- Infinite vertical platforms (height-based, never runs out) ----
+const FLOOR_H=70;
+let genTopY=null, genBotY=null; // worldY of highest / lowest generated floor
+const genFloors={}; // key = floor index to avoid dupes
 
-      // Mid-step platform (crate / box) — stepping stone between floors
-      if(Math.random()>0.35){
-        platforms.push({worldX:bx+40+Math.random()*(bw-100),worldY:cy-32-Math.random()*10,w:40+Math.random()*20,h:12,type:"crate",vx:0,buildingIdx:bo,hp:99,broken:false});
-      }
-      // Porch / balcony
-      if(Math.random()>0.3){
-        const porW=56+Math.random()*22;
-        platforms.push({worldX:bx+20+Math.random()*(bw-porW-30),worldY:cy-12,w:porW,h:9,type:"porch",vx:0,buildingIdx:bo,hp:99,broken:false,lit:Math.random()>0.45});
-      }
-      // Window sill
-      if(Math.random()>0.4){
-        platforms.push({worldX:px-8,worldY:cy+ph+2,w:Math.min(pw+16,80),h:7,type:"sill",vx:0,buildingIdx:bo,hp:99,broken:false});
-      }
-      // Awning (climbable)
-      if(Math.random()>0.55){
-        platforms.push({worldX:bx+30+Math.random()*(bw-100),worldY:cy-40-Math.random()*12,w:70+Math.random()*30,h:8,type:"awning",vx:0,buildingIdx:bo,hp:99,broken:false});
-      }
-      // Open-sign top
-      if(Math.random()>0.7){
-        platforms.push({worldX:bx+20+Math.random()*(bw-90),worldY:cy-52-Math.random()*16,w:64+Math.random()*24,h:8,type:"sign",vx:0,buildingIdx:bo,hp:99,broken:false});
-      }
-      // Fire-escape landings — almost always on edges
-      if(bo%2===0){
-        platforms.push({worldX:bx+bw-50,worldY:cy-6,w:46,h:8,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
-      }else{
-        platforms.push({worldX:bx+4,worldY:cy-6,w:46,h:8,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
-      }
-      // Extra AC / satellite lip
-      if(Math.random()>0.55){
-        platforms.push({worldX:bx+25+Math.random()*(bw-80),worldY:cy-24,w:38,h:10,type:"ac",vx:0,buildingIdx:bo,hp:99,broken:false});
-      }
-      // Guaranteed center-path stepping stones every other row (fair climb spine)
-      if(row%2===0&&bo===0){
-        platforms.push({worldX:bx+bw*0.3,worldY:cy-20,w:90,h:14,type:"ledge",vx:0,buildingIdx:bo,hp:99,broken:false});
-      }
+function floorKey(y){return Math.round(y/FLOOR_H)}
 
-      if(Math.random()>0.78){
-        const rr=Math.random();
-        let kind="fish";
-        if(rr>0.97)kind="bomb";
-        else if(rr>0.93)kind="jetpack";
-        else if(rr>0.89)kind="cape";
-        else if(rr>0.85)kind="armor";
-        else if(rr>0.8)kind="amp";
-        else if(rr>0.68)kind="gold";
-        else if(rr>0.55)kind="bubble";
-        collectibles.push({worldX:px+pw/2-10,worldY:cy-34,active:true,kind:kind});
-      }
-      if(Math.random()>0.94)windowNPCs.push({worldX:bx+40+Math.random()*(bw-80),worldY:cy-15-Math.random()*30,cooldown:0,swinging:0});
-      if(Math.random()>0.94)hangingSigns.push({worldX:bx+60+Math.random()*(bw-100),worldY:cy-50-Math.random()*40,w:30+Math.random()*40,swing:Math.random()*Math.PI*2,type:Math.random()>0.5?"laundry":"sign"});
-      if(Math.random()>0.96)pigeons.push({worldX:px+Math.random()*pw,worldY:cy-8,vx:0,flyTimer:0,dir:Math.random()>0.5?1:-1});
-      if(Math.random()>0.96)steamVents.push({worldX:bx+30+Math.random()*(bw-60),worldY:cy+5,timer:Math.random()*60});
-      if(level>=3&&Math.random()>0.95)acBlows.push({worldX:bx+20+Math.random()*(bw-60),worldY:cy-26,timer:Math.random()*120,on:0});
-      // Bridges more common
-      if(Math.random()<0.35&&bo<2){
-        const gapStart=bx+bw-20;
-        const gapW=BSPAN-bw+40;
-        platforms.push({worldX:gapStart,worldY:cy-2,w:gapW,h:10,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
-      }
-      if(level>=3&&Math.random()>0.92&&bo<2){
-        securityLasers.push({
-          x1:bx+bw-10, x2:bx+BSPAN+10, y:cy-50-Math.random()*40,
-          on:1, timer:50+Math.random()*80, phase:Math.random()*Math.PI*2
-        });
-      }
-      if(Math.random()>0.88)satDishes.push({worldX:bx+40+Math.random()*(bw-80),worldY:cy-70-Math.random()*30,ang:Math.random()*0.4-0.2});
-      if(Math.random()>0.9)chimneys.push({worldX:bx+30+Math.random()*(bw-60),worldY:cy-90,h:18+Math.random()*20});
+function generateFloorRow(cy){
+  const key=floorKey(cy);
+  if(genFloors[key])return;
+  genFloors[key]=true;
+  const BSPAN=520;
+  const BW=380;
+  // Only 3 buildings — less left/right clutter, continuous UP path
+  for(let bo=-1;bo<=1;bo++){
+    const bx=bo*BSPAN+80;
+    // Main solid ledge — always
+    const mainW=160+Math.random()*90;
+    const mainX=bx+15+Math.random()*Math.max(5,BW-mainW-30);
+    let t="ledge";
+    const r=Math.random();
+    if(r>0.9)t="stairs";
+    else if(r>0.82)t="scaffolding";
+    else if(r>0.65)t="fire-escape";
+    else if(r>0.5)t="ac";
+    else if(r>0.93)t="cracked";
+    platforms.push({worldX:mainX,worldY:cy,w:mainW,h:15,type:t,vx:0,buildingIdx:bo,hp:t==="cracked"?2:99,broken:false});
+    // Side landing left
+    platforms.push({worldX:bx+8,worldY:cy-6,w:52,h:10,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
+    // Side landing right
+    platforms.push({worldX:bx+BW-60,worldY:cy-6,w:52,h:10,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
+    // One mid step so vertical gaps stay jumpable
+    platforms.push({worldX:bx+70+Math.random()*(BW-140),worldY:cy-FLOOR_H*0.45,w:55,h:12,type:"crate",vx:0,buildingIdx:bo,hp:99,broken:false});
+    // Bridge between buildings (center connections)
+    if(bo<1&&Math.random()>0.25){
+      platforms.push({worldX:bx+BW-12,worldY:cy-2,w:BSPAN-BW+24,h:11,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
+    }
+    if(Math.random()>0.7){
+      const r2=Math.random();
+      let kind="fish";
+      if(r2>0.96)kind="bomb";
+      else if(r2>0.92)kind="jetpack";
+      else if(r2>0.88)kind="cape";
+      else if(r2>0.84)kind="armor";
+      else if(r2>0.78)kind="amp";
+      else if(r2>0.65)kind="gold";
+      collectibles.push({worldX:mainX+mainW/2-8,worldY:cy-28,active:true,kind:kind});
+    }
+    if(Math.random()>0.96)windowNPCs.push({worldX:bx+40+Math.random()*(BW-80),worldY:cy-10,cooldown:0,swinging:0});
+  }
+}
+
+function ensureClimbPlatforms(){
+  if(!cat)return;
+  // Seed around spawn
+  if(genTopY==null){
+    genTopY=cat.worldY+40;
+    genBotY=cat.worldY+40;
+    for(let i=0;i<12;i++){
+      generateFloorRow(genTopY-i*FLOOR_H);
+    }
+    genTopY=cat.worldY+40-11*FLOOR_H;
+    genBotY=cat.worldY+40;
+  }
+  // Generate UP infinitely (worldY decreases)
+  let guard=0;
+  while(genTopY>cat.worldY-900&&guard++<20){
+    genTopY-=FLOOR_H;
+    generateFloorRow(genTopY);
+  }
+  // Generate DOWN for fall recovery
+  guard=0;
+  while(genBotY<cat.worldY+700&&guard++<12){
+    genBotY+=FLOOR_H;
+    generateFloorRow(genBotY);
+  }
+  // Cull only very far platforms (keep long vertical buffer)
+  if(time%120===0){
+    const cy=cat.worldY;
+    platforms=platforms.filter(p=>{
+      const dy=p.worldY-cy;
+      return dy>-1600&&dy<1200;
+    });
+    // Allow re-gen of culled floors
+    for(const k of Object.keys(genFloors)){
+      const fy=parseInt(k,10)*FLOOR_H;
+      if(Math.abs(fy-cy)>1800)delete genFloors[k];
+    }
+    // Reset bounds if needed so ensure can refill
+    if(platforms.length<30){
+      genTopY=cy;
+      genBotY=cy;
     }
   }
 }
+
+function generateWorldSector(sectorY){
+  // Legacy no-op — climb uses ensureClimbPlatforms()
+  generatedSectors[sectorY]=true;
+}
+
 function knockback(dir,force,upForce){
   if(typeof knockbackTimer!=="undefined"&&knockbackTimer>0)return;
   if(armorTimer>0){
@@ -1736,28 +1742,14 @@ let knockbackTimer=0;
 function gameLoopFrame(){
   if(state!=="PLAYING"||!cat||!water||paused)return;
   time++;
-  // Cull far entities — worldY goes DOWN as you climb UP
+  // Light entity cull (platforms handled in ensureClimbPlatforms)
   if(time%90===0&&cat){
     const cy=cat.worldY,cx=cat.worldX;
-    // Keep ~1000px above (smaller Y) and ~900px below (larger Y)
-    let np=[];
-    for(let i=0;i<platforms.length;i++){
-      const p=platforms[i];
-      const dy=p.worldY-cy; // negative = above cat
-      if(dy>-1100&&dy<900&&Math.abs(p.worldX-cx)<1500)np.push(p);
-    }
-    platforms=np;
-    // Soft cap only — never slice by age (that wiped upper floors)
-    if(platforms.length>450){
-      platforms=platforms.filter(p=>Math.abs(p.worldY-cy)<800);
-    }
     collectibles=collectibles.filter(c=>c.active&&Math.abs(c.worldY-cy)<1000);
     windowNPCs=windowNPCs.filter(n=>Math.abs(n.worldY-cy)<900);
     hangingSigns=hangingSigns.filter(s=>Math.abs(s.worldY-cy)<900);
     steamVents=steamVents.filter(s=>Math.abs(s.worldY-cy)<900);
     acBlows=acBlows.filter(a=>Math.abs(a.worldY-cy)<900);
-    satDishes=satDishes.filter(d=>Math.abs(d.worldY-cy)<1000);
-    chimneys=chimneys.filter(c=>Math.abs(c.worldY-cy)<1000);
     securityLasers=securityLasers.filter(L=>Math.abs(L.y-cy)<900);
     birds=birds.filter(b=>Math.abs(b.worldX-cx)<900);
     attackDogs=attackDogs.filter(d=>Math.abs(d.worldX-cx)<900);
@@ -1891,21 +1883,8 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   const dangerEl=$("dangerWarn");
   if(dangerEl){dangerEl.style.opacity=String(Math.min(1,dangerWarn*1.4)).slice(0,4)}
 
-  // Sectors: worldY decreases upward; sector height matches generator (480)
-  const secH=480;
-  const curSec=Math.floor(cat.worldY/secH);
-  // Allow re-gen of far sectors after cull wiped their platforms
-  if(time%180===0){
-    for(const k of Object.keys(generatedSectors)){
-      const sy=parseInt(k,10);
-      if(Math.abs(sy-curSec)>3)delete generatedSectors[k];
-    }
-  }
-  generateWorldSector(curSec);
-  generateWorldSector(curSec-1);
-  generateWorldSector(curSec-2); // extra ahead while climbing up
-  generateWorldSector(curSec+1);
-  generateWorldSector(curSec+2);
+  // Infinite platforms as you climb
+  try{ensureClimbPlatforms()}catch(e){}
 
   if(knockbackTimer>0)knockbackTimer--;
   if(invulnTimer>0)invulnTimer--;
@@ -1916,8 +1895,8 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
       const p=platforms[i];
       if(p.broken)continue;
       p.worldX+=p.vx||0;
-      const bLeft=p.buildingIdx*480+50;
-      if(p.worldX<bLeft+10||p.worldX+p.w>bLeft+400)p.vx=-(p.vx||0);
+      const bLeft=p.buildingIdx*460+40;
+      if(p.worldX<bLeft+8||p.worldX+p.w>bLeft+390)p.vx=-(p.vx||0);
       if(cat.vy>0&&cat.worldY+cat.h>=p.worldY&&cat.worldY+cat.h<=p.worldY+p.h+Math.abs(cat.vy)+2&&cat.worldX+cat.w>p.worldX&&cat.worldX<p.worldX+p.w){
         cat.grounded=true;cat.vy=0;cat.worldY=p.worldY-cat.h;cat.worldX+=(p.vx||0)*0.85;cat.jumps=0;
         if(!wasG){
@@ -2326,7 +2305,6 @@ if(c.kind==="gold"){
     const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=diving?-0.02:0.13;p.life-=0.035;if(p.life<=0)particles.splice(i,1);
   }
   if(time%100===0){
-    platforms=platforms.filter(p=>p.worldY<water.worldY+600);
     collectibles=collectibles.filter(c=>c.active&&c.worldY<water.worldY+450);
   }
 
