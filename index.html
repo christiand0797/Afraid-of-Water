@@ -1074,7 +1074,7 @@ function generateWorldSector(sectorY){
       const px=bx+Math.random()*(bw-pw-26);
       const mv=level>=3&&Math.random()<0.28&&t!=="stairs"&&t!=="cracked";
 platforms.push({worldX:px,worldY:cy,w:pw,h:ph,type:t,vx:mv?(Math.random()>0.5?2:-2):0,buildingIdx:bo,hp:t==="cracked"?1:99,broken:false});
-if(Math.random()>0.8){const r=Math.random();collectibles.push({worldX:px+pw/2-10,worldY:cy-34,active:true,kind:r>0.96?"bomb":(r>0.9?"amp":(r>0.78?"gold":"fish"))});}
+if(Math.random()>0.8){const r=Math.random();collectibles.push({worldX:px+pw/2-10,worldY:cy-34,active:true,kind:r>0.96?"bomb":(r>0.9?"amp":(r>0.78?"gold":(r>0.66?"bubble":"fish")))});}
       if(Math.random()>0.9)windowNPCs.push({worldX:bx+50+Math.random()*280,worldY:cy-15-Math.random()*30,cooldown:0,swinging:0});
       // Hanging laundry / signs
       if(Math.random()>0.92)hangingSigns.push({worldX:bx+80+Math.random()*250,worldY:cy-50-Math.random()*40,w:30+Math.random()*40,swing:Math.random()*Math.PI*2,type:Math.random()>0.5?"laundry":"sign"});
@@ -1371,6 +1371,14 @@ if(c.kind==="gold"){
         totalFish++;safeStorage.set("aow_fish",totalFish);if(totalFish>=50)unlockAchievement("collect_50");
         riseText(c.worldX+c.w/2,c.worldY,"GOLD +"+bonus,"#f1c40f");
         comboFlash=1;streak++;streakTimer=120;if(streak>bestStreakRun)bestStreakRun=streak;
+        continue;
+      }
+      if(c.kind==="bubble"){
+        // Underwater air pocket — restores some dive oxygen
+        oxygen=Math.min(maxOxygen,oxygen+40);
+        if(oxygenBar)oxygenBar.style.display="block";
+        sfxPower();createBubbles(c.worldX,c.worldY,7);buzz(8);
+        riseText(c.worldX+c.w/2,c.worldY-8,"AIR +40","#4fd3ff");
         continue;
       }
       if(c.kind==="bomb"){
@@ -1860,6 +1868,14 @@ ctx.fillText("⚡",0,6);
       if(Math.sin(time*0.3)>0)ctx.fillStyle="rgba(231,76,60,0.7)";
       ctx.font="10px Arial";
       ctx.fillText("!!",0,-10);
+      ctx.restore();
+    } else if(c.kind==="bubble"){
+      ctx.save();
+      ctx.translate(c.worldX-cameraX,c.worldY-cameraY+hover);
+      ctx.globalAlpha=0.5+Math.sin(time*0.2)*0.3;
+      ctx.fillStyle="#4fd3ff";
+      ctx.beginPath();ctx.arc(0,0,7,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=1;
       ctx.restore();
     } else {
       ctx.fillText("🐟",c.worldX-cameraX,c.worldY-cameraY+hover);
