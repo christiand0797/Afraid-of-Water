@@ -1448,51 +1448,55 @@ knockbackTimer=0;invulnTimer=0;checkpoint=null;
 function generateWorldSector(sectorY){
   if(generatedSectors[sectorY])return;
   generatedSectors[sectorY]=true;
-  const baseY=sectorY*420;let cy=baseY+380;
+  const BSPAN=720; // wider gaps between buildings
+  const baseY=sectorY*480;let cy=baseY+420;
   while(cy>baseY+25){
-    cy-=(Math.random()*24+72);
-    for(let bo=-4;bo<=4;bo++){
-      const bx=bo*530+55,bw=410;
+    // Bigger vertical gaps between platform rows — breathing room
+    cy-=(Math.random()*40+95);
+    for(let bo=-2;bo<=2;bo++){
+      // Skip some buildings on this row so not every facade is packed
+      if(Math.random()<0.28)continue;
+      const bx=bo*BSPAN+80,bw=380;
       let t="ledge",ph=16;const r=Math.random();
-      if(r>0.84)t="stairs";
-      else if(r>0.72)t="cracked";
-      else if(r>0.56)t="scaffolding";
-      else if(r>0.4)t="fire-escape";
-      else if(r>0.26){t="ac";ph=24}
-      const pw=t==="stairs"?Math.random()*48+100:Math.random()*34+88;
+      if(r>0.88)t="stairs";
+      else if(r>0.78)t="cracked";
+      else if(r>0.62)t="scaffolding";
+      else if(r>0.48)t="fire-escape";
+      else if(r>0.36){t="ac";ph=24}
+      const pw=t==="stairs"?Math.random()*48+100:Math.random()*40+96;
       const px=bx+Math.random()*(bw-pw-26);
-      const mv=level>=3&&Math.random()<0.28&&t!=="stairs"&&t!=="cracked";
-platforms.push({worldX:px,worldY:cy,w:pw,h:ph,type:t,vx:mv?(Math.random()>0.5?2:-2):0,buildingIdx:bo,hp:t==="cracked"?1:99,broken:false});
-if(Math.random()>0.8){const r=Math.random();collectibles.push({worldX:px+pw/2-10,worldY:cy-34,active:true,kind:r>0.96?"bomb":(r>0.9?"amp":(r>0.78?"gold":(r>0.66?"bubble":"fish")))});}
-      if(Math.random()>0.9)windowNPCs.push({worldX:bx+50+Math.random()*280,worldY:cy-15-Math.random()*30,cooldown:0,swinging:0});
-      // Hanging laundry / signs
-      if(Math.random()>0.92)hangingSigns.push({worldX:bx+80+Math.random()*250,worldY:cy-50-Math.random()*40,w:30+Math.random()*40,swing:Math.random()*Math.PI*2,type:Math.random()>0.5?"laundry":"sign"});
-      // Pigeons on ledges
-      if(Math.random()>0.93)pigeons.push({worldX:px+Math.random()*pw,worldY:cy-8,vx:0,flyTimer:0,dir:Math.random()>0.5?1:-1});
-      // Steam vents
-      if(Math.random()>0.94)steamVents.push({worldX:bx+30+Math.random()*350,worldY:cy+5,timer:Math.random()*60});
-      // Windows-side AC units that blast a downward gust, blowing you off the ledge
-      if(level>=2&&Math.random()>0.9)acBlows.push({worldX:bx+20+Math.random()*(bw-60),worldY:cy-26,timer:Math.random()*120,on:0});
-      // Rooftop bridges — walk between buildings without jumping
-      if(Math.random()<0.18&&bo<4&&t!=="stairs"&&t!=="cracked"){
-        platforms.push({worldX:bx+bw-150,worldY:cy-6,w:Math.random()*40+170,h:8,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
+      const mv=level>=3&&Math.random()<0.22&&t!=="stairs"&&t!=="cracked";
+      platforms.push({worldX:px,worldY:cy,w:pw,h:ph,type:t,vx:mv?(Math.random()>0.5?2:-2):0,buildingIdx:bo,hp:t==="cracked"?1:99,broken:false});
+      if(Math.random()>0.84){const rr=Math.random();collectibles.push({worldX:px+pw/2-10,worldY:cy-34,active:true,kind:rr>0.96?"bomb":(rr>0.9?"amp":(rr>0.78?"gold":(rr>0.66?"bubble":"fish")))});}
+      if(Math.random()>0.93)windowNPCs.push({worldX:bx+50+Math.random()*260,worldY:cy-15-Math.random()*30,cooldown:0,swinging:0});
+      if(Math.random()>0.94)hangingSigns.push({worldX:bx+80+Math.random()*220,worldY:cy-50-Math.random()*40,w:30+Math.random()*40,swing:Math.random()*Math.PI*2,type:Math.random()>0.5?"laundry":"sign"});
+      if(Math.random()>0.95)pigeons.push({worldX:px+Math.random()*pw,worldY:cy-8,vx:0,flyTimer:0,dir:Math.random()>0.5?1:-1});
+      if(Math.random()>0.96)steamVents.push({worldX:bx+30+Math.random()*320,worldY:cy+5,timer:Math.random()*60});
+      if(level>=2&&Math.random()>0.93)acBlows.push({worldX:bx+20+Math.random()*(bw-60),worldY:cy-26,timer:Math.random()*120,on:0});
+      // Bridges rarer — longer spans between buildings
+      if(Math.random()<0.12&&bo<2&&t!=="stairs"&&t!=="cracked"){
+        platforms.push({worldX:bx+bw-80,worldY:cy-6,w:Math.random()*50+200,h:8,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
       }
     }
   }
 }
 function knockback(dir,force,upForce){
   if(typeof knockbackTimer!=="undefined"&&knockbackTimer>0)return;
-  const f=force||14;
-  const up=upForce!=null?upForce:4; // default: slam down to the ledge below
+  const f=(force||18)*(currentDiff.hazardMul||1);
+  // Always drop roughly one platform level (~110px down)
+  const LEVEL_DROP=110;
+  cat.worldX+=dir*22;
+  cat.worldY+=LEVEL_DROP;
   cat.vx=dir*f;
-  cat.vy=up;
+  cat.vy=Math.max(10, upForce!=null?Math.abs(upForce):12); // hard fall down
   cat.grounded=false;
-  cat.jumps=1; // force off platform — must air-recover
-  knockbackTimer=28;
-  shakeAmount=12;
-  buzz([20,30,40]);
-  sfxImpact(); // impact only — meow reserved for falling / wash-out
-  createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h/2,"#fff",8,10);
+  cat.jumps=1; // must air-recover — no free double jump from hit
+  knockbackTimer=36;
+  shakeAmount=16;
+  buzz([25,40,55]);
+  sfxImpact();
+  createParticles(cat.worldX+cat.w/2,cat.worldY+cat.h/2,"#fff",12,12);
+  if(typeof riseText==="function")try{riseText(cat.worldX+cat.w/2,cat.worldY,"↓ LEVEL!","#e74c3c")}catch(e){}
 }
 let knockbackTimer=0;
 
@@ -1618,7 +1622,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
       const p=platforms[i];
       if(p.broken)continue;
       p.worldX+=p.vx||0;
-      const bLeft=p.buildingIdx*530+55;
+      const bLeft=p.buildingIdx*720+80;
       if(p.worldX<bLeft+10||p.worldX+p.w>bLeft+380)p.vx=-(p.vx||0);
       if(cat.vy>0&&cat.worldY+cat.h>=p.worldY&&cat.worldY+cat.h<=p.worldY+p.h+Math.abs(cat.vy)+2&&cat.worldX+cat.w>p.worldX&&cat.worldX<p.worldX+p.w){
         cat.grounded=true;cat.vy=0;cat.worldY=p.worldY-cat.h;cat.worldX+=(p.vx||0)*0.85;cat.jumps=0;
@@ -1637,7 +1641,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     const b=birds[i];
     if(!b.diving&&Math.abs(b.worldX-cat.worldX)<110&&b.worldY<cat.worldY){b.diving=true;b.vy=3.8}
     b.worldX+=b.vx;b.worldY+=b.vy;if(b.diving)b.vy+=0.14;
-    if(Math.hypot(cat.worldX-b.worldX,cat.worldY-b.worldY)<26){knockback(b.vx>0?1:-1,9);birds.splice(i,1);continue}
+    if(Math.hypot(cat.worldX-b.worldX,cat.worldY-b.worldY)<28){knockback(b.vx>0?1:-1,20);birds.splice(i,1);continue}
     if(Math.abs(b.worldX-cat.worldX)>750||b.worldY>water.worldY+40)birds.splice(i,1);
   }
   // Crane hook (level 4+): a swinging wrecking hook sweeps through the rooftops
@@ -1649,7 +1653,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     const ox=Math.sin(cr.swing)*cr.len,oy=Math.cos(cr.swing)*70;
     cr.hx=cr.x+ox;cr.hy=cr.baseY+oy;
     if(cr.hy>cat.worldY-6&&cr.hy<cat.worldY+cat.h*2&&Math.abs(cr.hx-(cat.worldX+cat.w/2))<16){
-      knockback(cr.hx<cat.worldX+cat.w/2?1:-1,10);buzz([20,40]);
+      knockback(cr.hx<cat.worldX+cat.w/2?1:-1,22);buzz([20,40]);
     }
     if(cr.baseY+90>water.worldY+40||Math.abs(cr.x-cat.worldX)>700)craneHooks.splice(i,1);
   }
@@ -1666,7 +1670,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     for(let k=sw.sheets.length-1;k>=0;k--){
       const paper=sw.sheets[k];
       paper.x+=paper.vx;paper.y+=paper.vy;paper.rot+=0.12;paper.flap+=0.3;
-      if(Math.hypot(paper.x-(cat.worldX+cat.w/2),paper.y-(cat.worldY+cat.h/2))<24){knockback(paper.vx<0?1:-1,8);sw.sheets.splice(k,1)}
+      if(Math.hypot(paper.x-(cat.worldX+cat.w/2),paper.y-(cat.worldY+cat.h/2))<26){knockback(paper.vx<0?1:-1,18);sw.sheets.splice(k,1)}
     }
     if(sw.life<=0||!sw.sheets.length)newspaperSwarm.splice(i,1);
   }
@@ -1679,11 +1683,8 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
       // Full hit: knock completely off the ledge
       if(Math.abs(n.worldX-cat.worldX)<70&&Math.abs(n.worldY-cat.worldY)<45){
         const dir=n.worldX<cat.worldX?1:-1;
-        const force=(currentDiff.npcForce||16)*(currentDiff.hazardMul||1);
-        const up=currentDiff.npcVy||-9;
-        knockback(dir,force,up);
-        // Extra shove so you leave the platform
-        cat.worldX+=dir*18;
+        const force=(currentDiff.npcForce||22)*(currentDiff.hazardMul||1);
+        knockback(dir,force,14);
         cat.grounded=false;
       }
     }
@@ -1697,7 +1698,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     const br=fallingBricks[i];
     br.vy+=0.12;br.worldY+=br.vy;br.rot+=0.08;
     if(Math.hypot(cat.worldX+cat.w/2-br.worldX,cat.worldY+cat.h/2-br.worldY)<22){
-      knockback(br.worldX<cat.worldX?1:-1,7);fallingBricks.splice(i,1);continue;
+      knockback(br.worldX<cat.worldX?1:-1,18);fallingBricks.splice(i,1);continue;
     }
     if(br.worldY>water.worldY+30||br.worldY>cat.worldY+250)fallingBricks.splice(i,1);
   }
@@ -1724,7 +1725,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     if(a.on>0){
       const cx=cat.worldX+cat.w/2,cy=cat.worldY+cat.h/2;
       if(Math.abs(cx-a.worldX)<46&&cy<a.worldY-4&&cy>a.worldY-110&&cat.vy<8){
-        knockback(cat.worldX<a.worldX?1:-1,1.5,9); // blast downward off the ledge
+        knockback(cat.worldX<a.worldX?1:-1,16,14); // AC blast — full level drop
         createParticles(cat.worldX+cat.w/2,cat.worldY,"#9fb6c4",8,11);
       }
     }
@@ -2281,8 +2282,8 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
   }
 
   // Buildings + rooftop clutter
-  for(let bo=-5;bo<=5;bo++){
-    const bwx=bo*530+55,bsx=bwx-cameraX,bw=410;
+  for(let bo=-3;bo<=3;bo++){
+    const bwx=bo*720+80,bsx=bwx-cameraX,bw=380;
     if(bsx+bw<-30||bsx>canvas.width+30)continue;
     ctx.fillStyle=currentTheme.building;ctx.fillRect(bsx,0,bw,canvas.height);
     ctx.fillStyle="rgba(0,0,0,0.3)";ctx.fillRect(bsx,0,14,canvas.height);ctx.fillRect(bsx+bw-14,0,14,canvas.height);
