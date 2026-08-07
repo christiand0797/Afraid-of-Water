@@ -76,6 +76,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <div id="oxygenBar"><div id="oxygenFill"></div></div>
 <div id="comboHud" class="hidden">COMBO ×<span id="comboVal">1</span></div>
 <div id="timeStopHud" class="hidden" style="position:absolute;top:max(96px,calc(env(safe-area-inset-top)+16px));left:50%;transform:translateX(-50%);font-family:'Creepster',cursive;color:#00dfe0;font-size:16px;text-shadow:0 0 12px #00dfe0,2px 2px 0 #000;pointer-events:none;z-index:12">❄ TIME STOP</div>
+<div id="comboBanner" class="hidden" style="position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);font-family:'Creepster',cursive;color:#f1c40f;font-size:42px;text-shadow:0 0 24px #e67e22,3px 3px 0 #000;pointer-events:none;z-index:30;white-space:nowrap"></div>
 <div id="skinBar" class="hidden"></div>
 <div id="dangerWarn"></div>
 <div id="hudBtns" class="hidden">
@@ -502,6 +503,7 @@ let streak=0,streakTimer=0,comboMult=1,comboFlash=0,bestStreakRun=0;
 let coyoteTimer=0,jumpBuffer=0,popups=[];
 let ampTimer=0;
 let bestAtStart=0;
+let comboBanner=0,comboBannerText="";
 let audioCtx;
 
 function initAudio(){try{if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();masterFilter=audioCtx.createBiquadFilter();masterFilter.type="lowpass";masterFilter.frequency.value=16000;masterGain=audioCtx.createGain();masterGain.gain.value=1;masterFilter.connect(masterGain);masterGain.connect(audioCtx.destination)}if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
@@ -1135,6 +1137,16 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   // advance floating popups
   for(let i=popups.length-1;i>=0;i--){const p=popups[i];p.t+=0.07;p.y+=p.vy;p.vy=p.vy*0.97;if(p.t>1)popups.splice(i,1);}
   const tsh=$("timeStopHud");if(tsh){if(ampTimer>0)tsh.classList.remove("hidden");else tsh.classList.add("hidden")}
+  if(comboBanner>0){
+    comboBanner--;
+    const cb=$("comboBanner");
+    if(cb){
+      cb.textContent=comboBannerText;
+      cb.classList.remove("hidden");
+      cb.style.opacity=Math.min(1,comboBanner/30);
+      cb.style.transform=`translate(-50%,-50%) scale(${1+Math.max(0,comboBanner-60)/60})`;
+    }
+  }else{const cb=$("comboBanner");if(cb)cb.classList.add("hidden")}
 
   // Milestone checkpoint banners every 100m
   if(score>=100&&Math.floor(score/100)>milestone){
@@ -1302,7 +1314,9 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
         continue;
       }
       streak++;streakTimer=120;comboFlash=1;if(streak>bestStreakRun)bestStreakRun=streak;
+      const prevMult=comboMult;
       comboMult=Math.min(1+Math.floor(streak/4),8);
+      if(comboMult>prevMult&&comboMult>=2){comboBanner=80;comboBannerText="COMBO x"+comboMult;buzz(18);createParticles(c.worldX,c.worldY,"#f1c40f",18,9);}
       score+=340*comboMult;if(score>highestScore)highestScore=score;
       coins+=(3+comboMult)*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
       totalFish++;safeStorage.set("aow_fish",totalFish);if(totalFish>=50)unlockAchievement("collect_50");
@@ -1432,6 +1446,7 @@ function loseLife(){
   diving=false;setUnderwaterAudio(false);
   streak=0;comboMult=1;
   const ch=$("comboHud");if(ch)ch.classList.add("hidden");
+  const cb2=$("comboBanner");if(cb2)cb2.classList.add("hidden");comboBanner=0;comboBannerText="";
   diving=false;
   if(oxygenBar)oxygenBar.style.display="none";
 
