@@ -1576,7 +1576,7 @@ function startGame(freeRestart){
     for(let k in windowRegistry)delete windowRegistry[k];
 
     shieldActive=getUpgradeLevel("shield")>0;
-    generateWorldSector(0);generateWorldSector(-1);
+    generateWorldSector(0);generateWorldSector(-1);generateWorldSector(-2);generateWorldSector(1);
 
     for(let i=0;i<9;i++)debris.push({worldX:Math.random()*canvas.width*5-canvas.width*2.5,type:Math.random()>0.5?"cab":"pallet",seed:Math.random()*300});
     for(let i=0;i<45;i++)rain.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,z:0.5+Math.random()*2,len:9+Math.random()*14,speed:0.7+Math.random()*0.5});
@@ -1615,8 +1615,7 @@ function generateWorldSector(sectorY){
     cy-=(Math.random()*22+58); // ~58–80px (was 88–124 — too tall)
     row++;
     for(let bo=-2;bo<=2;bo++){
-      // Rare empty facade (was 22% — left unfair gaps)
-      if(Math.random()<0.06)continue;
+      // Always place platforms on every building face
       const bx=bo*BSPAN+50,bw=BW;
       let t="ledge",ph=16;const r=Math.random();
       if(r>0.9)t="stairs";
@@ -1737,41 +1736,35 @@ let knockbackTimer=0;
 function gameLoopFrame(){
   if(state!=="PLAYING"||!cat||!water||paused)return;
   time++;
-  // Cull far entities often — prevents freeze from unbounded arrays
-  if(time%60===0&&cat){
+  // Cull far entities — worldY goes DOWN as you climb UP
+  if(time%90===0&&cat){
     const cy=cat.worldY,cx=cat.worldX;
-    const keepY=1200,keepX=1400;
+    // Keep ~1000px above (smaller Y) and ~900px below (larger Y)
     let np=[];
     for(let i=0;i<platforms.length;i++){
       const p=platforms[i];
-      // Keep platforms above and near the cat; never cull close below (fall recovery)
-      if(p.worldY>cy-400&&p.worldY<cy+keepY&&Math.abs(p.worldX-cx)<keepX)np.push(p);
+      const dy=p.worldY-cy; // negative = above cat
+      if(dy>-1100&&dy<900&&Math.abs(p.worldX-cx)<1500)np.push(p);
     }
     platforms=np;
-    if(platforms.length>320)platforms=platforms.slice(-280);
-    collectibles=collectibles.filter(c=>c.active&&Math.abs(c.worldY-cy)<800);
-    windowNPCs=windowNPCs.filter(n=>Math.abs(n.worldY-cy)<700);
-    hangingSigns=hangingSigns.filter(s=>Math.abs(s.worldY-cy)<700);
-    steamVents=steamVents.filter(s=>Math.abs(s.worldY-cy)<700);
-    acBlows=acBlows.filter(a=>Math.abs(a.worldY-cy)<700);
-    satDishes=satDishes.filter(d=>Math.abs(d.worldY-cy)<800);
-    chimneys=chimneys.filter(c=>Math.abs(c.worldY-cy)<800);
-    securityLasers=securityLasers.filter(L=>Math.abs(L.y-cy)<700);
-    birds=birds.filter(b=>Math.abs(b.worldX-cx)<800);
-    attackDogs=attackDogs.filter(d=>Math.abs(d.worldX-cx)<800);
-    laserTurrets=laserTurrets.filter(t=>Math.abs(t.worldX-cx)<900);
-    fallingBricks=fallingBricks.filter(b=>Math.abs(b.worldY-cy)<600);
+    // Soft cap only — never slice by age (that wiped upper floors)
+    if(platforms.length>450){
+      platforms=platforms.filter(p=>Math.abs(p.worldY-cy)<800);
+    }
+    collectibles=collectibles.filter(c=>c.active&&Math.abs(c.worldY-cy)<1000);
+    windowNPCs=windowNPCs.filter(n=>Math.abs(n.worldY-cy)<900);
+    hangingSigns=hangingSigns.filter(s=>Math.abs(s.worldY-cy)<900);
+    steamVents=steamVents.filter(s=>Math.abs(s.worldY-cy)<900);
+    acBlows=acBlows.filter(a=>Math.abs(a.worldY-cy)<900);
+    satDishes=satDishes.filter(d=>Math.abs(d.worldY-cy)<1000);
+    chimneys=chimneys.filter(c=>Math.abs(c.worldY-cy)<1000);
+    securityLasers=securityLasers.filter(L=>Math.abs(L.y-cy)<900);
+    birds=birds.filter(b=>Math.abs(b.worldX-cx)<900);
+    attackDogs=attackDogs.filter(d=>Math.abs(d.worldX-cx)<900);
+    laserTurrets=laserTurrets.filter(t=>Math.abs(t.worldX-cx)<1000);
+    fallingBricks=fallingBricks.filter(b=>Math.abs(b.worldY-cy)<700);
     if(particles.length>50)particles.length=30;
     if(popups.length>20)popups.length=12;
-    // Prune windowRegistry keys far from camera (string keys hold world Y)
-    if(time%300===0){
-      const keys=Object.keys(windowRegistry);
-      if(keys.length>400){
-        for(let i=0;i<keys.length;i++){
-          if(i%3!==0)delete windowRegistry[keys[i]];
-        }
-      }
-    }
   }
 
   if(streakTimer>0){streakTimer--;if(streakTimer<=0){streak=0;comboMult=1}}
@@ -1898,8 +1891,21 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   const dangerEl=$("dangerWarn");
   if(dangerEl){dangerEl.style.opacity=String(Math.min(1,dangerWarn*1.4)).slice(0,4)}
 
-  const curSec=Math.floor(cat.worldY/420);
-  generateWorldSector(curSec);generateWorldSector(curSec-1);generateWorldSector(curSec+1);
+  // Sectors: worldY decreases upward; sector height matches generator (480)
+  const secH=480;
+  const curSec=Math.floor(cat.worldY/secH);
+  // Allow re-gen of far sectors after cull wiped their platforms
+  if(time%180===0){
+    for(const k of Object.keys(generatedSectors)){
+      const sy=parseInt(k,10);
+      if(Math.abs(sy-curSec)>3)delete generatedSectors[k];
+    }
+  }
+  generateWorldSector(curSec);
+  generateWorldSector(curSec-1);
+  generateWorldSector(curSec-2); // extra ahead while climbing up
+  generateWorldSector(curSec+1);
+  generateWorldSector(curSec+2);
 
   if(knockbackTimer>0)knockbackTimer--;
   if(invulnTimer>0)invulnTimer--;
@@ -1910,8 +1916,8 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
       const p=platforms[i];
       if(p.broken)continue;
       p.worldX+=p.vx||0;
-      const bLeft=p.buildingIdx*500+60;
-      if(p.worldX<bLeft+10||p.worldX+p.w>bLeft+380)p.vx=-(p.vx||0);
+      const bLeft=p.buildingIdx*480+50;
+      if(p.worldX<bLeft+10||p.worldX+p.w>bLeft+400)p.vx=-(p.vx||0);
       if(cat.vy>0&&cat.worldY+cat.h>=p.worldY&&cat.worldY+cat.h<=p.worldY+p.h+Math.abs(cat.vy)+2&&cat.worldX+cat.w>p.worldX&&cat.worldX<p.worldX+p.w){
         cat.grounded=true;cat.vy=0;cat.worldY=p.worldY-cat.h;cat.worldX+=(p.vx||0)*0.85;cat.jumps=0;
         if(!wasG){
