@@ -269,6 +269,7 @@ const THEMES=[
   {id:"venice",name:"Venice Sunk",emoji:"🛶",unlock:450,bgTop:"#0a1815",bgBot:"#0f2a22",water:"rgba(20,140,160,.9)",waterMid:"rgba(10,70,90,.95)",building:"#152820",hazard:"jellyfish"},
   {id:"arctic",name:"Arctic Melt",emoji:"🧊",unlock:900,bgTop:"#0a1520",bgBot:"#152535",water:"rgba(100,180,220,.85)",waterMid:"rgba(40,90,130,.95)",building:"#1a2838",hazard:"orca"},
   {id:"volcano",name:"Lava Isle",emoji:"🌋",unlock:1800,bgTop:"#1a0808",bgBot:"#2a1010",water:"rgba(200,60,20,.9)",waterMid:"rgba(120,30,10,.95)",building:"#2a1510",hazard:"lavafish"},
+  {id:"neon",name:"Neon Skyline",emoji:"🌆",unlock:2600,bgTop:"#0d0b24",bgBot:"#1a1434",water:"rgba(0,140,255,.85)",waterMid:"rgba(20,40,120,.95)",building:"#141024",hazard:"shark"},
   {id:"space",name:"Orbital Ruin",emoji:"🛸",unlock:3200,bgTop:"#050510",bgBot:"#0a0a20",water:"rgba(60,20,120,.9)",waterMid:"rgba(30,10,60,.95)",building:"#12122a",hazard:"voidling"}
 ];
 
@@ -280,11 +281,13 @@ const ALL_SKINS=[
   {id:"tabby",name:"Tabby",body:"#d4a017",dark:"#9a7d0a",price:100,style:"cat"},
   {id:"dog",name:"Street Dog",body:"#c4a574",dark:"#8b6914",price:150,style:"dog"},
   {id:"fox",name:"City Fox",body:"#e67e22",dark:"#a04000",price:180,style:"fox"},
-  {id:"rabbit",name:"Flood Bunny",body:"#f5c6c6",dark:"#d98880",price:180,style:"rabbit"}
+  {id:"rabbit",name:"Flood Bunny",body:"#f5c6c6",dark:"#d98880",price:180,style:"rabbit"},
+  {id:"tuxedo",name:"Tuxedo Cat",body:"#3a3f47",dark:"#1c1f24",price:220,style:"cat"},
+  {id:"robot",name:"Roof Robot",body:"#7fb3d5",dark:"#2e6da4",price:260,style:"cat"}
 ];
 let leaderboard=(()=>{try{const v=JSON.parse(localStorage.getItem("aow_lb")||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}})();
 let playerName=safeStorage.get("aow_name")||"Anonymous";
-const VERSION="1.5.0";
+const VERSION="1.6.0";
 
 const UPGRADES=[
   {id:"maxLives",name:"Max Lives",emoji:"❤️",desc:"+1 max life",max:5,prices:[100,200,400,800,1200]},
@@ -323,7 +326,7 @@ if(!DIFFS[difficulty])difficulty="normal";
 let currentDiff=DIFFS[difficulty];
 
 // Game version — shown in footer + could gate future migrations
-const GAME_VERSION="1.5.0";
+const GAME_VERSION="1.6.0";
 
 // Achievements system (trophies that persist locally)
 const ACHIEVEMENTS=[
