@@ -1623,16 +1623,42 @@ function draw(){
 
   // Starfield fades in as you climb above the storm into clear sky
   const starF=Math.max(0,Math.min(1,(score-1100)/900));
-  if(starF>0.02){
-    ctx.fillStyle=`rgba(240,250,255,${starF})`;
+  const starAlpha=Math.max(0.04,starF);
+  if(starAlpha>0.02){
+    // Faint persistent far stars
+    ctx.fillStyle=`rgba(240,250,255,${0.06})`;
+    for(let k=0;k<46;k++){
+      const sx=(((k*211+Math.floor(cameraX*0.01*5))%canvas.width)+canvas.width)%canvas.width+Math.sin(time*0.01+k)*20;
+      const sy=((k*97)%(canvas.height*0.42));
+      ctx.fillRect(sx,sy,1.1,1.1);
+    }
+    // Bright twinkling stars
+    ctx.fillStyle=`rgba(240,250,255,${starAlpha})`;
     for(let k=0;k<70;k++){
       const sx=(((k*137+cameraX*0.01*10)%canvas.width)+canvas.width)%canvas.width;
       const sy=(((k*71+cameraY*0.004*10)%(canvas.height*0.5))+canvas.height*0.5)%(canvas.height*0.5);
       const tw=0.4+(Math.sin(time*0.02+k*2)*0.5+0.5)*1.1;
-      const sz=0.5+((k*13)%20)/20*1.4*tw;
+      const big=k%9===0;
+      const sz=(big?0.9:0.5)+((k*13)%20)/20*1.4*tw;
       ctx.fillRect(sx,sy,sz,sz);
+      if(big){ctx.fillStyle=`rgba(240,250,255,${starAlpha*0.25})`;ctx.fillRect(sx-sz*2.5,sy-sz*2.5,sz*6,sz*6)}ctx.fillStyle=`rgba(240,250,255,${starAlpha})`;
     }
   }
+
+  // Crescent moon with a soft halo (always in the sky, brighter above the storm)
+  const cloudCover=Math.max(0,0.9-weather.intensity);
+  const moonF=Math.max(0.18,starF*0.9+0.03);
+  const mx=canvas.width*0.74, my=canvas.height*0.16;
+  const gl=ctx.createRadialGradient(mx,my,4,mx,my,80);
+  gl.addColorStop(0,`rgba(240,235,200,${moonF*0.5})`);gl.addColorStop(1,"rgba(240,235,200,0)");
+  ctx.fillStyle=gl;ctx.fillRect(mx-80,my-80,160,160);
+  ctx.fillStyle=`rgba(252,247,222,${moonF})`;
+  ctx.beginPath();ctx.arc(mx,my,22,0,Math.PI*2);ctx.fill();
+  // Carve the crescent
+  ctx.fillStyle=currentTheme.bgTop;
+  ctx.beginPath();ctx.arc(mx-10,my-6,18,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
+  ctx.beginPath();ctx.arc(mx,my,22,Math.PI*0.8,Math.PI*1.2);ctx.stroke();
 
   // Distant drifting cloud bank (slow parallax) for depth
   ctx.fillStyle="rgba(130,150,210,0.08)";
