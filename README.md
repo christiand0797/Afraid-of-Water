@@ -38,6 +38,8 @@ Or open `index.html` locally in any browser.
 - 🌍 global leaderboard via the Node API (device + worldwide)
 - 🎖️ achievements (trophies) screen with unread badge + reset-progress
 - 🐾 & v1.5.0 version/trophy footer
+- ❄️ Arctic-theme snowfall, music bass layer, and menu selection tap sounds
+- 🎮 Forgiveness & feedback: jump coyote-time + input buffering, floating score/combo popups, combo-driven magnet that reels in fish, and best-streak shown at game over
 
 ## Deploy on Render
 
