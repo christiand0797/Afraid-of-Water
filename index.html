@@ -548,7 +548,7 @@ let loopId=0; // cancels old RAF loops so restart always works
 let checkpoint=null; // death snapshot for CONTINUE
 let invulnTimer=0;
 let cat,water,platforms=[],rain=[],sharks=[],tentacles=[],debris=[],particles=[],collectibles=[],fog=[],seaCreatures=[],birds=[],windowNPCs=[];
-let fallingBricks=[],hangingSigns=[],pigeons=[],steamVents=[],acBlows=[];
+let fallingBricks=[],hangingSigns=[],pigeons=[],steamVents=[],acBlows=[],securityLasers=[],satDishes=[],chimneys=[];
 let drifts=[],floaters=[],craneHooks=[],newspaperSwarm=[];
 const keys={left:false,right:false,up:false,dive:false};
 const generatedSectors={},windowRegistry={};
@@ -595,6 +595,40 @@ function sfxJump(){playTone(420,"sine",0.05,0.2);setTimeout(()=>playTone(640,"tr
 function sfxDouble(){playTone(560,"triangle",0.04,0.14);setTimeout(()=>playTone(820,"sine",0.09,0.11),28)}
 function sfxCollect(){if(playBuf("coin",0.5))return;playTone(1400,"sine",0.04,0.14);setTimeout(()=>playTone(2100,"triangle",0.08,0.11),40)}
 function sfxImpact(){playTone(90,"triangle",0.12,0.14);playTone(55,"sine",0.15,0.08)}
+function sfxLaserArm(){playTone(1200,"sine",0.04,0.06);playTone(1800,"sine",0.08,0.05)}
+function sfxLaserOff(){playTone(600,"sine",0.05,0.04)}
+function sfxLaserZap(){
+  playTone(1400,"sine",0.05,0.14);
+  playTone(220,"triangle",0.12,0.12);
+  playTone(90,"sine",0.18,0.1);
+}
+let laserHumOsc=null,laserHumGain=null;
+function setLaserHum(on){
+  if(!audioCtx||!soundOn)return;
+  try{
+    if(on){
+      if(laserHumOsc)return;
+      laserHumOsc=audioCtx.createOscillator();
+      laserHumOsc.type="sine";
+      laserHumOsc.frequency.value=780;
+      const o2=audioCtx.createOscillator();o2.type="sine";o2.frequency.value=1560;
+      laserHumGain=audioCtx.createGain();laserHumGain.gain.value=0.0001;
+      const f=audioCtx.createBiquadFilter();f.type="bandpass";f.frequency.value=900;f.Q.value=4;
+      laserHumOsc.connect(f);o2.connect(f);f.connect(laserHumGain);
+      laserHumGain.connect(masterFilter||audioCtx.destination);
+      laserHumOsc.start();o2.start();
+      laserHumOsc._o2=o2;
+      laserHumGain.gain.setTargetAtTime(0.018,audioCtx.currentTime,0.15);
+    }else if(laserHumGain){
+      laserHumGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.1);
+      const osc=laserHumOsc,g=laserHumGain;
+      setTimeout(()=>{
+        try{if(osc){osc.stop();if(osc._o2)osc._o2.stop()}}catch(e){}
+        if(laserHumOsc===osc){laserHumOsc=null;laserHumGain=null}
+      },200);
+    }
+  }catch(e){laserHumOsc=null;laserHumGain=null}
+}
 function playSlide(f0,f1,d,v){if(!soundOn||!audioCtx)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type="triangle";o.frequency.setValueAtTime(f0,now);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),now+d);const g0=Math.max(0.0001,v);g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.004);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.05,d));o.connect(g);g.connect(masterFilter||audioCtx.destination);o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};o.start(now);o.stop(now+Math.max(0.05,d)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
 let noiseBuf=null,brownBuf=null;
 // White noise — short bursts only (SFX). Seamless fade at edges to avoid clicks.
@@ -803,112 +837,149 @@ function sfxDive(){playTone(200,"sine",0.15,0.2);setTimeout(()=>playTone(120,"si
 function sfxBubble(){playTone(400+Math.random()*200,"sine",0.05,0.08)}
 
 // ============================================================
-// SPOOKY FLOOD THEME — full multi-section song (not a short loop)
-// Structure: Intro → Verse → Build → Chorus → Bridge → Verse2 → Chorus → Outro → repeat
-// Key: D minor / D phrygian (spooky). Catchy ostinato + rising tension.
+// EVOLVING PROCEDURAL SCORE — never the same twice
+// Markov melodies + shifting modes/tempo/mood every phrase
+// Soft sine/triangle only (no noise/square spam)
 // ============================================================
 let musicSrc=null,musicGain=null,musicBus=null;
-let musicBeat=0,musicBar=0,musicSection=0;
-const BPM=96;
-const BEAT_MS=Math.round(60000/BPM); // ~625ms per beat
-// Scale degrees in Hz (D3 root) — minor + phrygian flat-2 for dread
-const ROOT=146.83; // D3
-const DEG={
-  1:ROOT,          // D
-  b2:ROOT*16/15,   // Eb (phrygian)
-  2:ROOT*9/8,      // E
-  b3:ROOT*6/5,     // F
-  3:ROOT*5/4,      // F#
-  4:ROOT*4/3,      // G
-  b5:ROOT*45/32,   // Ab
-  5:ROOT*3/2,      // A
-  b6:ROOT*8/5,     // Bb
-  6:ROOT*5/3,      // B
-  b7:ROOT*9/5,     // C
-  7:ROOT*15/8,     // C#
-  8:ROOT*2         // D4
-};
-// 8-bar sections — each entry is 8 bars of chord roots (scale degree keys)
-const SONG_SECTIONS=[
-  {name:"intro",bars:8,chords:["1","1","b6","b6","4","4","5","5"],mel:[["1","b3","5","8"],["1","b3","4","5"],["b6","1","b3","5"],["b6","b3","5","8"],["4","b6","1","4"],["4","5","b7","8"],["5","b7","8","5"],["5","4","b3","1"]],dens:0.35,bass:true,pad:true,lead:false,pulse:false},
-  {name:"verse",bars:8,chords:["1","b7","b6","5","1","b7","4","5"],mel:[["1","b3","5","b3"],["b7","2","4","2"],["b6","1","b3","1"],["5","b7","2","5"],["1","5","8","b3"],["b7","4","b7","2"],["4","b6","8","4"],["5","8","5","b3"]],dens:0.7,bass:true,pad:true,lead:true,pulse:true},
-  {name:"build",bars:4,chords:["b6","4","5","5"],mel:[["b6","b6","1","b3"],["4","4","5","b7"],["5","5","8","5"],["5","b7","8","b2"]],dens:0.85,bass:true,pad:true,lead:true,pulse:true},
-  {name:"chorus",bars:8,chords:["1","b6","4","5","1","b6","b7","5"],mel:[["1","5","8","5","b3","5"],["b6","b3","8","b3"],["4","1","8","4"],["5","b7","8","5"],["1","5","8","b7","5"],["b6","1","b3","5"],["b7","2","5","b7"],["5","8","5","1"]],dens:1.0,bass:true,pad:true,lead:true,pulse:true},
-  {name:"bridge",bars:8,chords:["b2","1","b6","5","b2","b3","4","5"],mel:[["b2","4","b6","b2"],["1","b3","5","1"],["b6","1","4","b6"],["5","1","5","b7"],["b2","b6","b2","4"],["b3","5","b3","1"],["4","b6","8","4"],["5","b7","5","1"]],dens:0.55,bass:true,pad:true,lead:true,pulse:false},
-  {name:"verse2",bars:8,chords:["1","5","b6","b7","1","4","5","1"],mel:[["1","b3","5","8"],["5","b7","5","2"],["b6","b3","1","b6"],["b7","2","4","b7"],["1","5","8","b3"],["4","b6","4","1"],["5","8","5","b7"],["1","5","b3","1"]],dens:0.75,bass:true,pad:true,lead:true,pulse:true},
-  {name:"chorus2",bars:8,chords:["1","b6","4","5","1","b6","b7","5"],mel:[["1","5","8","5","b3","8"],["b6","b3","8","5"],["4","1","8","b7"],["5","8","5","1"],["1","5","8","5"],["b6","1","b3","8"],["b7","5","b7","2"],["5","8","b7","5"]],dens:1.0,bass:true,pad:true,lead:true,pulse:true},
-  {name:"outro",bars:4,chords:["1","b6","5","1"],mel:[["1","b3","5"],["b6","1","b3"],["5","1","5"],["1","1","1","1"]],dens:0.4,bass:true,pad:true,lead:false,pulse:false}
+let musicBeat=0,musicBar=0,musicPhrase=0;
+let musicSeed=1,melCursor=0,melPhrase=[],bassPhrase=[],modeIdx=0,mood=0;
+const BEAT_MS=520; // ~115 BPM base; drifts with mood
+
+// Multiple spooky/catchy scales (Hz relative to root)
+const MODES=[
+  // D natural minor
+  [146.83,164.81,174.61,196.00,220.00,233.08,261.63,293.66],
+  // D phrygian
+  [146.83,155.56,174.61,196.00,220.00,233.08,261.63,293.66],
+  // D dorian
+  [146.83,164.81,174.61,196.00,220.00,246.94,261.63,293.66],
+  // A minor (higher)
+  [220.00,246.94,261.63,293.66,329.63,349.23,392.00,440.00],
+  // E harmonic minor-ish
+  [164.81,185.00,196.00,220.00,246.94,261.63,311.13,329.63],
+  // C minor
+  [130.81,146.83,155.56,174.61,196.00,207.65,233.08,261.63]
 ];
-function degHz(d){
-  if(typeof d==="number")return d;
-  return DEG[d]||ROOT;
+const MOODS=[
+  {name:"lurk",dens:0.35,bassEvery:2,leadOct:2,pad:true,tempo:1.15},
+  {name:"climb",dens:0.7,bassEvery:1,leadOct:2,pad:true,tempo:1.0},
+  {name:"chase",dens:0.95,bassEvery:1,leadOct:2.5,pad:false,tempo:0.82},
+  {name:"storm",dens:0.8,bassEvery:1,leadOct:2,pad:true,tempo:0.9},
+  {name:"float",dens:0.4,bassEvery:2,leadOct:3,pad:true,tempo:1.25},
+  {name:"finale",dens:1.0,bassEvery:1,leadOct:2.5,pad:true,tempo:0.75}
+];
+
+function mrand(){ // seeded random for repeatable phrases within a phrase only
+  musicSeed=(musicSeed*1664525+1013904223)>>>0;
+  return (musicSeed&0xffff)/0xffff;
 }
+function pick(arr){return arr[Math.floor(mrand()*arr.length)]}
+
 function playMusicNote(freq,type,dur,vol,slideTo){
   if(!soundOn||!audioCtx||!musicBus)return;
-  if(audioVoices>28)return;
+  if(audioVoices>14)return; // hard cap — prevents glitchy stack
   try{
     audioVoices++;
     const now=audioCtx.currentTime;
     const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-    o.type=type||"triangle";
-    o.frequency.setValueAtTime(Math.max(30,freq),now);
-    if(slideTo)o.frequency.exponentialRampToValueAtTime(Math.max(30,slideTo),now+dur*0.9);
-    const v=Math.max(0.0001,vol||0.08);
+    o.type=type||"sine";
+    o.frequency.setValueAtTime(Math.max(40,freq),now);
+    if(slideTo)o.frequency.exponentialRampToValueAtTime(Math.max(40,slideTo),now+dur*0.85);
+    const v=Math.max(0.0001,vol||0.06);
     g.gain.setValueAtTime(0.00001,now);
-    g.gain.exponentialRampToValueAtTime(v,now+0.02);
-    g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.05,dur));
+    g.gain.exponentialRampToValueAtTime(v,now+0.03);
+    g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.08,dur));
     o.connect(g);g.connect(musicBus);
     o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};
-    o.start(now);o.stop(now+Math.max(0.05,dur)+0.05);
+    o.start(now);o.stop(now+Math.max(0.08,dur)+0.06);
   }catch(e){audioVoices=Math.max(0,audioVoices-1)}
 }
+
+// Build a fresh 8–16 note melody that never copies the last phrase
+function genMelody(){
+  const scale=MODES[modeIdx%MODES.length];
+  const len=8+Math.floor(mrand()*8); // 8–15 notes
+  const out=[];
+  let deg=Math.floor(mrand()*5); // start mid-low
+  for(let i=0;i<len;i++){
+    // Markov: step, skip, or leap
+    const r=mrand();
+    if(r<0.45)deg+=mrand()<0.5?1:-1;
+    else if(r<0.7)deg+=mrand()<0.5?2:-2;
+    else if(r<0.85)deg+=mrand()<0.5?3:-3;
+    else deg=Math.floor(mrand()*scale.length);
+    deg=Math.max(0,Math.min(scale.length-1,deg));
+    // rests ~15%
+    out.push(mrand()<0.15?-1:deg);
+  }
+  // ensure not identical to previous by mutating one note
+  if(melPhrase.length&&out.every((v,i)=>v===melPhrase[i%melPhrase.length])){
+    out[Math.floor(mrand()*out.length)]=Math.floor(mrand()*scale.length);
+  }
+  return out;
+}
+function genBass(){
+  const scale=MODES[modeIdx%MODES.length];
+  // chord roots cycling
+  const roots=[0,0,3,4,0,5,3,4];
+  return roots.map(d=>scale[d%scale.length]*0.5);
+}
+
+function newPhrase(){
+  musicSeed=(Date.now()^(musicPhrase*9973)^(score|0))>>>0;
+  // evolve mode & mood over time — always changing
+  if(musicPhrase%2===0)modeIdx=(modeIdx+1+Math.floor(mrand()*2))%MODES.length;
+  if(musicPhrase%3===0)mood=(mood+1)%MOODS.length;
+  // late-game intensity
+  if(typeof level==="number"&&level>=4&&mrand()<0.4)mood=2; // chase
+  if(typeof level==="number"&&level>=5&&mrand()<0.35)mood=5; // finale
+  melPhrase=genMelody();
+  bassPhrase=genBass();
+  melCursor=0;
+  musicPhrase++;
+}
+
 function musicStep(){
   if(!soundOn||!audioCtx||state!=="PLAYING")return;
-  const sec=SONG_SECTIONS[musicSection%SONG_SECTIONS.length];
-  const barInSec=musicBar%sec.bars;
-  const chordKey=sec.chords[barInSec]||"1";
-  const chordHz=degHz(chordKey);
-  const beat=musicBeat%4; // 4/4
+  const m=MOODS[mood]||MOODS[1];
+  const scale=MODES[modeIdx%MODES.length];
+  if(!melPhrase.length)newPhrase();
 
-  // --- Pad (held chord tone) on beat 0 ---
-  if(sec.pad&&beat===0){
-    playMusicNote(chordHz*0.5,"sine",BEAT_MS*3.6/1000,0.045*sec.dens);
-    playMusicNote(chordHz,"triangle",BEAT_MS*3.2/1000,0.03*sec.dens);
-    playMusicNote(chordHz*1.5,"sine",BEAT_MS*2.8/1000,0.02*sec.dens); // fifth
+  const beat=musicBeat%8; // 8-beat bars feel less gridlocked
+
+  // Pad on bar starts
+  if(m.pad&&beat===0){
+    const root=scale[0];
+    playMusicNote(root*0.5,"sine",BEAT_MS*3.2/1000*m.tempo,0.035);
+    playMusicNote(root,"sine",BEAT_MS*2.8/1000*m.tempo,0.02);
   }
-  // --- Bass pulse ---
-  if(sec.bass&&(beat===0||beat===2)){
-    playMusicNote(chordHz*0.5,"triangle",BEAT_MS*0.7/1000,0.09*sec.dens);
-    if(beat===0)playMusicNote(chordHz*0.25,"sine",BEAT_MS*1.1/1000,0.06*sec.dens);
+  // Bass
+  if(beat%Math.max(1,m.bassEvery*2)===0){
+    const b=bassPhrase[(musicBar|0)%bassPhrase.length]||scale[0]*0.5;
+    playMusicNote(b,"triangle",BEAT_MS*0.85/1000*m.tempo,0.07);
   }
-  // --- Catchy lead motif ---
-  if(sec.lead){
-    const motif=sec.mel[barInSec]||sec.mel[0];
-    const noteIdx=beat%motif.length;
-    // denser in chorus: play on every beat; verse often on 0,1,2
-    if(beat<motif.length&&(sec.dens>0.8||beat!==3||Math.random()<0.6)){
-      const nHz=degHz(motif[noteIdx])*2; // octave up for lead
-      const next=degHz(motif[(noteIdx+1)%motif.length])*2;
-      playMusicNote(nHz,"triangle",BEAT_MS*0.55/1000,0.022*sec.dens,sec.name.indexOf("chorus")>=0?next:null);
-      // ghost harmony
-      if(sec.dens>0.85)playMusicNote(nHz*1.5,"sine",BEAT_MS*0.4/1000,0.012*sec.dens);
+  // Lead melody — procedural sequence
+  if(mrand()<m.dens){
+    const deg=melPhrase[melCursor%melPhrase.length];
+    melCursor++;
+    if(deg>=0){
+      const f=scale[deg%scale.length]*m.leadOct;
+      const nextDeg=melPhrase[melCursor%melPhrase.length];
+      const slide=nextDeg>=0&&mrand()<0.35?scale[nextDeg%scale.length]*m.leadOct:null;
+      playMusicNote(f,"triangle",BEAT_MS*(0.45+mrand()*0.4)/1000*m.tempo,0.03,slide);
+      // occasional soft fifth harmony
+      if(m.dens>0.75&&mrand()<0.25)playMusicNote(f*1.5,"sine",BEAT_MS*0.35/1000,0.012);
     }
   }
-  // pulse noise removed (was continuous static)
-  // --- Occasional spooky high drip ---
-  if(Math.random()<0.08*sec.dens){
-    playMusicNote(ROOT*8*(1+Math.random()*0.5),"sine",0.35,0.018,ROOT*4);
-  }
-
+  // New phrase every 4 bars (~16–32 beats)
   musicBeat++;
-  if(musicBeat%4===0){
-    musicBar++;
-    if(musicBar%sec.bars===0){
-      musicSection++;
-      // full song length before repeat: sum of all section bars
-    }
+  if(musicBeat%8===0)musicBar++;
+  if(musicBar>0&&musicBar%4===0&&musicBeat%8===0){
+    newPhrase();
   }
 }
+
 function startMusic(){
   if(!soundOn||musicTimer)return;
   initAudio();
@@ -916,35 +987,31 @@ function startMusic(){
   try{
     if(!musicBus){
       musicBus=audioCtx.createGain();
-      musicBus.gain.value=0.55;
-      // Mild lowpass so music sits under SFX
+      musicBus.gain.value=0.42;
       const mf=audioCtx.createBiquadFilter();
-      mf.type="lowpass";mf.frequency.value=4200;
+      mf.type="lowpass";mf.frequency.value=3600;
       musicBus.connect(mf);mf.connect(masterFilter||audioCtx.destination);
     }
   }catch(e){}
-  musicBeat=0;musicBar=0;musicSection=0;
-  // Prefer the generative full song over the short music.ogg loop
-  musicTimer=setInterval(musicStep,BEAT_MS);
-  // Optional: very quiet real music.ogg underneath if present (texture only)
-  if(audioCtx&&soundBufs&&soundBufs["music"]&&!musicSrc){
-    try{
-      musicSrc=audioCtx.createBufferSource();
-      musicSrc.buffer=soundBufs["music"];
-      musicSrc.loop=true;
-      musicGain=audioCtx.createGain();
-      musicGain.gain.value=0.08; // barely there bed
-      musicSrc.connect(musicGain);musicGain.connect(masterFilter||audioCtx.destination);
-      musicSrc.start();
-    }catch(e){musicSrc=null}
-  }
+  musicBeat=0;musicBar=0;musicPhrase=0;melPhrase=[];
+  newPhrase();
+  // Always procedural — no short music.ogg loop
+  if(musicSrc){try{musicSrc.stop()}catch(e){}musicSrc=null}
+  const tick=()=>{
+    if(!soundOn||state!=="PLAYING"){musicTimer=null;return}
+    try{musicStep()}catch(e){}
+    const m=MOODS[mood]||MOODS[1];
+    musicTimer=setTimeout(tick, Math.max(280, BEAT_MS*(m.tempo||1)));
+  };
+  tick();
 }
 function stopMusic(){
-  if(musicTimer){clearInterval(musicTimer);musicTimer=null}
+  if(musicTimer){clearTimeout(musicTimer);musicTimer=null}
   try{if(musicSrc){musicSrc.stop();musicSrc=null}}catch(e){musicSrc=null}
   if(musicGain){try{musicGain.disconnect()}catch(e){}musicGain=null}
-  musicBeat=0;musicBar=0;musicSection=0;
+  musicBeat=0;musicBar=0;melPhrase=[];
 }
+
 function updateMuteBtn(){if(muteBtn)muteBtn.innerText=soundOn?"🔊":"🔇"}
 function toggleSound(){
   soundOn=!soundOn;save();
@@ -1133,7 +1200,7 @@ function openPause(){if(state!=="PLAYING")return;paused=true;if(pauseScreen)paus
 function closePause(){paused=false;if(pauseScreen)pauseScreen.classList.add("hidden")}
 function goToMenu(){
   closePause();state="START";loopId++;
-  stopMusic();stopWaves();killRain(); // silence ambient when back on the menu
+  stopMusic();stopWaves();killRain();try{setLaserHum(false)}catch(e){} // silence ambient when back on the menu
   resetKeys();paused=false;
   [startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen].forEach(s=>{if(s)s.classList.add("hidden")});
   if(ui)ui.classList.add("hidden");if(controls)controls.classList.add("hidden");
@@ -1417,7 +1484,7 @@ knockbackTimer=0;invulnTimer=0;checkpoint=null;
     };
     water={worldY:(canvas.height||640)-48,baseSpeed:0.88*(currentDiff.waterMul||1)};
     platforms=[];sharks=[];tentacles=[];debris=[];rain=[];particles=[];collectibles=[];fog=[];popups=[];seaCreatures=[];
-    birds=[];windowNPCs=[];fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];acBlows=[];
+    birds=[];windowNPCs=[];fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];acBlows=[];securityLasers=[];satDishes=[];chimneys=[];
     drifts=[];floaters=[];craneHooks=[];newspaperSwarm=[];
     for(let k in generatedSectors)delete generatedSectors[k];
     for(let k in windowRegistry)delete windowRegistry[k];
@@ -1453,15 +1520,14 @@ knockbackTimer=0;invulnTimer=0;checkpoint=null;
 function generateWorldSector(sectorY){
   if(generatedSectors[sectorY])return;
   generatedSectors[sectorY]=true;
-  const BSPAN=600; // middle-ground spacing
+  const BSPAN=500; // closer buildings
+  const BW=430;    // wide facades
   const baseY=sectorY*480;let cy=baseY+420;
   while(cy>baseY+25){
-    // Bigger vertical gaps between platform rows — breathing room
-    cy-=(Math.random()*40+95);
+    cy-=(Math.random()*36+88);
     for(let bo=-3;bo<=3;bo++){
-      // occasional skip for a bit of air
-      if(Math.random()<0.15)continue;
-      const bx=bo*BSPAN+80,bw=380;
+      if(Math.random()<0.1)continue;
+      const bx=bo*BSPAN+60,bw=BW;
       let t="ledge",ph=16;const r=Math.random();
       if(r>0.88)t="stairs";
       else if(r>0.78)t="cracked";
@@ -1473,15 +1539,27 @@ function generateWorldSector(sectorY){
       const mv=level>=3&&Math.random()<0.22&&t!=="stairs"&&t!=="cracked";
       platforms.push({worldX:px,worldY:cy,w:pw,h:ph,type:t,vx:mv?(Math.random()>0.5?2:-2):0,buildingIdx:bo,hp:t==="cracked"?1:99,broken:false});
       if(Math.random()>0.84){const rr=Math.random();collectibles.push({worldX:px+pw/2-10,worldY:cy-34,active:true,kind:rr>0.96?"bomb":(rr>0.9?"amp":(rr>0.78?"gold":(rr>0.66?"bubble":"fish")))});}
-      if(Math.random()>0.93)windowNPCs.push({worldX:bx+50+Math.random()*260,worldY:cy-15-Math.random()*30,cooldown:0,swinging:0});
-      if(Math.random()>0.94)hangingSigns.push({worldX:bx+80+Math.random()*220,worldY:cy-50-Math.random()*40,w:30+Math.random()*40,swing:Math.random()*Math.PI*2,type:Math.random()>0.5?"laundry":"sign"});
+      if(Math.random()>0.93)windowNPCs.push({worldX:bx+40+Math.random()*(bw-80),worldY:cy-15-Math.random()*30,cooldown:0,swinging:0});
+      if(Math.random()>0.94)hangingSigns.push({worldX:bx+60+Math.random()*(bw-100),worldY:cy-50-Math.random()*40,w:30+Math.random()*40,swing:Math.random()*Math.PI*2,type:Math.random()>0.5?"laundry":"sign"});
       if(Math.random()>0.95)pigeons.push({worldX:px+Math.random()*pw,worldY:cy-8,vx:0,flyTimer:0,dir:Math.random()>0.5?1:-1});
-      if(Math.random()>0.96)steamVents.push({worldX:bx+30+Math.random()*320,worldY:cy+5,timer:Math.random()*60});
+      if(Math.random()>0.96)steamVents.push({worldX:bx+30+Math.random()*(bw-60),worldY:cy+5,timer:Math.random()*60});
       if(level>=2&&Math.random()>0.93)acBlows.push({worldX:bx+20+Math.random()*(bw-60),worldY:cy-26,timer:Math.random()*120,on:0});
-      // Bridges rarer — longer spans between buildings
-      if(Math.random()<0.16&&bo<3&&t!=="stairs"&&t!=="cracked"){
-        platforms.push({worldX:bx+bw-120,worldY:cy-6,w:Math.random()*40+140,h:8,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
+      // Full-span bridges: connect this building all the way to the next
+      if(Math.random()<0.28&&bo<3&&t!=="stairs"){
+        const gapStart=bx+bw-24;
+        const gapW=BSPAN-bw+48; // reaches into both facades
+        platforms.push({worldX:gapStart,worldY:cy-4,w:gapW,h:10,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
       }
+      // Security lasers across alleys / rooftop gaps (level 2+)
+      if(level>=2&&Math.random()>0.88&&bo<3){
+        securityLasers.push({
+          x1:bx+bw-10, x2:bx+BSPAN+10, y:cy-50-Math.random()*40,
+          on:1, timer:40+Math.random()*80, phase:Math.random()*Math.PI*2
+        });
+      }
+      // Rooftop clutter once per building row
+      if(Math.random()>0.85)satDishes.push({worldX:bx+40+Math.random()*(bw-80),worldY:cy-70-Math.random()*30,ang:Math.random()*0.4-0.2});
+      if(Math.random()>0.88)chimneys.push({worldX:bx+30+Math.random()*(bw-60),worldY:cy-90,h:18+Math.random()*20});
     }
   }
 }
@@ -1549,7 +1627,7 @@ function gameLoopFrame(){
     // Low-oxygen emergency: audio beep + red pulsing wash
     if(oxygen<0.25*maxOxygen){
       oxygenFill.style.background="linear-gradient(180deg,#ff7b6b,#e74c3c)";
-      if(time%40===0){playTone(430,"sine",0.09,0.16);setTimeout(()=>playTone(390,"sine",0.09,0.16),120)}
+      if(time%90===0){playTone(380,"sine",0.06,0.08)}
     } else {
       oxygenFill.style.background="";
     }
@@ -1629,7 +1707,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
       const p=platforms[i];
       if(p.broken)continue;
       p.worldX+=p.vx||0;
-      const bLeft=p.buildingIdx*600+80;
+      const bLeft=p.buildingIdx*500+60;
       if(p.worldX<bLeft+10||p.worldX+p.w>bLeft+380)p.vx=-(p.vx||0);
       if(cat.vy>0&&cat.worldY+cat.h>=p.worldY&&cat.worldY+cat.h<=p.worldY+p.h+Math.abs(cat.vy)+2&&cat.worldX+cat.w>p.worldX&&cat.worldX<p.worldX+p.w){
         cat.grounded=true;cat.vy=0;cat.worldY=p.worldY-cat.h;cat.worldX+=(p.vx||0)*0.85;cat.jumps=0;
@@ -1738,7 +1816,41 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     }
   }
   // Hanging signs sway
-  for(let i=hangingSigns.length-1;i>=0;i--){
+  
+  // Security lasers — red beams that knock you down a level
+  let anyLaserOn=false;
+  for(let i=securityLasers.length-1;i>=0;i--){
+    const L=securityLasers[i];
+    L.timer--;L.phase+=0.08;
+    if(L.timer<=0){
+      const was=L.on;
+      L.on=L.on?0:1;
+      L.timer=L.on?(50+Math.random()*40):(30+Math.random()*50);
+      // only sfx if laser is near the player
+      if(Math.abs((L.x1+L.x2)/2-cat.worldX)<420){
+        if(L.on&&!was)sfxLaserArm();
+        if(!L.on&&was)sfxLaserOff();
+      }
+    }
+    if(L.on){
+      anyLaserOn=true;
+      const y=L.y+Math.sin(L.phase)*2;
+      if(cat.worldY+cat.h>y-4&&cat.worldY<y+6){
+        const cx=cat.worldX+cat.w/2;
+        if(cx>Math.min(L.x1,L.x2)&&cx<Math.max(L.x1,L.x2)){
+          knockback(cat.vx>=0?1:-1,20,14);
+          createParticles(cx,y,"#ff2244",10,8);
+          sfxLaserZap();
+        }
+      }
+    }
+    if(L.y>water.worldY+60)securityLasers.splice(i,1);
+  }
+  // Soft hum only while a laser near you is active
+  const nearLaser=securityLasers.some(L=>L.on&&Math.abs((L.x1+L.x2)/2-cat.worldX)<380);
+  setLaserHum(nearLaser);
+
+for(let i=hangingSigns.length-1;i>=0;i--){
     const hs=hangingSigns[i];hs.swing+=0.04;
     if(hs.worldY>water.worldY+60)hangingSigns.splice(i,1);
   }
@@ -2290,7 +2402,7 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
 
   // Buildings + rooftop clutter
   for(let bo=-3;bo<=3;bo++){
-    const bwx=bo*600+80,bsx=bwx-cameraX,bw=420;
+    const bwx=bo*500+60,bsx=bwx-cameraX,bw=430;
     if(bsx+bw<-30||bsx>canvas.width+30)continue;
     ctx.fillStyle=currentTheme.building;ctx.fillRect(bsx,0,bw,canvas.height);
     ctx.fillStyle="rgba(0,0,0,0.3)";ctx.fillRect(bsx,0,14,canvas.height);ctx.fillRect(bsx+bw-14,0,14,canvas.height);
@@ -2378,6 +2490,15 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
       ctx.beginPath();ctx.moveTo(antX-8,antY-10);ctx.lineTo(antX+8,antY-10);ctx.stroke();
       if(bo%3===0){ctx.fillStyle="#3a4555";ctx.fillRect(antX+20,antY,28,22);ctx.fillStyle="#2a3545";ctx.beginPath();ctx.arc(antX+34,antY,16,Math.PI,0);ctx.fill()}
     }
+        // Security camera under corner
+    if(bo%2===0){
+      const camX=bsx+bw-22, camY=120-cameraY*0.05;
+      if(camY>-10&&camY<canvas.height){
+        ctx.fillStyle="#1a1a1a";ctx.fillRect(camX,camY,10,6);
+        ctx.fillStyle="#2c3e50";ctx.beginPath();ctx.arc(camX+12,camY+3,5,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle="#e74c3c";ctx.globalAlpha=0.5+Math.sin(time*0.15)*0.3;ctx.beginPath();ctx.arc(camX+13,camY+3,1.5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+      }
+    }
     // Neon signs + rooftop billboards (glow as you climb past)
     const signY=150-cameraY*0.09;
     if(signY>-10&&signY<canvas.height*0.45){
@@ -2423,8 +2544,10 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
     for(let wy=sy;wy<sy+canvas.height+240;wy+=105){
       const wsy=wy-cameraY;
       if(wsy<-80||wsy>canvas.height+80)continue;
-      const ids=[bwx+"_a_"+wy,bwx+"_b_"+wy,bwx+"_c_"+wy],wxs=[48,170,292];
-      for(let k=0;k<3;k++){
+      // 5 windows across the facade
+      const ids=[bwx+"_a_"+wy,bwx+"_b_"+wy,bwx+"_c_"+wy,bwx+"_d_"+wy,bwx+"_e_"+wy];
+      const wxs=[28,108,188,268,348];
+      for(let k=0;k<5;k++){
         if(windowRegistry[ids[k]]===undefined){
           const roll=Math.random();
           windowRegistry[ids[k]]=roll>0.58?"#ffeb9f":(roll>0.35?"#1a2030":"#0a1018");
@@ -2434,8 +2557,8 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
         const lit=windowRegistry[ids[k]];
         const wx0=bsx+wxs[k], wy0=wsy+10;
         // Frame
-        ctx.fillStyle="#080e16";ctx.fillRect(wx0,wy0,46,54);
-        ctx.fillStyle=lit;ctx.fillRect(wx0+3,wy0+4,40,46);
+        ctx.fillStyle="#080e16";ctx.fillRect(wx0,wy0,42,52);
+        ctx.fillStyle=lit;ctx.fillRect(wx0+2,wy0+3,38,46);
         // Blinds
         if(windowRegistry[ids[k]+"_blind"]&&lit!=="#0a1018"){
           ctx.strokeStyle="rgba(60,50,30,0.45)";ctx.lineWidth=1.2;
@@ -2494,6 +2617,53 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
     }
   }
 
+  // Satellite dishes
+  for(let i=0;i<satDishes.length;i++){
+    const d=satDishes[i],dx=d.worldX-cameraX,dy=d.worldY-cameraY;
+    if(dx<-40||dx>canvas.width+40)continue;
+    ctx.strokeStyle="#6a7580";ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(dx,dy+16);ctx.lineTo(dx,dy);ctx.stroke();
+    ctx.save();ctx.translate(dx,dy);ctx.rotate(d.ang||0);
+    ctx.strokeStyle="#8a95a0";ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(0,0,12,Math.PI*0.15,Math.PI*0.85);ctx.stroke();
+    ctx.fillStyle="#5a6570";ctx.beginPath();ctx.arc(0,2,3,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+  // Chimneys with smoke
+  for(let i=0;i<chimneys.length;i++){
+    const c=chimneys[i],cx=c.worldX-cameraX,cy=c.worldY-cameraY;
+    if(cx<-20||cx>canvas.width+20)continue;
+    ctx.fillStyle="#3d2c2c";ctx.fillRect(cx,cy,14,c.h);
+    ctx.fillStyle="#2a1e1e";ctx.fillRect(cx-2,cy-4,18,5);
+    if(time%6===0)createParticles(c.worldX+7,c.worldY-2,"rgba(160,160,170,0.35)",1,2);
+  }
+  // Security lasers
+  for(let i=0;i<securityLasers.length;i++){
+    const L=securityLasers[i];
+    if(!L.on){
+      // emitter nodes dim
+      const ax=L.x1-cameraX,ay=L.y-cameraY,bx=L.x2-cameraX;
+      ctx.fillStyle="#333";ctx.fillRect(ax-3,ay-4,6,8);ctx.fillRect(bx-3,ay-4,6,8);
+      continue;
+    }
+    const y=L.y+Math.sin(L.phase)*2;
+    const ax=L.x1-cameraX,bx=L.x2-cameraX,ay=y-cameraY;
+    // glow
+    ctx.strokeStyle="rgba(255,40,60,0.25)";ctx.lineWidth=6;
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,ay);ctx.stroke();
+    ctx.strokeStyle="rgba(255,80,100,0.9)";ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,ay);ctx.stroke();
+    // scan sparkle
+    const t=(time*0.08+L.phase)%1;
+    const sx=ax+(bx-ax)*t;
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(sx,ay,2.2,0,Math.PI*2);ctx.fill();
+    // housings
+    ctx.fillStyle="#1a1a1a";ctx.fillRect(ax-4,ay-5,8,10);ctx.fillRect(bx-4,ay-5,8,10);
+    ctx.fillStyle="#e74c3c";ctx.fillRect(ax-2,ay-2,4,4);ctx.fillRect(bx-2,ay-2,4,4);
+  }
+  // Security cameras on building corners (visual)
+  // (drawn in building loop)
+
   // Platforms
   for(let i=0;i<platforms.length;i++){
     const p=platforms[i],psx=p.worldX-cameraX,psy=p.worldY-cameraY;
@@ -2532,10 +2702,19 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
       ctx.fillStyle="#9aa8b0";ctx.fillRect(psx,psy,p.w,p.h);
       ctx.fillStyle="#1a2530";for(let v=7;v<p.w-7;v+=12)ctx.fillRect(psx+v,psy+3,4,p.h-7);
     }else if(p.type==="bridge"){
-      ctx.fillStyle="#6d5634";ctx.fillRect(psx,psy,p.w,p.h);
-      ctx.fillStyle="#8a7148";ctx.fillRect(psx,psy+1,p.w,3);
-      ctx.fillStyle="#3d3327";for(let b=8;b<p.w-4;b+=14)ctx.fillRect(psx+b,psy+3,5,p.h-3);
-      ctx.strokeStyle="#c9b48a";ctx.lineWidth=2;ctx.strokeRect(psx+2,psy+p.h-2,p.w-4,2); // rope rail
+      // Full metal catwalk between buildings
+      ctx.fillStyle="#3a4555";ctx.fillRect(psx,psy,p.w,p.h);
+      ctx.strokeStyle="#6a7582";ctx.lineWidth=1;
+      for(let g=4;g<p.w;g+=6){ctx.beginPath();ctx.moveTo(psx+g,psy);ctx.lineTo(psx+g,psy+p.h);ctx.stroke()}
+      // side rails
+      ctx.strokeStyle="#8a95a0";ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(psx,psy);ctx.lineTo(psx,psy-12);ctx.lineTo(psx+p.w,psy-12);ctx.lineTo(psx+p.w,psy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(psx,psy-6);ctx.lineTo(psx+p.w,psy-6);ctx.stroke();
+      for(let r=8;r<p.w;r+=12){ctx.beginPath();ctx.moveTo(psx+r,psy-12);ctx.lineTo(psx+r,psy);ctx.stroke()}
+      // support cables
+      ctx.strokeStyle="rgba(180,180,160,0.5)";ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(psx+4,psy);ctx.lineTo(psx+p.w*0.25,psy-18);ctx.lineTo(psx+p.w*0.5,psy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(psx+p.w*0.5,psy);ctx.lineTo(psx+p.w*0.75,psy-18);ctx.lineTo(psx+p.w-4,psy);ctx.stroke();
       if(p.broken){ctx.fillStyle="#000";ctx.globalAlpha=0.5;ctx.fillRect(psx,psy,p.w,p.h);ctx.globalAlpha=1}
     }else{
       const sg=ctx.createLinearGradient(psx,psy,psx,psy+p.h);sg.addColorStop(0,"#dfe4e6");sg.addColorStop(1,"#7f8c8d");
