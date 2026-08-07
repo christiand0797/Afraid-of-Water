@@ -74,6 +74,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <div id="weatherLabel" class="hidden">DRIZZLE</div>
 <div id="oxygenBar"><div id="oxygenFill"></div></div>
 <div id="comboHud" class="hidden">COMBO ×<span id="comboVal">1</span></div>
+<div id="timeStopHud" class="hidden" style="position:absolute;top:max(96px,calc(env(safe-area-inset-top)+16px));left:50%;transform:translateX(-50%);font-family:'Creepster',cursive;color:#00dfe0;font-size:16px;text-shadow:0 0 12px #00dfe0,2px 2px 0 #000;pointer-events:none;z-index:12">❄ TIME STOP</div>
 <div id="skinBar" class="hidden"></div>
 <div id="dangerWarn"></div>
 <div id="hudBtns" class="hidden">
@@ -483,6 +484,7 @@ let shieldActive=false;
 let diving=false,oxygen=100,maxOxygen=100;
 let streak=0,streakTimer=0,comboMult=1,comboFlash=0,bestStreakRun=0;
 let coyoteTimer=0,jumpBuffer=0,popups=[];
+let ampTimer=0;
 let audioCtx;
 
 function initAudio(){try{if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();masterFilter=audioCtx.createBiquadFilter();masterFilter.type="lowpass";masterFilter.frequency.value=16000;masterGain=audioCtx.createGain();masterGain.gain.value=1;masterFilter.connect(masterGain);masterGain.connect(audioCtx.destination)}if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
@@ -494,6 +496,7 @@ function sfxJump(){playTone(520,"sine",0.06,0.25);setTimeout(()=>playTone(780,"s
 function sfxDouble(){playTone(680,"square",0.04,0.2);setTimeout(()=>playTone(920,"square",0.1,0.14),20)}
 function sfxCollect(){playTone(1400,"square",0.03,0.18);setTimeout(()=>playTone(2100,"square",0.08,0.14),40)}
 function sfxSplash(){playTone(60,"sawtooth",0.35,0.28)}
+function sfxPower(){playTone(300,"sine",0.12,0.2);setTimeout(()=>playTone(1500,"triangle",0.2,0.16),60)}
 function sfxThunder(){playTone(32,"sawtooth",0.7,0.3);setTimeout(()=>playTone(18,"sawtooth",1.0,0.2),160)}
 function sfxBuy(){playTone(800,"sine",0.08,0.2);setTimeout(()=>playTone(1200,"sine",0.12,0.15),50)}
 function sfxDive(){playTone(200,"sine",0.15,0.2);setTimeout(()=>playTone(120,"sine",0.2,0.15),80)}
@@ -942,7 +945,7 @@ function startGame(freeRestart){
 knockbackTimer=0;invulnTimer=0;checkpoint=null;
     milestone=0;milestoneBanner={text:"",t:0}; // reset milestone checkpoints
     waterDelay=150; // ~2.5s grace before the flood starts rising
-    state="PLAYING";score=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;
+    state="PLAYING";score=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;ampTimer=0;
     cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
     diving=false;oxygen=100;dangerWarn=0;
     streak=0;streakTimer=0;comboMult=1;comboFlash=0;
@@ -1025,7 +1028,7 @@ function generateWorldSector(sectorY){
       const px=bx+Math.random()*(bw-pw-26);
       const mv=level>=3&&Math.random()<0.28&&t!=="stairs"&&t!=="cracked";
       platforms.push({worldX:px,worldY:cy,w:pw,h:ph,type:t,vx:mv?(Math.random()>0.5?2:-2):0,buildingIdx:bo,hp:t==="cracked"?1:99,broken:false});
-      if(Math.random()>0.8)collectibles.push({worldX:px+pw/2-10,worldY:cy-34,active:true});
+      if(Math.random()>0.8){const r=Math.random();collectibles.push({worldX:px+pw/2-10,worldY:cy-34,active:true,kind:r>0.94?"amp":"fish"});}
       if(Math.random()>0.9)windowNPCs.push({worldX:bx+50+Math.random()*280,worldY:cy-15-Math.random()*30,cooldown:0,swinging:0});
       // Hanging laundry / signs
       if(Math.random()>0.92)hangingSigns.push({worldX:bx+80+Math.random()*250,worldY:cy-50-Math.random()*40,w:30+Math.random()*40,swing:Math.random()*Math.PI*2,type:Math.random()>0.5?"laundry":"sign"});
@@ -1114,6 +1117,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   if(jumpBuffer>0){jumpBuffer--;if((cat.grounded||coyoteTimer>0)&&jumpBuffer>0){jumpCat();jumpBuffer=0;}}
   // advance floating popups
   for(let i=popups.length-1;i>=0;i--){const p=popups[i];p.t+=0.07;p.y+=p.vy;p.vy=p.vy*0.97;if(p.t>1)popups.splice(i,1);}
+  const tsh=$("timeStopHud");if(tsh){if(ampTimer>0)tsh.classList.remove("hidden");else tsh.classList.add("hidden")}
 
   // Milestone checkpoint banners every 100m
   if(score>=100&&Math.floor(score/100)>milestone){
@@ -1253,6 +1257,8 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
 // Grace period: hold the flood still for a couple seconds at the start
   if(waterDelay>0){
     waterDelay--;
+  }else if(ampTimer>0){
+    ampTimer--; // TIME STOP: flood frozen, brief reprieve
   }else if(!diving){
     water.worldY-=water.baseSpeed;
   }
@@ -1274,6 +1280,10 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     }
     if(Math.hypot(cat.worldX+cat.w/2-c.worldX,cat.worldY+cat.h/2-c.worldY)<magnetR){
       c.active=false;
+      if(c.kind==="amp"){
+        ampTimer=720;sfxPower();riseText(c.worldX+c.w/2,c.worldY-8,"❄ TIME STOP!","#00dfe0");buzz(20);createParticles(c.worldX,c.worldY,"#a0e8ff",16,9);
+        continue;
+      }
       streak++;streakTimer=120;comboFlash=1;if(streak>bestStreakRun)bestStreakRun=streak;
       comboMult=Math.min(1+Math.floor(streak/4),8);
       score+=340*comboMult;if(score>highestScore)highestScore=score;
@@ -1673,7 +1683,17 @@ function draw(){
   for(let i=0;i<collectibles.length;i++){
     const c=collectibles[i];if(!c.active)continue;
     const hover=Math.sin(time*0.1+c.worldX*0.01)*4;
-    ctx.fillText("🐟",c.worldX-cameraX,c.worldY-cameraY+hover);
+    if(c.kind==="amp"){
+      ctx.save();
+      ctx.translate(c.worldX-cameraX,c.worldY-cameraY+hover);
+      ctx.rotate(Math.sin(time*0.15)*0.4);
+      ctx.font="16px Arial";ctx.textAlign="center";
+      ctx.fillText("⚡",0,6);
+      if(Math.sin(time*0.2)>0)ctx.fillText("❄",0,-4);
+      ctx.restore();
+    } else {
+      ctx.fillText("🐟",c.worldX-cameraX,c.worldY-cameraY+hover);
+    }
   }
   // Birds
   for(let i=0;i<birds.length;i++){
@@ -1957,6 +1977,12 @@ function draw(){
   const vg=ctx.createRadialGradient(canvas.width/2,canvas.height*0.45,canvas.height*0.3,canvas.width/2,canvas.height*0.5,canvas.height*0.85);
   vg.addColorStop(0,"rgba(0,0,0,0)");vg.addColorStop(1,"rgba(0,0,0,0.42)");
   ctx.fillStyle=vg;ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Icy blue wash while the flood is time-frozen
+  if(ampTimer>0){
+    ctx.fillStyle=`rgba(0,223,224,${0.05+Math.sin(time*0.2)*0.02})`;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
 
   // Rain
   ctx.lineWidth=1.3;
