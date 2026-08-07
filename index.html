@@ -567,7 +567,7 @@ let ampTimer=0;
 let bestAtStart=0;
 let comboBanner=0,comboBannerText="";
 let comboBannerColor="#f1c40f";
-let surgeTimer=0,surgeNext=0;
+let surgeTimer=0,surgeNext=0,surgeSplash=0;
 let nextBountyTarget=500;
 let audioCtx;
 
@@ -1538,6 +1538,31 @@ function generateWorldSector(sectorY){
       const px=bx+Math.random()*(bw-pw-26);
       const mv=level>=3&&Math.random()<0.22&&t!=="stairs"&&t!=="cracked";
       platforms.push({worldX:px,worldY:cy,w:pw,h:ph,type:t,vx:mv?(Math.random()>0.5?2:-2):0,buildingIdx:bo,hp:t==="cracked"?1:99,broken:false});
+      // Porch / balcony — solid climbable deck with rails (drawn as type porch)
+      if(Math.random()>0.4){
+        const porW=52+Math.random()*18;
+        const porX=bx+24+Math.random()*(bw-porW-40);
+        platforms.push({worldX:porX,worldY:cy-14,w:porW,h:9,type:"porch",vx:0,buildingIdx:bo,hp:99,broken:false,lit:Math.random()>0.5});
+      }
+      // Window sill under the main ledge
+      if(Math.random()>0.55){
+        platforms.push({worldX:px-6,worldY:cy+ph+2,w:Math.min(pw+12,70),h:7,type:"sill",vx:0,buildingIdx:bo,hp:99,broken:false});
+      }
+      // Open-sign top (climbable)
+      if(Math.random()>0.82){
+        const sx=bx+20+Math.random()*(bw-90);
+        platforms.push({worldX:sx,worldY:cy-48-Math.random()*20,w:70+Math.random()*20,h:8,type:"sign",vx:0,buildingIdx:bo,hp:99,broken:false});
+      }
+      // Fire-escape landings on building edges (climbable, world-fixed)
+      if(bo%2===0&&Math.random()>0.35){
+        platforms.push({worldX:bx+bw-48,worldY:cy-8,w:44,h:8,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
+      }else if(bo%2===1&&Math.random()>0.35){
+        platforms.push({worldX:bx+6,worldY:cy-8,w:44,h:8,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
+      }
+      // AC unit is already a platform when type===ac — also add a thin top lip for other ledges
+      if(t!=="ac"&&Math.random()>0.88){
+        platforms.push({worldX:bx+30+Math.random()*(bw-80),worldY:cy-28,w:36,h:10,type:"ac",vx:0,buildingIdx:bo,hp:99,broken:false});
+      }
       if(Math.random()>0.84){const rr=Math.random();collectibles.push({worldX:px+pw/2-10,worldY:cy-34,active:true,kind:rr>0.96?"bomb":(rr>0.9?"amp":(rr>0.78?"gold":(rr>0.66?"bubble":"fish")))});}
       if(Math.random()>0.93)windowNPCs.push({worldX:bx+40+Math.random()*(bw-80),worldY:cy-15-Math.random()*30,cooldown:0,swinging:0});
       if(Math.random()>0.94)hangingSigns.push({worldX:bx+60+Math.random()*(bw-100),worldY:cy-50-Math.random()*40,w:30+Math.random()*40,swing:Math.random()*Math.PI*2,type:Math.random()>0.5?"laundry":"sign"});
@@ -1870,7 +1895,14 @@ for(let i=hangingSigns.length-1;i>=0;i--){
     surgeNext=score+260+level*30;
     surgeTimer=120;
     comboBanner=100;comboBannerText="SURGE!";comboBannerColor="#e74c3c";
-    sfxSurge();shakeAmount=14;
+    sfxSurge();shakeAmount=18;
+    // Big splash wall along the waterline
+    for(let s=0;s<28;s++){
+      const sx=cameraX+Math.random()*canvas.width;
+      createParticles(sx,water.worldY,"#a0d8ff",4,14);
+      createParticles(sx,water.worldY-8,"#5dade2",3,12);
+    }
+    surgeSplash=50;
   }
   // Height milestone bounty (coins each 500 m)
   if(score>=nextBountyTarget){
@@ -2411,9 +2443,10 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
       const feX=bsx+bw-52; // hangs off the right edge of the facade
       const feW=44;
       const floorH=92;
-      const startY=Math.floor((-cameraY*0.25)/floorH)*floorH-floorH;
-      for(let fy=startY;fy<canvas.height+floorH*2;fy+=floorH){
-        const ly=fy;
+      const floorH2=105;
+      const startWorld=Math.floor(cameraY/floorH2)*floorH2-floorH2*2;
+      for(let wy=startWorld;wy<cameraY+canvas.height+floorH2*2;wy+=floorH2){
+        const ly=wy-cameraY;
         if(ly>canvas.height+40||ly<-80)continue;
         // Landing platform (grated)
         ctx.fillStyle="#2c3540";
@@ -2438,12 +2471,12 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
         const ladX=feX+feW-11;
         ctx.strokeStyle="#6a7580";ctx.lineWidth=2;
         ctx.beginPath();
-        ctx.moveTo(ladX,ly+63);ctx.lineTo(ladX,ly+floorH+58);
-        ctx.moveTo(ladX+7,ly+63);ctx.lineTo(ladX+7,ly+floorH+58);
+        ctx.moveTo(ladX,ly+63);ctx.lineTo(ladX,ly+105+58);
+        ctx.moveTo(ladX+7,ly+63);ctx.lineTo(ladX+7,ly+105+58);
         ctx.stroke();
         // Rungs
         ctx.lineWidth=1.4;
-        for(let ry=ly+70;ry<ly+floorH+55;ry+=9){
+        for(let ry=ly+70;ry<ly+105+55;ry+=9){
           ctx.beginPath();ctx.moveTo(ladX,ry);ctx.lineTo(ladX+7,ry);ctx.stroke();
         }
         // Wall mount brackets
@@ -2459,9 +2492,10 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
       const feX=bsx+8;
       const feW=44;
       const floorH=92;
-      const startY=Math.floor((-cameraY*0.25)/floorH)*floorH-floorH;
-      for(let fy=startY;fy<canvas.height+floorH*2;fy+=floorH){
-        const ly=fy;
+      const floorH2=105;
+      const startWorld=Math.floor(cameraY/floorH2)*floorH2-floorH2*2;
+      for(let wy=startWorld;wy<cameraY+canvas.height+floorH2*2;wy+=floorH2){
+        const ly=wy-cameraY;
         if(ly>canvas.height+40||ly<-80)continue;
         ctx.fillStyle="#2c3540";ctx.fillRect(feX,ly+58,feW,5);
         ctx.strokeStyle="#5a6570";ctx.lineWidth=1.6;
@@ -2474,9 +2508,9 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
         for(let bx=6;bx<feW-4;bx+=5){ctx.beginPath();ctx.moveTo(feX+bx,ly+40);ctx.lineTo(feX+bx,ly+58);ctx.stroke()}
         const ladX=feX+3;
         ctx.strokeStyle="#6a7580";ctx.lineWidth=2;
-        ctx.beginPath();ctx.moveTo(ladX,ly+63);ctx.lineTo(ladX,ly+floorH+58);ctx.moveTo(ladX+7,ly+63);ctx.lineTo(ladX+7,ly+floorH+58);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(ladX,ly+63);ctx.lineTo(ladX,ly+105+58);ctx.moveTo(ladX+7,ly+63);ctx.lineTo(ladX+7,ly+105+58);ctx.stroke();
         ctx.lineWidth=1.4;
-        for(let ry=ly+70;ry<ly+floorH+55;ry+=9){ctx.beginPath();ctx.moveTo(ladX,ry);ctx.lineTo(ladX+7,ry);ctx.stroke()}
+        for(let ry=ly+70;ry<ly+105+55;ry+=9){ctx.beginPath();ctx.moveTo(ladX,ry);ctx.lineTo(ladX+7,ry);ctx.stroke()}
         ctx.strokeStyle="#3a4550";ctx.lineWidth=2;
         ctx.beginPath();ctx.moveTo(feX+feW,ly+58);ctx.lineTo(feX+feW+8,ly+58);ctx.moveTo(feX+feW,ly+45);ctx.lineTo(feX+feW+8,ly+45);ctx.stroke();
       }
@@ -2683,17 +2717,46 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
       const g=ctx.createLinearGradient(psx,psy,psx,psy+p.h);g.addColorStop(0,"#c97d4a");g.addColorStop(1,"#7a3e18");
       ctx.fillStyle=g;ctx.fillRect(psx,psy,p.w,p.h);
       ctx.fillStyle="#a8b0b8";ctx.fillRect(psx,psy,5,p.h);ctx.fillRect(psx+p.w-5,psy,5,p.h);
+    }else if(p.type==="porch"){
+      // Climbable porch / balcony
+      ctx.fillStyle="#4a5568";ctx.fillRect(psx,psy,p.w,p.h);
+      ctx.fillStyle="#5c6b7a";ctx.fillRect(psx,psy,p.w,2);
+      // deck boards
+      ctx.strokeStyle="rgba(0,0,0,0.25)";ctx.lineWidth=1;
+      for(let b=4;b<p.w;b+=7){ctx.beginPath();ctx.moveTo(psx+b,psy);ctx.lineTo(psx+b,psy+p.h);ctx.stroke()}
+      // railing
+      ctx.strokeStyle="#c5ced6";ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(psx,psy);ctx.lineTo(psx,psy-14);ctx.lineTo(psx+p.w,psy-14);ctx.lineTo(psx+p.w,psy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(psx,psy-7);ctx.lineTo(psx+p.w,psy-7);ctx.stroke();
+      for(let r=6;r<p.w;r+=8){ctx.beginPath();ctx.moveTo(psx+r,psy-14);ctx.lineTo(psx+r,psy);ctx.stroke()}
+      // porch light
+      if(p.lit){
+        const gl=0.4+Math.sin(time*0.1)*0.15;
+        ctx.fillStyle=`rgba(255,220,120,${gl})`;ctx.beginPath();ctx.arc(psx+p.w-8,psy-18,3.5,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle=`rgba(255,200,80,${gl*0.2})`;ctx.beginPath();ctx.arc(psx+p.w-8,psy-18,11,0,Math.PI*2);ctx.fill();
+      }
+    }else if(p.type==="sill"){
+      ctx.fillStyle="#5d4e37";ctx.fillRect(psx,psy,p.w,p.h);
+      ctx.fillStyle="#8d6e63";ctx.fillRect(psx,psy,p.w,2);
+      ctx.fillStyle="rgba(0,0,0,0.3)";ctx.fillRect(psx,psy+p.h-2,p.w,2);
+    }else if(p.type==="sign"){
+      ctx.fillStyle="#1a1f28";ctx.fillRect(psx,psy,p.w,p.h);
+      ctx.fillStyle="#f1c40f";ctx.font="bold 9px Arial";ctx.textAlign="center";
+      ctx.fillText("OPEN",psx+p.w/2,psy-4);
+      ctx.fillStyle="#e74c3c";ctx.globalAlpha=0.5+Math.sin(time*0.2)*0.3;
+      ctx.fillRect(psx+4,psy+2,p.w-8,3);ctx.globalAlpha=1;
+      // brackets
+      ctx.strokeStyle="#333";ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(psx+6,psy+p.h);ctx.lineTo(psx+6,psy+p.h+6);ctx.moveTo(psx+p.w-6,psy+p.h);ctx.lineTo(psx+p.w-6,psy+p.h+6);ctx.stroke();
     }else if(p.type==="fire-escape"){
       // Metal grate landing like a real fire-escape balcony
       ctx.fillStyle="#2a3340";ctx.fillRect(psx,psy,p.w,p.h);
       ctx.strokeStyle="#6a7582";ctx.lineWidth=1;
       for(let gi=3;gi<p.w;gi+=5){ctx.beginPath();ctx.moveTo(psx+gi,psy);ctx.lineTo(psx+gi,psy+p.h);ctx.stroke()}
       for(let gi=2;gi<p.h;gi+=4){ctx.beginPath();ctx.moveTo(psx,psy+gi);ctx.lineTo(psx+p.w,psy+gi);ctx.stroke()}
-      // Side rails
       ctx.strokeStyle="#8a95a0";ctx.lineWidth=2;
       ctx.beginPath();ctx.moveTo(psx,psy);ctx.lineTo(psx,psy-10);ctx.lineTo(psx+p.w,psy-10);ctx.lineTo(psx+p.w,psy);ctx.stroke();
       ctx.beginPath();ctx.moveTo(psx,psy-5);ctx.lineTo(psx+p.w,psy-5);ctx.stroke();
-      // Tiny ladder stub hanging off one side
       ctx.strokeStyle="#7a8590";ctx.lineWidth=1.5;
       const lx=psx+p.w-6;
       ctx.beginPath();ctx.moveTo(lx,psy+p.h);ctx.lineTo(lx,psy+p.h+14);ctx.moveTo(lx+4,psy+p.h);ctx.lineTo(lx+4,psy+p.h+14);ctx.stroke();
@@ -2907,6 +2970,22 @@ ctx.fillText("⚡",0,6);
   ctx.beginPath();ctx.ellipse(shx,shy,cat.w*0.5,3.5,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle="rgba(0,0,0,0.12)";
   ctx.beginPath();ctx.ellipse(shx,shy+2,cat.w*0.7,5,0,0,Math.PI*2);ctx.fill();
+
+
+  // Surge splash sheet rising from water
+  if(typeof surgeSplash==="number"&&surgeSplash>0){
+    surgeSplash--;
+    const t=surgeSplash/50;
+    const wy=water.worldY-cameraY;
+    for(let i=0;i<18;i++){
+      const x=((i*97+time*3)%canvas.width);
+      const h=20+t*50+Math.sin(time*0.3+i)*12;
+      ctx.fillStyle=`rgba(160,220,255,${0.15+t*0.35})`;
+      ctx.beginPath();ctx.moveTo(x,wy);ctx.quadraticCurveTo(x+10,wy-h,x+20,wy);ctx.fill();
+    }
+    ctx.fillStyle=`rgba(90,170,220,${t*0.2})`;
+    ctx.fillRect(0,wy-30*t,canvas.width,40*t);
+  }
 
   // Character — detailed full body with articulated legs
   ctx.save();
