@@ -170,6 +170,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <p style="font-size:12px;margin:0 0 4px;color:#aaa">+ <span id="earnedCoins">0</span> coins · Rank <span id="rankText">—</span></p>
 <p style="font-size:12px;margin:0 0 10px;color:#aaa">Lives: <span id="livesLeft">0</span> · Best streak: <span id="bestStreakUI" style="color:#f1c40f">0</span></p>
 <button class="menu-btn teal" id="continueBtn">♥ CONTINUE (−1 life)</button>
+<button class="menu-btn" id="shareBtn" style="background:#16a085;border-color:#117964;box-shadow:0 5px 0 #0e5e4a">📋 SHARE</button>
 <button class="menu-btn" id="restartBtn">▶ TRY AGAIN (free)</button>
 <button class="menu-btn ad" id="extraLifeAdBtn">📺 WATCH AD → +1 LIFE</button>
 <button class="menu-btn gold" id="goLbFromOver" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 BOARD</button>
@@ -752,6 +753,10 @@ tap($("watchAdCoins"),watchAdCoins);
 tap($("goStoreFromOver"),()=>{show(storeScreen);renderStore()});
 tap($("goMenuFromOver"),()=>show(startScreen));
 tap($("goLbFromOver"),()=>{show(lbScreen);renderLB()});
+tap($("shareBtn"),()=>{
+  const msg="🐱 I made it "+((highestScore||score)+"m")+" in AFRAID OF WATER — caught by the flood! 🌊 🪙 "+coins+" coins · Streak "+bestStreakRun;
+  try{const inp=document.createElement("textarea");inp.value=msg;document.body.appendChild(inp);inp.select();document.execCommand("copy");inp.remove();toast("📋 Share text copied!")}catch(e){toast("🏆 "+msg)}
+});
 tap($("achBtn"),()=>{openAchievements()});
 tap($("backAch"),()=>show(startScreen));
 
