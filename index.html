@@ -309,13 +309,41 @@ function confettiBurst(){
 
 
 const THEMES=[
-  {id:"nyc",name:"NYC Flood",emoji:"🏙️",unlock:0,bgTop:"#0a1520",bgBot:"#122433",water:"rgba(16,125,115,.93)",waterMid:"rgba(14,58,80,.97)",building:"#16212c",hazard:"shark"},
-  {id:"tokyo",name:"Tokyo Storm",emoji:"🗼",unlock:180,bgTop:"#0d0a18",bgBot:"#1a1028",water:"rgba(80,40,140,.9)",waterMid:"rgba(40,20,80,.95)",building:"#1a1530",hazard:"eel"},
-  {id:"venice",name:"Venice Sunk",emoji:"🛶",unlock:450,bgTop:"#0a1815",bgBot:"#0f2a22",water:"rgba(20,140,160,.9)",waterMid:"rgba(10,70,90,.95)",building:"#152820",hazard:"jellyfish"},
-  {id:"arctic",name:"Arctic Melt",emoji:"🧊",unlock:900,bgTop:"#0a1520",bgBot:"#152535",water:"rgba(100,180,220,.85)",waterMid:"rgba(40,90,130,.95)",building:"#1a2838",hazard:"orca"},
-  {id:"volcano",name:"Lava Isle",emoji:"🌋",unlock:1800,bgTop:"#1a0808",bgBot:"#2a1010",water:"rgba(200,60,20,.9)",waterMid:"rgba(120,30,10,.95)",building:"#2a1510",hazard:"lavafish"},
-  {id:"neon",name:"Neon Skyline",emoji:"🌆",unlock:2600,bgTop:"#0d0b24",bgBot:"#1a1434",water:"rgba(0,140,255,.85)",waterMid:"rgba(20,40,120,.95)",building:"#141024",hazard:"shark"},
-  {id:"space",name:"Orbital Ruin",emoji:"🛸",unlock:3200,bgTop:"#050510",bgBot:"#0a0a20",water:"rgba(60,20,120,.9)",waterMid:"rgba(30,10,60,.95)",building:"#12122a",hazard:"voidling"}
+  {id:"nyc",name:"NYC Flood",emoji:"🏙️",unlock:0,
+    bgTop:"#0b1522",bgBot:"#1a2a3a",water:"rgba(20,110,120,.94)",waterMid:"rgba(12,50,70,.97)",
+    building:"#1a2838",building2:"#243040",accent:"#f1c40f",rain:"#8ecae6",
+    hazard:"shark",ads:["TAXI","SUBWAY","PIZZA","NYC","OPEN 24H"],
+    landmark:"🗽",feel:"brick · yellow cabs · fire escapes"},
+  {id:"tokyo",name:"Tokyo Storm",emoji:"🗼",unlock:180,
+    bgTop:"#12081e",bgBot:"#2a1538",water:"rgba(100,40,160,.92)",waterMid:"rgba(50,15,80,.96)",
+    building:"#1e1530",building2:"#2a1f40",accent:"#ff2d95",rain:"#e0b0ff",
+    hazard:"eel",ads:["ラーメン","NEON","夜","TOKYO","寿司"],
+    landmark:"🗼",feel:"pink neon · kanji signs · purple rain"},
+  {id:"venice",name:"Venice Sunk",emoji:"🛶",unlock:450,
+    bgTop:"#0a1c18",bgBot:"#143028",water:"rgba(30,150,160,.9)",waterMid:"rgba(10,70,80,.95)",
+    building:"#2a4a40",building2:"#3d5c50",accent:"#e8d5a3",rain:"#a8dadc",
+    hazard:"jellyfish",ads:["GELATO","CANAL","VENEZIA","GONDOLA","ART"],
+    landmark:"🛶",feel:"green canals · warm stucco · gondolas"},
+  {id:"arctic",name:"Arctic Melt",emoji:"🧊",unlock:900,
+    bgTop:"#0e1a28",bgBot:"#1e3048",water:"rgba(140,200,230,.88)",waterMid:"rgba(50,100,140,.95)",
+    building:"#2a3a4a",building2:"#3a4e5e",accent:"#a0e8ff",rain:"#d0e8ff",
+    hazard:"orca",ads:["ICE","NORTH","COLD","AURORA","MELT"],
+    landmark:"❄️",feel:"blue ice · aurora · pale snow"},
+  {id:"volcano",name:"Lava Isle",emoji:"🌋",unlock:1800,
+    bgTop:"#1a0606",bgBot:"#3a1010",water:"rgba(220,70,20,.92)",waterMid:"rgba(120,30,10,.96)",
+    building:"#2a1810",building2:"#3d2218",accent:"#ff6b00",rain:"#ffaa66",
+    hazard:"lavafish",ads:["HOT","LAVA","DANGER","ERUPT","FIRE"],
+    landmark:"🌋",feel:"ash sky · orange glow · magma flood"},
+  {id:"neon",name:"Neon Skyline",emoji:"🌆",unlock:2600,
+    bgTop:"#0a0820",bgBot:"#1a1040",water:"rgba(0,180,255,.88)",waterMid:"rgba(20,40,100,.95)",
+    building:"#12102a",building2:"#1e1840",accent:"#00ffc8",rain:"#7ef9ff",
+    hazard:"shark",ads:["CYBER","GRID","NEON","HACK","2077"],
+    landmark:"💡",feel:"cyan grid · holograms · night city"},
+  {id:"space",name:"Orbital Ruin",emoji:"🛸",unlock:3200,
+    bgTop:"#020208",bgBot:"#0a0a18",water:"rgba(80,20,140,.9)",waterMid:"rgba(30,10,60,.96)",
+    building:"#10101a",building2:"#1a1a2e",accent:"#b388ff",rain:"#c9a0ff",
+    hazard:"voidling",ads:["ORBIT","VOID","STAR","DOCK","ZERO-G"],
+    landmark:"🛸",feel:"stars · purple void · metal hulls"}
 ];
 
 // Full-body skins only (no face-emoji overlays)
@@ -1417,6 +1445,28 @@ function exitDive(){
   // no splash SFX — ocean ambient covers surfacing
 }
 
+
+function themeForScore(sc){
+  // Progressive zones as you climb — recognizable without a label
+  if(sc>=3200)return THEMES.find(t=>t.id==="space")||THEMES[6];
+  if(sc>=2600)return THEMES.find(t=>t.id==="neon")||THEMES[5];
+  if(sc>=1800)return THEMES.find(t=>t.id==="volcano")||THEMES[4];
+  if(sc>=900)return THEMES.find(t=>t.id==="arctic")||THEMES[3];
+  if(sc>=450)return THEMES.find(t=>t.id==="venice")||THEMES[2];
+  if(sc>=180)return THEMES.find(t=>t.id==="tokyo")||THEMES[1];
+  return THEMES.find(t=>t.id==="nyc")||THEMES[0];
+}
+function syncClimbTheme(){
+  // During a run, world shifts with height; menu selection is starting point only
+  if(state!=="PLAYING")return;
+  const next=themeForScore(score);
+  if(next&&currentTheme&&next.id!==currentTheme.id){
+    currentTheme=next;
+    announcePhase(next.emoji+" "+next.name.toUpperCase());
+    // Clear window lights so new palette can re-roll
+    for(let k in windowRegistry)delete windowRegistry[k];
+  }
+}
 function announcePhase(t){phaseAnnouncer.innerText=t;phaseAnnouncer.style.opacity=1;setTimeout(()=>phaseAnnouncer.style.opacity=0,2200)}
 
 function updateWeather(){
@@ -1536,7 +1586,7 @@ function startGame(freeRestart){
     if(highScoreUI)highScoreUI.innerText=highestScore;
     if(scoreEl)scoreEl.innerText="0m";
     if(levelEl)levelEl.innerText="1";
-    updateSkinBar();announcePhase(currentTheme.name.toUpperCase());
+    currentTheme=THEMES.find(t=>t.id===selectedTheme)||THEMES[0];updateSkinBar();announcePhase((currentTheme.emoji||'')+' '+currentTheme.name.toUpperCase());
 
     // Fresh loop bound to this run only
     function tick(){
@@ -1719,16 +1769,14 @@ function gameLoopFrame(){
   }
   updateWeather();
 
-  // Zone from THIS run's climb — not all-time high (that made Kraken spawn on start)
+  // Theme + zone from this run's climb
+  try{syncClimbTheme()}catch(e){}
   const newLevel=Math.min(6, Math.floor(score/280)+1);
   if(newLevel>level){
     level=newLevel;levelEl.innerText=level;
     water.baseSpeed=(0.88+level*0.22)*(currentDiff.waterMul||1);
-    if(level===2)announcePhase("STORM RISING");
-    if(level===3)announcePhase("DEEP WATERS");
-    if(level===4)announcePhase("KRAKEN ZONE");
-    if(level===5){announcePhase("SURGE");cat.maxJumps=3}
-    if(level===6)announcePhase("FINAL FLOOD");
+    if(level===5)cat.maxJumps=3;
+    // Theme banner already fired by syncClimbTheme on zone change
   }
 
   // Movement
@@ -2246,6 +2294,7 @@ if(c.kind==="gold"){
   }
 
   // Rain
+  const rainCol=currentTheme.rain||"#8ecae6";
   for(let i=0;i<rain.length;i++){
     const r=rain[i];
     r.y+=(16+r.z*9)*r.speed;r.x-=weather.wind*(0.35+r.z*0.3);
@@ -2477,6 +2526,63 @@ function draw(){
   const bg=ctx.createLinearGradient(0,0,0,canvas.height);
   bg.addColorStop(0,currentTheme.bgTop);bg.addColorStop(1,currentTheme.bgBot);
   ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Theme landmark silhouette — readable without a label
+  if(currentTheme.landmark){
+    ctx.globalAlpha=0.2+Math.min(0.25,score/4000);
+    ctx.font="48px Arial";ctx.textAlign="center";
+    const lx=canvas.width*0.82+Math.sin(time*0.01)*8;
+    const ly=canvas.height*0.18;
+    ctx.fillText(currentTheme.landmark,lx,ly);
+    ctx.globalAlpha=1;
+  }
+  // Tokyo: neon bloom bars
+  if(currentTheme.id==="tokyo"){
+    ctx.globalAlpha=0.12;
+    for(let i=0;i<6;i++){
+      ctx.fillStyle=i%2?"#ff2d95":"#7b2cbf";
+      const nx=((i*97+time*0.3)%(canvas.width+40))-20;
+      ctx.fillRect(nx,0,3,canvas.height*0.45);
+    }
+    ctx.globalAlpha=1;
+  }
+  // Arctic: aurora
+  if(currentTheme.id==="arctic"){
+    ctx.globalAlpha=0.1;
+    for(let a=0;a<3;a++){
+      const ay=40+a*30+Math.sin(time*0.02+a)*10;
+      ctx.fillStyle=a%2?"#7bed9f":"#70a1ff";
+      ctx.beginPath();ctx.ellipse(canvas.width*0.5,ay,canvas.width*0.4,20,0,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+  // Volcano: ember glow at top
+  if(currentTheme.id==="volcano"){
+    const vg=ctx.createRadialGradient(canvas.width*0.5,0,10,canvas.width*0.5,0,canvas.height*0.5);
+    vg.addColorStop(0,"rgba(255,100,20,0.25)");vg.addColorStop(1,"rgba(255,40,0,0)");
+    ctx.fillStyle=vg;ctx.fillRect(0,0,canvas.width,canvas.height*0.5);
+  }
+  // Space: extra stars
+  if(currentTheme.id==="space"){
+    ctx.fillStyle="rgba(255,255,255,0.5)";
+    for(let s=0;s<30;s++){
+      const sx=(s*97+time*0.05)%canvas.width,sy=(s*53)%(canvas.height*0.6);
+      if((s+Math.floor(time/20))%7===0)ctx.fillRect(sx,sy,2,2);
+    }
+  }
+  // Neon grid floor fade
+  if(currentTheme.id==="neon"){
+    ctx.strokeStyle="rgba(0,255,200,0.08)";ctx.lineWidth=1;
+    for(let g=0;g<8;g++){
+      const gy=canvas.height*0.5+g*20;
+      ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(canvas.width,gy);ctx.stroke();
+    }
+  }
+  // Venice: warm green water tint already on theme; soft mist
+  if(currentTheme.id==="venice"){
+    ctx.fillStyle="rgba(40,120,100,0.06)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
 
 // Atmospheric depth: soft vertical haze on the upper sky
   const haze=ctx.createLinearGradient(0,0,0,canvas.height*0.5);
@@ -2643,7 +2749,15 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
   for(let bo=-2;bo<=2;bo++){
     const bwx=bo*500+60,bsx=bwx-cameraX,bw=430;
     if(bsx+bw<-30||bsx>canvas.width+30)continue;
-    ctx.fillStyle=currentTheme.building;ctx.fillRect(bsx,0,bw,canvas.height);
+    ctx.fillStyle=(bo%2===0?(currentTheme.building):(currentTheme.building2||currentTheme.building));
+    ctx.fillRect(bsx,0,bw,canvas.height);
+    // Theme accent stripe under roof line
+    if(currentTheme.accent){
+      ctx.fillStyle=currentTheme.accent;
+      ctx.globalAlpha=0.15+Math.sin(time*0.05+bo)*0.05;
+      ctx.fillRect(bsx,8,bw,3);
+      ctx.globalAlpha=1;
+    }
     ctx.fillStyle="rgba(0,0,0,0.3)";ctx.fillRect(bsx,0,14,canvas.height);ctx.fillRect(bsx+bw-14,0,14,canvas.height);
     // NYC-style fire escapes bolted to the building face (landings + ladders)
     if(bo%2===0){
@@ -2851,8 +2965,8 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
         // brackets into the wall
         ctx.strokeStyle="#333";ctx.lineWidth=2;
         ctx.beginPath();ctx.moveTo(bbX+10,bbY+bbH);ctx.lineTo(bbX+10,bbY+bbH+8);ctx.moveTo(bbX+bbW-10,bbY+bbH);ctx.lineTo(bbX+bbW-10,bbY+bbH+8);ctx.stroke();
-        const ads=["STAY DRY","FLOOD WATCH","CLIMB ON","NYC SURGE","OPEN 24H"];
-        ctx.fillStyle="#f1c40f";ctx.font="bold 11px Arial";ctx.textAlign="center";
+        const ads=currentTheme.ads||["STAY DRY","FLOOD WATCH","CLIMB ON","OPEN 24H"];
+        ctx.fillStyle=currentTheme.accent||"#f1c40f";ctx.font="bold 11px Arial";ctx.textAlign="center";
         ctx.fillText(ads[Math.abs(bo+Math.floor(wy/105))%ads.length],bbX+bbW/2,bbY+19);
       }
     }
@@ -3652,16 +3766,23 @@ ctx.stroke();
 
   // Rain
   ctx.lineWidth=1.3;
+  const rainCol=currentTheme.rain||"#8ecae6";
   for(let i=0;i<rain.length;i++){
     const r=rain[i];
-    ctx.strokeStyle=`rgba(200,220,240,${0.12+r.z*0.16})`;
+    // Parse theme rain hex to rgba
+    let rc=rainCol;
+    if(rc[0]==="#"){
+      const n=parseInt(rc.slice(1),16);
+      rc=`rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${0.15+r.z*0.18})`;
+    }
+    ctx.strokeStyle=rc;
     ctx.beginPath();
     const dx=weather.wind*(0.3+r.z*0.22);
     ctx.moveTo(r.x,r.y);ctx.lineTo(r.x-dx,r.y+r.len);ctx.stroke();
   }
-  // Heavy rain overlay — bigger, faster streaks in the closer layer
+  // Heavy rain overlay
   ctx.lineWidth=2.2;
-  ctx.strokeStyle=`rgba(220,230,250,${0.10+weather.intensity*0.20})`;
+  ctx.strokeStyle=currentTheme.id==="volcano"?`rgba(255,120,40,${0.12+weather.intensity*0.2})`:`rgba(220,230,250,${0.10+weather.intensity*0.20})`;
   for(let i=0;i<rain.length;i+=3){
     const r=rain[i];
     const dx=weather.wind*(0.5+r.z*0.3);
