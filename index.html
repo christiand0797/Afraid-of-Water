@@ -65,6 +65,25 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 @keyframes confettiFall{0%{transform:translateY(0) rotate(0)}100%{transform:translateY(110vh) rotate(680deg)}}
 @keyframes lastLifePulse{0%,100%{box-shadow:inset 0 0 0 0 rgba(231,76,60,0)}50%{box-shadow:inset 0 0 0 6px rgba(231,76,60,.55)}}
 body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
+/* Grim Reaper death sequence overlay */
+#deathOverlay{position:fixed;inset:0;z-index:60;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(ellipse at 50% 60%,rgba(0,0,0,0) 30%,rgba(0,0,0,.55) 100%)}
+#deathOverlay.show{opacity:1}
+#deathOverlay .mist{position:absolute;left:0;right:0;bottom:0;height:60%;background:linear-gradient(0deg,rgba(60,70,90,.6),transparent);filter:blur(6px)}
+#deathOverlay .reaper{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:90px;height:150px;opacity:0;animation:reaperDrop .9s cubic-bezier(.16,1,.3,1) forwards}
+#deathOverlay .reaper.hover{animation:reaperHover 2.2s ease-in-out infinite}
+#deathOverlay .cloak{position:absolute;left:10px;top:56px;width:70px;height:96px;background:radial-gradient(ellipse at 50% 0%,#1b2631 0%,#0b0f14 78%);border-radius:50% 50% 42% 42%/28% 28% 100% 100%;box-shadow:0 10px 22px rgba(0,0,0,.7)}
+#deathOverlay .hood{position:absolute;left:16px;top:24px;width:58px;height:52px;background:linear-gradient(180deg,#202b36,#0b0f14);border-radius:50% 50% 46% 46%/68% 68% 34% 34%;box-shadow:0 6px 14px rgba(0,0,0,.6)}
+#deathOverlay .face{position:absolute;left:32px;top:44px;width:26px;height:30px;background:#dfe4e6;border-radius:46% 46% 36% 36%/56% 56% 40% 40%}
+#deathOverlay .eye{position:absolute;width:5px;height:7px;background:#111;border-radius:50%;top:56px}
+#deathOverlay .eye.l{left:46px}#deathOverlay .eye.r{left:60px}
+#deathOverlay .scythe{position:absolute;left:112px;top:34px;width:56px;height:56px;animation:scytheBob 2.2s ease-in-out infinite}
+#deathOverlay .scythe .pole{position:absolute;left:52px;top:-10px;width:4px;height:92px;background:linear-gradient(#8d6e63,#4e342e);transform:rotate(-26deg);border-radius:2px}
+#deathOverlay .scythe .blade{position:absolute;left:30px;top:0;width:44px;height:44px;border:4px solid #b8c4cc;border-left:none;border-bottom:none;border-radius:50% 50% 0 0;transform:rotate(34deg)}
+#deathOverlay .ghost{position:absolute;left:50%;top:50%;width:26px;height:30px;opacity:0;animation:ghostRise 1.8s ease-out .55s forwards;text-align:center;font-size:24px;filter:brightness(1.4) drop-shadow(0 0 10px #5dade2)}
+@keyframes reaperDrop{0%{transform:translate(-50%,-230%) scale(.8);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+@keyframes reaperHover{0%,100%{transform:translate(-50%,-52%)}50%{transform:translate(-50%,-46%)}}
+@keyframes scythe{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+@keyframes ghostRise{0%{transform:translate(-50%,0) scale(.6);opacity:0}35%{opacity:1}100%{transform:translate(-50%,-70px) scale(1.5);opacity:0}}
 </style>
 </head>
 <body>
@@ -181,6 +200,7 @@ body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
 <button class="menu-btn" id="goMenuFromOver">☰ MENU</button>
 </div>
 </div>
+<div id="deathOverlay" aria-hidden="true"><div class="mist"></div><div class="reaper"><div class="hood"></div><div class="cloak"></div><div class="face"></div><div class="eye l"></div><div class="eye r"></div><div class="scythe"><div class="pole"></div><div class="blade"></div></div></div><div class="ghost">👻</div></div>
 <div id="pauseScreen" class="screen hidden">
 <div class="screen-scroll">
 <div class="main-title" style="font-size:26px">PAUSED</div>
@@ -344,7 +364,7 @@ function difficultyRamp(){
 }
 
 // Game version — shown in footer + could gate future migrations
-const GAME_VERSION="1.6.1";
+const GAME_VERSION="1.7.0";
 
 // Achievements system (trophies that persist locally)
 const ACHIEVEMENTS=[
@@ -511,10 +531,17 @@ let loopId=0; // cancels old RAF loops so restart always works
 let checkpoint=null; // death snapshot for CONTINUE
 let invulnTimer=0;
 let cat,water,platforms=[],rain=[],sharks=[],tentacles=[],debris=[],particles=[],collectibles=[],fog=[],seaCreatures=[],birds=[],windowNPCs=[];
-let fallingBricks=[],hangingSigns=[],pigeons=[],steamVents=[];
+let fallingBricks=[],hangingSigns=[],pigeons=[],steamVents=[],acBlows=[];
 let drifts=[],floaters=[],craneHooks=[],newspaperSwarm=[];
 const keys={left:false,right:false,up:false,dive:false};
 const generatedSectors={},windowRegistry={};
+// Deterministic 1..4 variant for a lit window (cat/plant/TV/person)
+let _wsigSeed=0;
+function windowSignature(id){
+  let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;
+  h^=_wsigSeed++;
+  return 1+(h%4);
+}
 let weather={intensity:0.2,wind:3,stormName:"DRIZZLE",flashCooldown:0,gust:0,gustTimer:0};
 let shieldActive=false;
 let diving=false,oxygen=100,maxOxygen=100;
@@ -539,6 +566,21 @@ function sfxCollect(){playTone(1400,"square",0.03,0.18);setTimeout(()=>playTone(
 function sfxSplash(){playTone(60,"sawtooth",0.35,0.28)}
 function sfxPower(){playTone(300,"sine",0.12,0.2);setTimeout(()=>playTone(1500,"triangle",0.2,0.16),60)}
 function sfxSurge(){playTone(180,"sawtooth",0.4,0.2);setTimeout(()=>playTone(320,"sawtooth",0.4,0.2),90)}
+function sfxReaper(){playTone(240,"triangle",0.5,0.18);setTimeout(()=>playTone(190,"triangle",0.5,0.18),220);setTimeout(()=>playTone(140,"triangle",0.7,0.18),460);setTimeout(()=>playTone(90,"triangle",1,0.16),720)}
+let deathOverlayEl=null;
+function reaperCollect(done){
+  if(!deathOverlayEl)deathOverlayEl=document.getElementById("deathOverlay");
+  if(!deathOverlayEl){if(done)done();return}
+  const rep=deathOverlayEl.querySelector(".reaper");
+  if(rep){rep.classList.remove("hover");rep.style.animation="none";void rep.offsetWidth;rep.style.animation="";}
+  deathOverlayEl.classList.add("show");
+  sfxReaper();
+  setTimeout(()=>{if(rep)rep.classList.add("hover")},950);
+  setTimeout(()=>{
+    deathOverlayEl.classList.remove("show");
+    setTimeout(()=>{if(done)done()},320);
+  },1950);
+}
 function sfxThunder(){playTone(32,"sawtooth",0.7,0.3);setTimeout(()=>playTone(18,"sawtooth",1.0,0.2),160)}
 function sfxBuy(){playTone(800,"sine",0.08,0.2);setTimeout(()=>playTone(1200,"sine",0.12,0.15),50)}
 function sfxDive(){playTone(200,"sine",0.15,0.2);setTimeout(()=>playTone(120,"sine",0.2,0.15),80)}
@@ -625,7 +667,7 @@ function show(screen){[startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen
 // ---- Global leaderboard (backend API) + local (device) ----
 let globalScores=[];let globalTab=true;
 let lastName=safeStorage.get("aow_name")||"";
-function apiURL(){return location.origin}
+function apiURL(){return window.AOW_API||location.origin}
 function globalRankFor(score){return globalScores.findIndex(e=>e.score===score)+1}
 async function fetchGlobalBoard(){
   try{
@@ -1030,7 +1072,7 @@ knockbackTimer=0;invulnTimer=0;checkpoint=null;
     };
     water={worldY:(canvas.height||640)-48,baseSpeed:0.88*(currentDiff.waterMul||1)};
     platforms=[];sharks=[];tentacles=[];debris=[];rain=[];particles=[];collectibles=[];fog=[];popups=[];seaCreatures=[];
-    birds=[];windowNPCs=[];fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];
+    birds=[];windowNPCs=[];fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];acBlows=[];
     drifts=[];floaters=[];craneHooks=[];newspaperSwarm=[];
     for(let k in generatedSectors)delete generatedSectors[k];
     for(let k in windowRegistry)delete windowRegistry[k];
@@ -1089,13 +1131,19 @@ if(Math.random()>0.8){const r=Math.random();collectibles.push({worldX:px+pw/2-10
       if(Math.random()>0.93)pigeons.push({worldX:px+Math.random()*pw,worldY:cy-8,vx:0,flyTimer:0,dir:Math.random()>0.5?1:-1});
       // Steam vents
       if(Math.random()>0.94)steamVents.push({worldX:bx+30+Math.random()*350,worldY:cy+5,timer:Math.random()*60});
+      // Windows-side AC units that blast a downward gust, blowing you off the ledge
+      if(level>=2&&Math.random()>0.9)acBlows.push({worldX:bx+20+Math.random()*(bw-60),worldY:cy-26,timer:Math.random()*120,on:0});
+      // Rooftop bridges — walk between buildings without jumping
+      if(Math.random()<0.18&&bo<4&&t!=="stairs"&&t!=="cracked"){
+        platforms.push({worldX:bx+bw-150,worldY:cy-6,w:Math.random()*40+170,h:8,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
+      }
     }
   }
 }
 function knockback(dir,force,upForce){
   if(typeof knockbackTimer!=="undefined"&&knockbackTimer>0)return;
   const f=force||14;
-  const up=upForce!=null?upForce:-8;
+  const up=upForce!=null?upForce:4; // default: slam down to the ledge below
   cat.vx=dir*f;
   cat.vy=up;
   cat.grounded=false;
@@ -1242,7 +1290,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     }
   }
   // Birds dive-bomb and knock you
-  if(level>=2&&Math.random()<0.008&&birds.length<3){
+  if(level>=2&&Math.random()<0.008*difficultyRamp()&&birds.length<3){
     birds.push({worldX:cat.worldX+(Math.random()>0.5?340:-340),worldY:cat.worldY-70-Math.random()*50,vx:(Math.random()>0.5?1:-1)*(2.4+Math.random()),vy:0,diving:false});
   }
   for(let i=birds.length-1;i>=0;i--){
@@ -1253,7 +1301,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     if(Math.abs(b.worldX-cat.worldX)>750||b.worldY>water.worldY+40)birds.splice(i,1);
   }
   // Crane hook (level 4+): a swinging wrecking hook sweeps through the rooftops
-  if(level>=4&&Math.random()<0.006&&craneHooks.length<2){
+  if(level>=4&&Math.random()<0.006*difficultyRamp()&&craneHooks.length<2){
     craneHooks.push({x:cat.worldX+(Math.random()>0.5?1:-1)*60,baseY:cat.worldY-240-Math.random()*120,swing:Math.random()*Math.PI*2,speed:0.04+Math.random()*0.02,len:60});
   }
   for(let i=craneHooks.length-1;i>=0;i--){
@@ -1266,7 +1314,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     if(cr.baseY+90>water.worldY+40||Math.abs(cr.x-cat.worldX)>700)craneHooks.splice(i,1);
   }
   // Newspaper swarm (level 5+) — a page flurry that batters you from one side
-  if(level>=5&&Math.random()<0.012){
+  if(level>=5&&Math.random()<0.012*difficultyRamp()){
     const side=Math.random()>0.5?1:-1;
     const baseY=cat.worldY-Math.random()*120;
     const sheets=[];
@@ -1302,7 +1350,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     if(n.worldY>water.worldY+80)windowNPCs.splice(i,1);
   }
   // Falling bricks from above
-  if(level>=2&&Math.random()<0.01&&fallingBricks.length<4){
+  if(level>=2&&Math.random()<0.01*difficultyRamp()&&fallingBricks.length<4){
     fallingBricks.push({worldX:cat.worldX+(Math.random()-0.5)*200,worldY:cat.worldY-180-Math.random()*80,vy:1.5+Math.random(),rot:0});
   }
   for(let i=fallingBricks.length-1;i>=0;i--){
@@ -1326,6 +1374,19 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     if(sv.timer%8===0)createParticles(sv.worldX,sv.worldY,"rgba(200,220,230,0.4)",2,3);
     if(Math.abs(cat.worldX-sv.worldX)<20&&Math.abs(cat.worldY+cat.h-sv.worldY)<25&&cat.vy>=0){
       cat.vy=-3; // gentle upward puff
+    }
+  }
+  // Windows-side AC units: periodic downward blast knocks you off the ledge
+  for(let i=0;i<acBlows.length;i++){
+    const a=acBlows[i];
+    if(a.on>0){a.on--;if(a.on%3===0)createParticles(a.worldX,a.worldY-2,"rgba(190,210,230,0.6)",2,9)}
+    else{a.timer--;if(a.timer<=0){a.timer=110+Math.random()*90;a.on=26;playTone&&playTone(320,"sawtooth",0.18,0.08)}}
+    if(a.on>0){
+      const cx=cat.worldX+cat.w/2,cy=cat.worldY+cat.h/2;
+      if(Math.abs(cx-a.worldX)<46&&cy<a.worldY-4&&cy>a.worldY-110&&cat.vy<8){
+        knockback(cat.worldX<a.worldX?1:-1,1.5,9); // blast downward off the ledge
+        createParticles(cat.worldX+cat.w/2,cat.worldY,"#9fb6c4",8,11);
+      }
     }
   }
   // Hanging signs sway
@@ -1419,7 +1480,7 @@ if(c.kind==="gold"){
 
   // Surface sharks / tentacles (when not diving deep)
   if(!diving){
-    if(level>=3&&Math.random()<0.012&&sharks.length<3){
+    if(level>=3&&Math.random()<0.012*difficultyRamp()&&sharks.length<3){
       sharks.push({worldX:cat.worldX+(Math.random()>0.5?500:-500),dir:Math.random()>0.5?1:-1,speed:2+Math.random()*1.4});
     }
     for(let i=sharks.length-1;i>=0;i--){
@@ -1427,7 +1488,7 @@ if(c.kind==="gold"){
       if(Math.hypot(cat.worldX-s.worldX,cat.worldY-water.worldY)<40){loseLife();return}
       if(Math.abs(s.worldX-cat.worldX)>1200)sharks.splice(i,1);
     }
-    if(level>=4&&Math.random()<0.008&&tentacles.length<2){
+    if(level>=4&&Math.random()<0.008*difficultyRamp()&&tentacles.length<2){
       tentacles.push({worldX:cat.worldX+(Math.random()*160-80),height:0,target:110+Math.random()*80,state:"rising"});
     }
     for(let i=tentacles.length-1;i>=0;i--){
@@ -1585,7 +1646,10 @@ const ll=$("livesLeft");if(ll)ll.innerText=lives;
   weatherLabel.classList.add("hidden");
   if($("hudBtns"))$("hudBtns").classList.add("hidden");
   const de=$("dangerWarn");if(de)de.style.opacity="0";
-  if(gameOverScreen){gameOverScreen.classList.remove("hidden");gameOverScreen.style.display=""}
+  // Grim Reaper briefly collects the fallen before the game-over card appears
+  reaperCollect(()=>{
+    if(gameOverScreen){gameOverScreen.classList.remove("hidden");gameOverScreen.style.display=""}
+  });
 }
 
 function continueFromCheckpoint(){
@@ -1786,6 +1850,47 @@ function draw(){
       ctx.beginPath();ctx.moveTo(antX-8,antY-10);ctx.lineTo(antX+8,antY-10);ctx.stroke();
       if(bo%3===0){ctx.fillStyle="#3a4555";ctx.fillRect(antX+20,antY,28,22);ctx.fillStyle="#2a3545";ctx.beginPath();ctx.arc(antX+34,antY,16,Math.PI,0);ctx.fill()}
     }
+    // Neon signs + rooftop billboards (glow as you climb past)
+    const signY=150-cameraY*0.09;
+    if(signY>-10&&signY<canvas.height*0.45){
+      const sKind=((bo%6)+6)%6;
+      if(sKind===0){ // glowing vertical neon sign
+        const sX=bsx+32;
+        ctx.save();
+        const cHot=currentTheme.id==="neon"?"#ff2d78":"#2fe3ff";
+        ctx.fillStyle="rgba(6,10,18,0.88)";ctx.fillRect(sX,signY,24,92);
+        ctx.fillStyle=cHot;ctx.globalAlpha=0.18;ctx.fillRect(sX-4,signY-4,32,100);
+        ctx.globalAlpha=0.9;ctx.font="bold 11px Arial";ctx.textAlign="center";
+        ctx.fillText("☕",sX+12,signY+18);
+        ctx.fillText("CAFE",sX+12,signY+48);
+        ctx.fillText("24H",sX+12,signY+80);
+        ctx.restore();
+      }else if(sKind===2){ // rooftop billboard
+        const bbX=bsx+bw*0.18,bbY=signY,bbW=176,bbH=42;
+        ctx.save();
+        ctx.fillStyle="#11151d";ctx.fillRect(bbX,bbY-26,bbW,bbH);
+        ctx.fillStyle="#232938";ctx.fillRect(bbX,bbY-26,bbW,7);
+        ctx.strokeStyle="#39404f";ctx.lineWidth=2;
+        ctx.beginPath();
+        for(let p=10;p<bbW-8;p+=14){ctx.moveTo(bbX+p,bbY-19);ctx.lineTo(bbX+p,bbY+16)}
+        ctx.stroke();
+        ctx.fillStyle="#f1c40f";ctx.font="bold 15px Arial";ctx.textAlign="center";
+        ctx.fillText("STAY DRY",bbX+bbW/2,bbY-6);
+        ctx.fillStyle="#fff";ctx.font="bold 9px Arial";
+        ctx.fillText("CLIMB TO SURVIVE",bbX+bbW/2,bbY+13);
+        ctx.restore();
+      }else if(sKind===4){ // pink neon open-sign with flicker
+        const sX=bsx+bw-104;
+        if(Math.floor(time*2+bo)%3!==0){
+          ctx.save();
+          ctx.fillStyle="rgba(20,4,10,0.9)";ctx.fillRect(sX,signY-4,96,34);
+          ctx.fillStyle="#ff4d6d";ctx.globalAlpha=0.15;ctx.fillRect(sX-6,signY-10,108,46);
+          ctx.globalAlpha=1;ctx.font="bold 22px 'Creepster',cursive";ctx.textAlign="center";
+          ctx.fillText("CROOKS",sX+48,signY+22);
+          ctx.restore();
+        }
+      }
+    }
     const sy=Math.floor(cameraY/105)*105-120;
     for(let wy=sy;wy<sy+canvas.height+240;wy+=105){
       const wsy=wy-cameraY;
@@ -1799,6 +1904,22 @@ function draw(){
           ctx.strokeStyle="rgba(0,0,0,0.25)";ctx.lineWidth=1;
           ctx.beginPath();ctx.moveTo(bsx+wxs[k]+24,wsy+14);ctx.lineTo(bsx+wxs[k]+24,wsy+58);ctx.stroke();
           ctx.beginPath();ctx.moveTo(bsx+wxs[k]+3,wsy+36);ctx.lineTo(bsx+wxs[k]+45,wsy+36);ctx.stroke();
+          // Life behind lit glass: sleeping cat, potted plant, TV glow, lounging person
+          const wsig=windowSignature(ids[k]);
+          ctx.fillStyle="rgba(0,0,0,0.28)";
+          if(wsig===1){ // sleeping cat curl
+            ctx.beginPath();ctx.arc(bsx+wxs[k]+22,wsy+42,6,0,Math.PI*2);ctx.fill();
+            ctx.fillStyle="#000";ctx.beginPath();ctx.arc(bsx+wxs[k]+22,wsy+42,3,0,Math.PI*2);ctx.fill();
+          }else if(wsig===2){ // potted plant
+            ctx.fillStyle="#193d1f";ctx.fillRect(bsx+wxs[k]+20,wsy+46,6,10);
+            ctx.beginPath();ctx.moveTo(bsx+wxs[k]+23,wsy+46);ctx.lineTo(bsx+wxs[k]+14,wsy+34);ctx.lineTo(bsx+wxs[k]+18,wsy+48);ctx.closePath();ctx.fill();
+            ctx.beginPath();ctx.moveTo(bsx+wxs[k]+23,wsy+46);ctx.lineTo(bsx+wxs[k]+34,wsy+32);ctx.lineTo(bsx+wxs[k]+28,wsy+46);ctx.closePath();ctx.fill();
+          }else if(wsig===3){ // TV glow flicker
+            if(Math.floor(time*3+ids[k].length)%3!==0){ctx.fillStyle="rgba(90,120,200,0.5)";ctx.fillRect(bsx+wxs[k]+12,wsy+28,20,14)}
+          }else if(wsig===4){ // lounging person silhouette
+            ctx.fillStyle="rgba(40,44,58,0.9)";ctx.beginPath();ctx.arc(bsx+wxs[k]+20,wsy+22,6,0,Math.PI*2);ctx.fill();
+            ctx.fillStyle="rgba(40,44,58,0.9)";ctx.fillRect(bsx+wxs[k]+12,wsy+30,16,26);
+          }
         }
       }
     }
@@ -1829,6 +1950,12 @@ function draw(){
     }else if(p.type==="ac"){
       ctx.fillStyle="#9aa8b0";ctx.fillRect(psx,psy,p.w,p.h);
       ctx.fillStyle="#1a2530";for(let v=7;v<p.w-7;v+=12)ctx.fillRect(psx+v,psy+3,4,p.h-7);
+    }else if(p.type==="bridge"){
+      ctx.fillStyle="#6d5634";ctx.fillRect(psx,psy,p.w,p.h);
+      ctx.fillStyle="#8a7148";ctx.fillRect(psx,psy+1,p.w,3);
+      ctx.fillStyle="#3d3327";for(let b=8;b<p.w-4;b+=14)ctx.fillRect(psx+b,psy+3,5,p.h-3);
+      ctx.strokeStyle="#c9b48a";ctx.lineWidth=2;ctx.strokeRect(psx+2,psy+p.h-2,p.w-4,2); // rope rail
+      if(p.broken){ctx.fillStyle="#000";ctx.globalAlpha=0.5;ctx.fillRect(psx,psy,p.w,p.h);ctx.globalAlpha=1}
     }else{
       const sg=ctx.createLinearGradient(psx,psy,psx,psy+p.h);sg.addColorStop(0,"#dfe4e6");sg.addColorStop(1,"#7f8c8d");
       ctx.fillStyle=sg;ctx.fillRect(psx,psy,p.w,p.h);
@@ -1973,6 +2100,23 @@ ctx.fillText("⚡",0,6);
     if(sv.timer%20<12){
       ctx.fillStyle="rgba(200,220,230,0.25)";
       ctx.beginPath();ctx.arc(sx,sy-8-(sv.timer%20),6+(sv.timer%20)*0.5,0,Math.PI*2);ctx.fill();
+    }
+  }
+  // Window AC blast units
+  for(let i=0;i<acBlows.length;i++){
+    const a=acBlows[i],ax=a.worldX-cameraX,ay=a.worldY-cameraY;
+    if(ax<-60||ax>canvas.width+60)continue;
+    ctx.fillStyle="#8a939b";ctx.fillRect(ax-16,ay-8,32,22);
+    ctx.fillStyle="#39424a";ctx.fillRect(ax-12,ay-4,24,8);
+    ctx.fillStyle="#e74c3c";ctx.fillRect(ax+3,ay-12,5,5); // power light
+    if(a.on>0){
+      ctx.fillStyle="rgba(190,215,235,0.10)";
+      ctx.beginPath();ctx.moveTo(ax-16,ay-2);ctx.lineTo(ax+16,ay-2);ctx.lineTo(ax+30,ay+64);ctx.lineTo(ax-30,ay+64);ctx.closePath();ctx.fill();
+      ctx.strokeStyle="rgba(220,235,245,0.5)";ctx.lineWidth=2;
+      for(let g=0;g<5;g++){
+        const o=(time*1.4+a.timer*0.3+g)%5;
+        ctx.beginPath();ctx.moveTo(ax-12+g*6,ay-4);ctx.lineTo(ax-14+g*7+(g%2)*18,ay+40+o*6);ctx.stroke();
+      }
     }
   }
 

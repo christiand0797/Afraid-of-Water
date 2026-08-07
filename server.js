@@ -25,9 +25,34 @@ const FILE = path.join(DATA_DIR, "leaderboard.json");
 function loadScores() {
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, JSON.stringify([]));
+    if (!fs.existsSync(FILE)) {
+      // Seed a friendly starter board so the global list never feels empty.
+      const now = Date.now(), day = 86400000;
+      const seed = [
+        { name: "Whiskers", score: 760, date: now - 2 * day },
+        { name: "Boots",    score: 590, date: now - 4 * day },
+        { name: "Mochi",    score: 470, date: now - 6 * day },
+        { name: "Oreo",     score: 340, date: now - 8 * day },
+        { name: "Toast",    score: 260, date: now - 10 * day },
+        { name: "Mittens",  score: 150, date: now - 12 * day },
+      ];
+      fs.writeFileSync(FILE, JSON.stringify(seed));
+    }
     const raw = fs.readFileSync(FILE, "utf8");
     const arr = JSON.parse(raw);
+    if (Array.isArray(arr) && arr.length === 0) {
+      const day = 86400000, now = Date.now();
+      const seed = [
+        { name: "Whiskers", score: 760, date: now - 2 * day },
+        { name: "Boots",    score: 590, date: now - 4 * day },
+        { name: "Mochi",    score: 470, date: now - 6 * day },
+        { name: "Oreo",     score: 340, date: now - 8 * day },
+        { name: "Toast",    score: 260, date: now - 10 * day },
+        { name: "Mittens",  score: 150, date: now - 12 * day },
+      ];
+      fs.writeFileSync(FILE, JSON.stringify(seed));
+      return seed;
+    }
     return Array.isArray(arr) ? arr : [];
   } catch (e) {
     console.error("loadScores error", e);

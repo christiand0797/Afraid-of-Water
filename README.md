@@ -44,11 +44,23 @@ Or open `index.html` locally in any browser.
 
 ## Deploy on Render
 
+The app is a Node Express web service — it serves the game **and** the persistent
+global leaderboard API. Use a **Web service**, not a Static Site (a Static Site
+cannot run the API, so the global board would be empty).
+
 1. This repo is connected (or connect it in Render)
-2. **New → Static Site**
-3. Build Command: *(empty)*
-4. Publish Directory: `.`
-5. Create → share your public URL
+2. **New → Blueprint** (uses `render.yaml`) — or manually **New → Web Service**
+3. Build Command: `npm install`
+4. Start Command: `node server.js`
+5. Health Check Path: `/api/health`
+6. Create → share your public URL (`https://afraid-of-water.onrender.com`)
+
+> Free-tier note: Render's free disk is ephemeral and resets on redeploy/sleep,
+> so the leaderboard JSON may reset. Scores still work within a deploy.
+
+If you must serve the game from a static host (no API), set `window.AOW_API`
+to the API origin before the game boots, e.g. in the console:
+`window.AOW_API = "https://afraid-of-water.onrender.com";`
 
 ## Stack
 
