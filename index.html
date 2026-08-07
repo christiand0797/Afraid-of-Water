@@ -312,38 +312,45 @@ const THEMES=[
   {id:"nyc",name:"NYC Flood",emoji:"🏙️",unlock:0,
     bgTop:"#0b1522",bgBot:"#1a2a3a",water:"rgba(20,110,120,.94)",waterMid:"rgba(12,50,70,.97)",
     building:"#1a2838",building2:"#243040",accent:"#f1c40f",rain:"#8ecae6",
-    hazard:"shark",ads:["TAXI","SUBWAY","PIZZA","NYC","OPEN 24H"],
-    landmark:"🗽",feel:"brick · yellow cabs · fire escapes"},
+    hazard:"shark",ads:["TAXI","SUBWAY","PIZZA","BAGELS","DELI","METRO"],
+    signs:["CAFE","24H","OPEN","NYC","ATM"],billboards:["STAY DRY","MTA ALERT","FLOOD ZONE"],
+    landmark:"🗽",feel:"yellow cabs · brick · pizza"},
   {id:"tokyo",name:"Tokyo Storm",emoji:"🗼",unlock:180,
     bgTop:"#12081e",bgBot:"#2a1538",water:"rgba(100,40,160,.92)",waterMid:"rgba(50,15,80,.96)",
     building:"#1e1530",building2:"#2a1f40",accent:"#ff2d95",rain:"#e0b0ff",
-    hazard:"eel",ads:["ラーメン","NEON","夜","TOKYO","寿司"],
-    landmark:"🗼",feel:"pink neon · kanji signs · purple rain"},
+    hazard:"eel",ads:["ラーメン","寿司","夜","東京","カラオケ","神社"],
+    signs:["居酒屋","OPEN","温泉","東京","ネオン"],billboards:["台風警報","夜の街","サバイブ"],
+    landmark:"🗼",feel:"kanji neon · ramen · purple rain"},
   {id:"venice",name:"Venice Sunk",emoji:"🛶",unlock:450,
     bgTop:"#0a1c18",bgBot:"#143028",water:"rgba(30,150,160,.9)",waterMid:"rgba(10,70,80,.95)",
     building:"#2a4a40",building2:"#3d5c50",accent:"#e8d5a3",rain:"#a8dadc",
-    hazard:"jellyfish",ads:["GELATO","CANAL","VENEZIA","GONDOLA","ART"],
-    landmark:"🛶",feel:"green canals · warm stucco · gondolas"},
+    hazard:"jellyfish",ads:["GELATO","CANAL","VENEZIA","GONDOLA","ARTE","CAFFE"],
+    signs:["CAFFE","GELATO","PONTE","OPEN","ARTE"],billboards:["ACQUA ALTA","VENEZIA","GONDOLA"],
+    landmark:"🛶",feel:"canals · gelato · stucco"},
   {id:"arctic",name:"Arctic Melt",emoji:"🧊",unlock:900,
     bgTop:"#0e1a28",bgBot:"#1e3048",water:"rgba(140,200,230,.88)",waterMid:"rgba(50,100,140,.95)",
     building:"#2a3a4a",building2:"#3a4e5e",accent:"#a0e8ff",rain:"#d0e8ff",
-    hazard:"orca",ads:["ICE","NORTH","COLD","AURORA","MELT"],
-    landmark:"❄️",feel:"blue ice · aurora · pale snow"},
+    hazard:"orca",ads:["ICE","NORTH","COLD","AURORA","MELT","FROST"],
+    signs:["BASE","COLD","ICE","LAB","NORTH"],billboards:["ICE THIN","MELT WARN","AURORA"],
+    landmark:"❄️",feel:"snow · aurora · ice labs"},
   {id:"volcano",name:"Lava Isle",emoji:"🌋",unlock:1800,
     bgTop:"#1a0606",bgBot:"#3a1010",water:"rgba(220,70,20,.92)",waterMid:"rgba(120,30,10,.96)",
     building:"#2a1810",building2:"#3d2218",accent:"#ff6b00",rain:"#ffaa66",
-    hazard:"lavafish",ads:["HOT","LAVA","DANGER","ERUPT","FIRE"],
-    landmark:"🌋",feel:"ash sky · orange glow · magma flood"},
+    hazard:"lavafish",ads:["HOT","LAVA","DANGER","ERUPT","FIRE","ASH"],
+    signs:["HOT","EXIT","FIRE","LAB","DANGER"],billboards:["ERUPTION","EVACUATE","LAVA FLOW"],
+    landmark:"🌋",feel:"ash · magma · heat"},
   {id:"neon",name:"Neon Skyline",emoji:"🌆",unlock:2600,
     bgTop:"#0a0820",bgBot:"#1a1040",water:"rgba(0,180,255,.88)",waterMid:"rgba(20,40,100,.95)",
     building:"#12102a",building2:"#1e1840",accent:"#00ffc8",rain:"#7ef9ff",
-    hazard:"shark",ads:["CYBER","GRID","NEON","HACK","2077"],
-    landmark:"💡",feel:"cyan grid · holograms · night city"},
+    hazard:"shark",ads:["CYBER","GRID","NEON","HACK","2077","SYNC"],
+    signs:["CLUB","HACK","NET","OPEN","GRID"],billboards:["JACK IN","NEON RAIN","SECTOR 7"],
+    landmark:"💡",feel:"holo signs · cyan grid"},
   {id:"space",name:"Orbital Ruin",emoji:"🛸",unlock:3200,
     bgTop:"#020208",bgBot:"#0a0a18",water:"rgba(80,20,140,.9)",waterMid:"rgba(30,10,60,.96)",
     building:"#10101a",building2:"#1a1a2e",accent:"#b388ff",rain:"#c9a0ff",
-    hazard:"voidling",ads:["ORBIT","VOID","STAR","DOCK","ZERO-G"],
-    landmark:"🛸",feel:"stars · purple void · metal hulls"}
+    hazard:"voidling",ads:["ORBIT","VOID","STAR","DOCK","ZERO-G","AIR"],
+    signs:["AIR","DOCK","HULL","OPEN","BAY"],billboards:["O2 LOW","HULL BREACH","DOCK 4"],
+    landmark:"🛸",feel:"stars · metal · zero-g"}
 ];
 
 // Full-body skins only (no face-emoji overlays)
@@ -1466,13 +1473,12 @@ function themeForScore(sc){
   return THEMES.find(t=>t.id==="nyc")||THEMES[0];
 }
 function syncClimbTheme(){
-  // During a run, world shifts with height; menu selection is starting point only
   if(state!=="PLAYING")return;
   const next=themeForScore(score);
   if(next&&currentTheme&&next.id!==currentTheme.id){
     currentTheme=next;
     announcePhase(next.emoji+" "+next.name.toUpperCase());
-    // Keep existing window lights — only new windows roll individually
+    if(weatherLabel){weatherLabel.textContent=next.emoji+" "+(next.feel||next.name);weatherLabel.classList.remove("hidden")}
   }
 }
 function announcePhase(t){phaseAnnouncer.innerText=t;phaseAnnouncer.style.opacity=1;setTimeout(()=>phaseAnnouncer.style.opacity=0,2200)}
@@ -1613,7 +1619,7 @@ function startGame(freeRestart){
 }
 
 // ---- Infinite vertical platforms (height-based, never runs out) ----
-const FLOOR_H=92;
+const FLOOR_H=110;
 let genTopY=null, genBotY=null; // worldY of highest / lowest generated floor
 const genFloors={}; // key = floor index to avoid dupes
 
@@ -1628,9 +1634,9 @@ function generateFloorRow(cy){
   // 3 buildings but not every building every floor — keeps climb fair, not packed
   for(let bo=-1;bo<=1;bo++){
     // Side buildings sometimes skip a floor (center almost always has a ledge)
-    if(bo!==0&&Math.random()<0.28)continue;
+    if(bo!==0&&Math.random()<0.42)continue;
     const bx=bo*BSPAN+90;
-    const mainW=120+Math.random()*70;
+    const mainW=100+Math.random()*55;
     const mainX=bx+20+Math.random()*Math.max(8,BW-mainW-40);
     let t="ledge";
     const r=Math.random();
@@ -1641,16 +1647,16 @@ function generateFloorRow(cy){
     else if(r>0.95)t="cracked";
     platforms.push({worldX:mainX,worldY:cy,w:mainW,h:14,type:t,vx:0,buildingIdx:bo,hp:t==="cracked"?2:99,broken:false});
     // Only one side landing (not both) — less clutter
-    if(Math.random()>0.4){
+    if(Math.random()>0.55){
       const left=Math.random()>0.5;
       platforms.push({worldX:left?bx+8:bx+BW-56,worldY:cy-5,w:48,h:9,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
     }
     // Occasional mid crate
-    if(Math.random()>0.45){
+    if(Math.random()>0.62){
       platforms.push({worldX:bx+50+Math.random()*(BW-100),worldY:cy-FLOOR_H*0.42,w:48,h:11,type:"crate",vx:0,buildingIdx:bo,hp:99,broken:false});
     }
     // Occasional bridge
-    if(bo<1&&Math.random()>0.55){
+    if(bo<1&&Math.random()>0.7){
       platforms.push({worldX:bx+BW-14,worldY:cy-2,w:BSPAN-BW+28,h:10,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
     }
     if(Math.random()>0.78){
@@ -2884,9 +2890,11 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
         ctx.fillStyle="rgba(6,10,18,0.88)";ctx.fillRect(sX,signY,24,92);
         ctx.fillStyle=cHot;ctx.globalAlpha=0.18;ctx.fillRect(sX-4,signY-4,32,100);
         ctx.globalAlpha=0.9;ctx.font="bold 11px Arial";ctx.textAlign="center";
-        ctx.fillText("☕",sX+12,signY+18);
-        ctx.fillText("CAFE",sX+12,signY+48);
-        ctx.fillText("24H",sX+12,signY+80);
+        const tSigns=currentTheme.signs||["CAFE","OPEN","24H"];
+        ctx.fillText(currentTheme.id==="tokyo"?"🍜":(currentTheme.id==="venice"?"☕":(currentTheme.id==="volcano"?"🔥":"☕")),sX+12,signY+18);
+        ctx.fillStyle=currentTheme.accent||"#f1c40f";
+        ctx.fillText(tSigns[Math.abs(bo)%tSigns.length],sX+12,signY+48);
+        ctx.fillText(tSigns[(Math.abs(bo)+1)%tSigns.length],sX+12,signY+80);
         ctx.restore();
       }else if(sKind===2){ // rooftop billboard
         const bbX=bsx+bw*0.18,bbY=signY,bbW=176,bbH=42;
@@ -2898,9 +2906,11 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
         for(let p=10;p<bbW-8;p+=14){ctx.moveTo(bbX+p,bbY-19);ctx.lineTo(bbX+p,bbY+16)}
         ctx.stroke();
         ctx.fillStyle="#f1c40f";ctx.font="bold 15px Arial";ctx.textAlign="center";
-        ctx.fillText("STAY DRY",bbX+bbW/2,bbY-6);
+        const tBill=currentTheme.billboards||currentTheme.ads||["STAY DRY"];
+        ctx.fillStyle=currentTheme.accent||"#f1c40f";
+        ctx.fillText(tBill[Math.abs(bo)%tBill.length],bbX+bbW/2,bbY-6);
         ctx.fillStyle="#fff";ctx.font="bold 9px Arial";
-        ctx.fillText("CLIMB TO SURVIVE",bbX+bbW/2,bbY+13);
+        ctx.fillText(tBill[(Math.abs(bo)+1)%tBill.length],bbX+bbW/2,bbY+13);
         ctx.restore();
       }else if(sKind===4){ // pink neon open-sign with flicker
         const sX=bsx+bw-104;
@@ -2909,7 +2919,8 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
           ctx.fillStyle="rgba(20,4,10,0.9)";ctx.fillRect(sX,signY-4,96,34);
           ctx.fillStyle="#ff4d6d";ctx.globalAlpha=0.15;ctx.fillRect(sX-6,signY-10,108,46);
           ctx.globalAlpha=1;ctx.font="bold 22px 'Creepster',cursive";ctx.textAlign="center";
-          ctx.fillText("CROOKS",sX+48,signY+22);
+          const tAds=currentTheme.ads||["OPEN"];
+          ctx.fillText(tAds[Math.abs(bo+3)%tAds.length],sX+48,signY+22);
           ctx.restore();
         }
       }
@@ -3097,8 +3108,9 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
       ctx.fillStyle="rgba(0,0,0,0.3)";ctx.fillRect(psx,psy+p.h-2,p.w,2);
     }else if(p.type==="sign"){
       ctx.fillStyle="#1a1f28";ctx.fillRect(psx,psy,p.w,p.h);
-      ctx.fillStyle="#f1c40f";ctx.font="bold 9px Arial";ctx.textAlign="center";
-      ctx.fillText("OPEN",psx+p.w/2,psy-4);
+      ctx.fillStyle=currentTheme.accent||"#f1c40f";ctx.font="bold 9px Arial";ctx.textAlign="center";
+      const sn=(currentTheme.signs||["OPEN"])[Math.abs(Math.floor(p.worldX))%(currentTheme.signs||["OPEN"]).length];
+      ctx.fillText(sn,psx+p.w/2,psy-4);
       ctx.fillStyle="#e74c3c";ctx.globalAlpha=0.5+Math.sin(time*0.2)*0.3;
       ctx.fillRect(psx+4,psy+2,p.w-8,3);ctx.globalAlpha=1;
       // brackets
