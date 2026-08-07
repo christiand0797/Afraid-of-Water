@@ -1,26 +1,17 @@
-# Afraid of Water — Enhancement Checklist
+# Graphics Enhancement TODO
 
-## A. Gameplay & Systems
-- [x] 0. Grace period (~2.5s) before the flood starts rising at the start of a run
-- [x] 1. Checkpoint milestone markers every 100m (visual "banner" + announce)
-- [x] 2. New hazard: dropping crane hook (level 4+)
-- [x] 3. New hazard: flying newspaper swarm (level 5+)
-- [x] 4. Daily welcome bonus: +50 coins first play of the day
+## Task
+Enhance all graphics in `index.html` (the `draw()` render pipeline).
 
-## B. Progress & Persistence
-- [x] 5. Achievements/trophy system + ACHIEVEMENTS screen with unread badge
-- [x] 6. Reset progress button (with confirm)
+## Steps
+- [ ] 1. Water & ocean — layered wave bands, animated foam crests, underwater light rays/caustics, depth-scatter gradient
+- [ ] 2. Sky & atmosphere — moving aurora/nebula, detailed far skyline, twinkling distant city lights, moon-light cold tint
+- [ ] 3. Buildings & rooftops — tiered roof setbacks, rooftop water towers & AC units, blinking antenna lights, animated window variety
+- [ ] 4. Character animation — run-cycle paw swing, squash & stretch on jump/land, wind-buffeting effects
+- [ ] 5. Platforms & props — edge highlights, weathering/moss, animated fire-escape, brick details
+- [ ] 6. Particles & effects — arcing splash droplets, underwater bubbles with light, more particle color variety
+- [ ] 7. Rain & weather — platform-top splash ripples, depth-of-field foreground streaks, colored lightning palette
 
-## C. Visual & Audio
-- [x] 7. Foreground parallax clouds layer; snow effect in Arctic theme
-- [x] 8. Credit/version footer; unread-achievements badge indicator
-- [x] 9. Music: add bass drone + main-menu selection sound
-
-## D. Quality-of-life
-- [x] 10. Fix duplicate continueBtn tap() binding
-- [x] 12. Bump game version string (1.5.0, version + trophy footer)
-
-## E. Docs & Deploy
-- [x] 13. Update README with features/changelog
-- [x] 14. Test locally (node _debug.js passes), ready to commit & push
-
+## Notes
+- All edits are to the `draw()` function in `index.html`
+- Keep performance in mind (mobile target) — avoid heavy per-frame allocations
