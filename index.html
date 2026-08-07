@@ -1313,7 +1313,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   if(level>=2&&score>=surgeNext&&surgeTimer<=0){
     surgeNext=score+260+level*30;
     surgeTimer=120;
-    cometBanner("🌊 SURGE!","#e74c3c");
+    comboBanner=100;comboBannerText="SURGE!";comboBannerColor="#e74c3c";
     sfxSurge();shakeAmount=14;
   }
 
