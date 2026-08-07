@@ -74,7 +74,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 </div>
 <div id="weatherLabel" class="hidden">DRIZZLE</div>
 <div id="oxygenBar"><div id="oxygenFill"></div></div>
-<div id="comboHud" class="hidden">COMBO ×<span id="comboVal">1</span></div>
+<div id="comboHud" class="hidden">COMBO ×<span id="comboVal">1</span><span id="comboTimerWrap" style="display:block;margin-top:2px"><span id="comboTimerBar" style="display:block;height:3px;width:100%;background:#e67e22;border-radius:2px;transition:width .1s linear"></span></span></div>
 <div id="timeStopHud" class="hidden" style="position:absolute;top:max(96px,calc(env(safe-area-inset-top)+16px));left:50%;transform:translateX(-50%);font-family:'Creepster',cursive;color:#00dfe0;font-size:16px;text-shadow:0 0 12px #00dfe0,2px 2px 0 #000;pointer-events:none;z-index:12">❄ TIME STOP</div>
 <div id="comboBanner" class="hidden" style="position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);font-family:'Creepster',cursive;color:#f1c40f;font-size:42px;text-shadow:0 0 24px #e67e22,3px 3px 0 #000;pointer-events:none;z-index:30;white-space:nowrap"></div>
 <div id="skinBar" class="hidden"></div>
@@ -1083,6 +1083,8 @@ function gameLoopFrame(){
   if(state!=="PLAYING"||!cat||!water||paused)return;
   time++;
   if(streakTimer>0){streakTimer--;if(streakTimer<=0){streak=0;comboMult=1}}
+  const ctb=$("comboTimerBar");
+  if(ctb){const wrap=$("comboTimerWrap");if(wrap){wrap.style.display=(comboMult>1)?"block":"none"}ctb.style.width=Math.max(0,(streakTimer/120)*100)+"%";}
   if(comboFlash>0)comboFlash*=0.94;
   const comboEl=$("comboHud");
   if(comboEl){
