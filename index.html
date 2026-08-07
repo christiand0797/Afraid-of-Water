@@ -920,16 +920,17 @@ function musicStep(){
   const scale=MODES[modeIdx%MODES.length];
   if(!melPhrase.length)newPhrase();
   const beat=musicBeat%8;
-  // Soft bass every 4 beats
-  if(beat===0){
-    playMusicNote(scale[0]*0.5, BEAT_MS*2.5/1000*m.tempo, 0.045);
+  // Bass — loud enough to hear
+  if(beat===0||beat===4){
+    playMusicNote(scale[0]*0.5, BEAT_MS*2.6/1000*m.tempo, 0.16);
+    playMusicNote(scale[0], BEAT_MS*1.6/1000*m.tempo, 0.07);
   }
-  // Melody sparse
-  if(beat%2===0&&mrand()<m.dens){
+  // Melody
+  if(mrand()<Math.max(0.4, m.dens)){
     const deg=melPhrase[melCursor%melPhrase.length];
     melCursor++;
     if(deg>=0){
-      playMusicNote(scale[deg%scale.length]*2, BEAT_MS*(0.7+mrand()*0.5)/1000*m.tempo, 0.028);
+      playMusicNote(scale[deg%scale.length]*2, BEAT_MS*(0.9+mrand()*0.4)/1000*m.tempo, 0.13);
     }
   }
   musicBeat++;
@@ -937,38 +938,39 @@ function musicStep(){
   if(musicBar>0&&musicBar%5===0&&musicBeat%8===0)newPhrase();
 }
 function startMusic(){
-  if(!soundOn||musicTimer)return;
+  if(!soundOn)return;
+  if(musicTimer){try{clearTimeout(musicTimer)}catch(e){}musicTimer=null}
   initAudio();
   if(!audioCtx)return;
   try{if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}
   try{
     if(!musicBus){
       musicBus=audioCtx.createGain();
-      musicBus.gain.value=0.5*(typeof volMusic==="number"?volMusic:0.85);
       const mf=audioCtx.createBiquadFilter();
-      mf.type="lowpass";mf.frequency.value=2400; // dark, soft
+      mf.type="lowpass";mf.frequency.value=3600;
       musicBus.connect(mf);mf.connect(masterFilter||audioCtx.destination);
     }
-  }catch(e){}
+    // Critical: always re-open gain (stopMusic used to leave bus near silence)
+    const g=1.0*(typeof volMusic==="number"?volMusic:1)*(typeof volMaster==="number"?volMaster:1);
+    musicBus.gain.cancelScheduledValues(audioCtx.currentTime);
+    musicBus.gain.setValueAtTime(Math.max(0.4, Math.min(1.2,g)), audioCtx.currentTime);
+  }catch(e){console.warn("musicBus",e)}
   musicBeat=0;musicBar=0;musicPhrase=0;melPhrase=[];
   newPhrase();
-  // Stop any leftover music.ogg
   try{if(musicSrc){musicSrc.stop();musicSrc=null}}catch(e){musicSrc=null}
   const tick=()=>{
     if(!soundOn||state!=="PLAYING"){musicTimer=null;return}
     try{musicStep()}catch(e){}
     const m=MOODS[mood]||MOODS[0];
-    musicTimer=setTimeout(tick, Math.max(400, BEAT_MS*(m.tempo||1)));
+    musicTimer=setTimeout(tick, Math.max(360, BEAT_MS*(m.tempo||1)));
   };
   tick();
 }
 function stopMusic(){
-  if(musicTimer){clearTimeout(musicTimer);musicTimer=null}
+  if(musicTimer){try{clearTimeout(musicTimer)}catch(e){}musicTimer=null}
   try{if(musicSrc){musicSrc.stop();musicSrc=null}}catch(e){musicSrc=null}
   if(musicGain){try{musicGain.disconnect()}catch(e){}musicGain=null}
   musicBeat=0;melPhrase=[];
-  // silence bus
-  try{if(musicBus)musicBus.gain.setTargetAtTime(0.0001,audioCtx.currentTime,0.05)}catch(e){}
 }
 
 function updateMuteBtn(){if(muteBtn)muteBtn.innerText=soundOn?"🔊":"🔇"}
@@ -1275,7 +1277,8 @@ function updateSkinBar(){
 }
 
 function createParticles(x,y,color,count,spread=6){
-  for(let i=0;i<Math.min(count,16);i++)particles.push({x,y,vx:(Math.random()-0.5)*spread,vy:(Math.random()-0.5)*spread-2,life:1+Math.random()*0.3,color,size:Math.random()*2.8+1});
+  if(particles.length>80)particles.splice(0,40);
+  for(let i=0;i<Math.min(count||6,8);i++)particles.push({x,y,vx:(Math.random()-0.5)*spread,vy:(Math.random()-0.5)*spread-2,life:0.6+Math.random()*0.3,color,size:Math.random()*2.5+1});
 }
 function createSplash(wx,wy,c=7){createParticles(wx,wy,"#a0d8ff",c,6)} // visual only — no splash SFX
 function createBubbles(wx,wy,c=5){for(let i=0;i<c;i++)particles.push({x:wx+(Math.random()-0.5)*20,y:wy,vx:(Math.random()-0.5)*1.5,vy:-1-Math.random()*2,life:0.8+Math.random()*0.5,color:"rgba(180,220,255,0.6)",size:2+Math.random()*3})}
@@ -1492,7 +1495,7 @@ function generateWorldSector(sectorY){
   while(cy>baseY+25){
     cy-=(Math.random()*36+88);
     for(let bo=-3;bo<=3;bo++){
-      if(Math.random()<0.1)continue;
+      if(Math.random()<0.18)continue;
       const bx=bo*BSPAN+60,bw=BW;
       let t="ledge",ph=16;const r=Math.random();
       if(r>0.88)t="stairs";
@@ -1505,13 +1508,13 @@ function generateWorldSector(sectorY){
       const mv=level>=3&&Math.random()<0.22&&t!=="stairs"&&t!=="cracked";
       platforms.push({worldX:px,worldY:cy,w:pw,h:ph,type:t,vx:mv?(Math.random()>0.5?2:-2):0,buildingIdx:bo,hp:t==="cracked"?1:99,broken:false});
       // Porch / balcony — solid climbable deck with rails (drawn as type porch)
-      if(Math.random()>0.4){
+      if(Math.random()>0.55){
         const porW=52+Math.random()*18;
         const porX=bx+24+Math.random()*(bw-porW-40);
         platforms.push({worldX:porX,worldY:cy-14,w:porW,h:9,type:"porch",vx:0,buildingIdx:bo,hp:99,broken:false,lit:Math.random()>0.5});
       }
       // Window sill under the main ledge
-      if(Math.random()>0.55){
+      if(Math.random()>0.7){
         platforms.push({worldX:px-6,worldY:cy+ph+2,w:Math.min(pw+12,70),h:7,type:"sill",vx:0,buildingIdx:bo,hp:99,broken:false});
       }
       // Open-sign top (climbable)
@@ -1547,7 +1550,7 @@ function generateWorldSector(sectorY){
       if(Math.random()>0.96)steamVents.push({worldX:bx+30+Math.random()*(bw-60),worldY:cy+5,timer:Math.random()*60});
       if(level>=2&&Math.random()>0.93)acBlows.push({worldX:bx+20+Math.random()*(bw-60),worldY:cy-26,timer:Math.random()*120,on:0});
       // Full-span bridges: connect this building all the way to the next
-      if(Math.random()<0.28&&bo<3&&t!=="stairs"){
+      if(Math.random()<0.18&&bo<3&&t!=="stairs"){
         const gapStart=bx+bw-24;
         const gapW=BSPAN-bw+48; // reaches into both facades
         platforms.push({worldX:gapStart,worldY:cy-4,w:gapW,h:10,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
@@ -1602,6 +1605,21 @@ let knockbackTimer=0;
 function gameLoopFrame(){
   if(state!=="PLAYING"||!cat||!water||paused)return;
   time++;
+  // Cull far entities every ~2s to stop lag from infinite world growth
+  if(time%120===0&&cat){
+    const cy=cat.worldY,cx=cat.worldX;
+    platforms=platforms.filter(p=>Math.abs(p.worldY-cy)<1400&&Math.abs(p.worldX-cx)<1600);
+    collectibles=collectibles.filter(c=>c.active&&Math.abs(c.worldY-cy)<1200);
+    windowNPCs=windowNPCs.filter(n=>Math.abs(n.worldY-cy)<1000);
+    hangingSigns=hangingSigns.filter(s=>Math.abs(s.worldY-cy)<1000);
+    steamVents=steamVents.filter(s=>Math.abs(s.worldY-cy)<1000);
+    acBlows=acBlows.filter(a=>Math.abs(a.worldY-cy)<1000);
+    satDishes=satDishes.filter(d=>Math.abs(d.worldY-cy)<1200);
+    chimneys=chimneys.filter(c=>Math.abs(c.worldY-cy)<1200);
+    securityLasers=securityLasers.filter(L=>Math.abs(L.y-cy)<1000);
+    if(particles.length>60)particles.length=40;
+  }
+
   if(streakTimer>0){streakTimer--;if(streakTimer<=0){streak=0;comboMult=1}}
   const ctb=$("comboTimerBar");
   if(ctb){const wrap=$("comboTimerWrap");if(wrap){wrap.style.display=(comboMult>1)?"block":"none"}ctb.style.width=Math.max(0,(streakTimer/120)*100)+"%";}
@@ -1778,9 +1796,10 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     d.vx=d.dir*(3.2+level*0.15);
     d.worldX+=d.vx;
     d.worldY+=0.3; // slight fall if midair
-    // stick to nearby platforms
+    // stick to nearby platforms (limited scan)
     for(let pi=0;pi<platforms.length;pi++){
       const p=platforms[pi];if(p.broken)continue;
+      if(Math.abs(p.worldX-d.worldX)>200)continue;
       if(d.worldX>p.worldX-5&&d.worldX<p.worldX+p.w+5&&d.worldY>p.worldY-8&&d.worldY<p.worldY+12){
         d.worldY=p.worldY-2;break;
       }
