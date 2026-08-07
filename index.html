@@ -165,7 +165,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 <h1 style="font-family:'Creepster',cursive;color:#cd6155;font-size:36px;margin:0 0 6px;text-shadow:3px 3px 0 #000">WASHED AWAY</h1>
 <p style="font-size:18px;margin:0 0 4px">MAX <span id="finalScore" style="color:#5dade2">0m</span></p>
 <p style="font-size:12px;margin:0 0 4px;color:#aaa">+ <span id="earnedCoins">0</span> coins · Rank <span id="rankText">—</span></p>
-<p style="font-size:12px;margin:0 0 10px;color:#aaa">Lives: <span id="livesLeft">0</span></p>
+<p style="font-size:12px;margin:0 0 10px;color:#aaa">Lives: <span id="livesLeft">0</span> · Best streak: <span id="bestStreakUI" style="color:#f1c40f">0</span></p>
 <button class="menu-btn teal" id="continueBtn">♥ CONTINUE (−1 life)</button>
 <button class="menu-btn" id="restartBtn">▶ TRY AGAIN (free)</button>
 <button class="menu-btn ad" id="extraLifeAdBtn">📺 WATCH AD → +1 LIFE</button>
@@ -481,7 +481,7 @@ const generatedSectors={},windowRegistry={};
 let weather={intensity:0.2,wind:3,stormName:"DRIZZLE",flashCooldown:0,gust:0,gustTimer:0};
 let shieldActive=false;
 let diving=false,oxygen=100,maxOxygen=100;
-let streak=0,streakTimer=0,comboMult=1,comboFlash=0;
+let streak=0,streakTimer=0,comboMult=1,comboFlash=0,bestStreakRun=0;
 let coyoteTimer=0,jumpBuffer=0,popups=[];
 let audioCtx;
 
@@ -942,7 +942,7 @@ function startGame(freeRestart){
 knockbackTimer=0;invulnTimer=0;checkpoint=null;
     milestone=0;milestoneBanner={text:"",t:0}; // reset milestone checkpoints
     waterDelay=150; // ~2.5s grace before the flood starts rising
-    state="PLAYING";score=0;time=0;level=1;paused=false;
+    state="PLAYING";score=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;
     cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
     diving=false;oxygen=100;dangerWarn=0;
     streak=0;streakTimer=0;comboMult=1;comboFlash=0;
@@ -1274,7 +1274,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     }
     if(Math.hypot(cat.worldX+cat.w/2-c.worldX,cat.worldY+cat.h/2-c.worldY)<magnetR){
       c.active=false;
-      streak++;streakTimer=120;comboFlash=1;
+      streak++;streakTimer=120;comboFlash=1;if(streak>bestStreakRun)bestStreakRun=streak;
       comboMult=Math.min(1+Math.floor(streak/4),8);
       score+=340*comboMult;if(score>highestScore)highestScore=score;
       coins+=(3+comboMult)*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
@@ -1426,7 +1426,8 @@ function loseLife(){
     const rank=submitScore(score);
     const fs=$("finalScore");if(fs)fs.innerText=(highestScore||score)+"m";
     const ec=$("earnedCoins");if(ec)ec.innerText=earned;
-    const ll=$("livesLeft");if(ll)ll.innerText=lives;
+const ll=$("livesLeft");if(ll)ll.innerText=lives;
+    const bs=$("bestStreakUI");if(bs)bs.innerText=bestStreakRun;
     const rt=$("rankText");if(rt)rt.innerText=rank;
     // Show/hide continue based on lives
     const cb=$("continueBtn");
