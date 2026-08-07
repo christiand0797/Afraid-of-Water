@@ -293,7 +293,7 @@ const ALL_SKINS=[
 ];
 let leaderboard=(()=>{try{const v=JSON.parse(localStorage.getItem("aow_lb")||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}})();
 let playerName=safeStorage.get("aow_name")||"Anonymous";
-const VERSION="1.6.0";
+const VERSION="1.6.1";
 
 const UPGRADES=[
   {id:"maxLives",name:"Max Lives",emoji:"❤️",desc:"+1 max life",max:5,prices:[100,200,400,800,1200]},
@@ -332,7 +332,7 @@ if(!DIFFS[difficulty])difficulty="normal";
 let currentDiff=DIFFS[difficulty];
 
 // Game version — shown in footer + could gate future migrations
-const GAME_VERSION="1.6.0";
+const GAME_VERSION="1.6.1";
 
 // Achievements system (trophies that persist locally)
 const ACHIEVEMENTS=[
