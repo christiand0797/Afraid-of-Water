@@ -62,6 +62,7 @@ canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-i
 .help-item b{color:#f1c40f}
 #dangerWarn{position:absolute;left:0;right:0;bottom:0;height:44%;pointer-events:none;z-index:8;opacity:0;transition:opacity .3s;background:linear-gradient(0deg,rgba(231,76,60,.55),rgba(231,76,60,0))}
 #comboHud{position:absolute;top:max(12px,calc(env(safe-area-inset-top)+8px));left:50%;transform:translateX(-50%);font-family:'Creepster',cursive;color:#f1c40f;font-size:26px;text-shadow:0 0 14px #e67e22,2px 2px 0 #000;pointer-events:none;z-index:12}
+@keyframes confettiFall{0%{transform:translateY(0) rotate(0)}100%{transform:translateY(110vh) rotate(680deg)}}
 </style>
 </head>
 <body>
@@ -247,6 +248,18 @@ if(toastTimer)clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>{
     el.classList.add("hidden");
   },2600);
+}
+
+function confettiBurst(){
+  try{
+    const colors=["#f1c40f","#e74c3c","#5dade2","#2ecc71","#9b59b6","#e67e22"];
+    for(let i=0;i<24;i++){
+      const s=document.createElement("div");
+      s.style.cssText="position:fixed;top:"+(-10+Math.random()*20)+"vh;left:"+(Math.random()*100)+"vw;width:"+(4+Math.random()*7)+"px;height:"+(6+Math.random()*9)+"px;background:"+colors[Math.floor(Math.random()*colors.length)]+";z-index:9999;border-radius:2px;opacity:0.95;animation:confettiFall "+(1.6+Math.random()*1.2)+"s ease-in forwards;animation-delay:"+(Math.random()*0.5)+"s";
+      document.body.appendChild(s);
+      setTimeout(()=>s.remove(),3200);
+    }
+  }catch(e){}
 }
 
 
@@ -485,6 +498,7 @@ let diving=false,oxygen=100,maxOxygen=100;
 let streak=0,streakTimer=0,comboMult=1,comboFlash=0,bestStreakRun=0;
 let coyoteTimer=0,jumpBuffer=0,popups=[];
 let ampTimer=0;
+let bestAtStart=0;
 let audioCtx;
 
 function initAudio(){try{if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();masterFilter=audioCtx.createBiquadFilter();masterFilter.type="lowpass";masterFilter.frequency.value=16000;masterGain=audioCtx.createGain();masterGain.gain.value=1;masterFilter.connect(masterGain);masterGain.connect(audioCtx.destination)}if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
@@ -945,7 +959,7 @@ function startGame(freeRestart){
 knockbackTimer=0;invulnTimer=0;checkpoint=null;
     milestone=0;milestoneBanner={text:"",t:0}; // reset milestone checkpoints
     waterDelay=150; // ~2.5s grace before the flood starts rising
-    state="PLAYING";score=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;ampTimer=0;
+    state="PLAYING";score=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;ampTimer=0;bestAtStart=highestScore||0;
     cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
     diving=false;oxygen=100;dangerWarn=0;
     streak=0;streakTimer=0;comboMult=1;comboFlash=0;
@@ -1439,6 +1453,14 @@ function loseLife(){
 const ll=$("livesLeft");if(ll)ll.innerText=lives;
     const bs=$("bestStreakUI");if(bs)bs.innerText=bestStreakRun;
     const rt=$("rankText");if(rt)rt.innerText=rank;
+    // Celebration if this run beat your previous best
+    if(highestScore>bestAtStart&&highestScore>0){
+      toast("🏆 NEW PERSONAL BEST");
+      setTimeout(()=>confettiBurst(),250);
+      setTimeout(()=>confettiBurst(),700);
+      setTimeout(()=>confettiBurst(),1200);
+    }
+    const rn=parseInt(rank);if(!isNaN(rn)&&rn>0&&rn<=20)toast("🏅 You made the global board! #"+rn);
     // Show/hide continue based on lives
     const cb=$("continueBtn");
     if(cb){
