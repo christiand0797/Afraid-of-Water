@@ -407,11 +407,11 @@ function applyVolumes(){
 }
 let musicTimer=null;
 const DIFFS={
-  baby:{name:"BABY",waterMul:0.42,hazardMul:0.3,npcForce:7,npcVy:-3,desc:"Cozy pace · almost no hazards — for tiny climbers"},
-  easy:{name:"EASY",waterMul:0.65,hazardMul:0.7,npcForce:12,npcVy:-6,desc:"Slower water · softer hazards"},
-  normal:{name:"NORMAL",waterMul:1,hazardMul:1,npcForce:16,npcVy:-9,desc:"Water rises at normal speed"},
-  hard:{name:"HARD",waterMul:1.45,hazardMul:1.35,npcForce:20,npcVy:-12,desc:"Fast water · meaner NPCs"},
-  insane:{name:"INSANE",waterMul:2.0,hazardMul:1.7,npcForce:24,npcVy:-15,desc:"Flood speed · brutal knockback"}
+  baby:{name:"BABY",waterMul:0.35,hazardMul:0.25,npcForce:6,npcVy:-2,weatherMul:0.5,desc:"Very easy · super slow water — for tiny climbers"},
+  easy:{name:"EASY",waterMul:0.60,hazardMul:0.60,npcForce:11,npcVy:-5,weatherMul:0.75,desc:"Easy · slow water · soft hazards"},
+  normal:{name:"NORMAL",waterMul:1.0,hazardMul:1.0,npcForce:16,npcVy:-9,weatherMul:1.0,desc:"Balanced · steady water · fair hazards"},
+  hard:{name:"HARD",waterMul:1.65,hazardMul:1.5,npcForce:21,npcVy:-13,weatherMul:1.3,desc:"Hard · fast water · meaner NPCs"},
+  insane:{name:"INSANE",waterMul:2.5,hazardMul:2.0,npcForce:28,npcVy:-17,weatherMul:1.6,desc:"Insane · brutal flood · relentless hazards"}
 };
 let difficulty=safeStorage.get("aow_diff")||"normal";
 if(!DIFFS[difficulty])difficulty="normal";
@@ -1552,12 +1552,12 @@ function startGame(freeRestart){
     try{stopMusic()}catch(e){}
     if(soundOn){try{startMusic()}catch(e){}try{startWaves()}catch(e){}}
     try{applyVolumes()}catch(e){}
-    cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
+cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
     diving=false;oxygen=100;dangerWarn=0;
     streak=0;streakTimer=0;comboMult=1;comboFlash=0;
     maxOxygen=100+getUpgradeLevel("oxygen")*35;
     oxygen=maxOxygen;
-    weather={intensity:0.2,wind:4,stormName:"DRIZZLE",flashCooldown:50,gust:0,gustTimer:40};
+    weather={intensity:0.15*(currentDiff.weatherMul||1),wind:4,stormName:"DRIZZLE",flashCooldown:50,gust:0,gustTimer:40};
 
     [startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen].forEach(s=>{if(s){s.classList.add("hidden");s.style.display=""}});
     const adO=$("adOverlay");if(adO)adO.classList.add("hidden");
