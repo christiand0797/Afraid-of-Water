@@ -591,9 +591,64 @@ function sfxDouble(){playTone(560,"square",0.04,0.16);setTimeout(()=>playTone(82
 function sfxCollect(){if(playBuf("coin",0.5))return;playTone(1400,"square",0.03,0.18);setTimeout(()=>playTone(2100,"square",0.08,0.14),40)}
 function sfxImpact(){playNoise(0.12,"lowpass",500,1.0,0.18,120);playTone(90,"triangle",0.1,0.12)}
 function playSlide(f0,f1,d,v){if(!soundOn||!audioCtx)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type="triangle";o.frequency.setValueAtTime(f0,now);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),now+d);const g0=Math.max(0.0001,v);g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.004);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.05,d));o.connect(g);g.connect(masterFilter||audioCtx.destination);o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};o.start(now);o.stop(now+Math.max(0.05,d)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
-let noiseBuf=null;
-function getNoiseBuf(){if(!audioCtx)return null;if(noiseBuf)return noiseBuf;const len=Math.max(48000,audioCtx.sampleRate*1.5);noiseBuf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;return noiseBuf}
-function playNoise(dur,type,freq,q,vol,sweepTo){if(!soundOn||!audioCtx)return;const buf=getNoiseBuf();if(!buf)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const src=audioCtx.createBufferSource();src.buffer=buf;src.loop=true;const f=audioCtx.createBiquadFilter();f.type=type||"lowpass";f.frequency.setValueAtTime(freq||900,now);if(sweepTo)f.frequency.exponentialRampToValueAtTime(sweepTo,now+Math.max(0.05,dur));f.Q.value=q||0.7;const g=audioCtx.createGain();const g0=Math.max(0.0001,vol||0.15);g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.012);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.05,dur));src.connect(f);f.connect(g);g.connect(masterFilter||audioCtx.destination);src.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};src.start(now);src.stop(now+Math.max(0.05,dur)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
+let noiseBuf=null,brownBuf=null;
+// White noise — short bursts only (SFX). Seamless fade at edges to avoid clicks.
+function getNoiseBuf(){
+  if(!audioCtx)return null;if(noiseBuf)return noiseBuf;
+  const len=Math.max(48000,Math.floor(audioCtx.sampleRate*1.2));
+  noiseBuf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+  const d=noiseBuf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  // fade ends so one-shot noise doesn't click
+  const fade=Math.min(512,len/8);
+  for(let i=0;i<fade;i++){d[i]*=i/fade;d[len-1-i]*=i/fade}
+  return noiseBuf;
+}
+// Brown noise — smooth low rumble for ambient (much less glitchy than white)
+function getBrownBuf(){
+  if(!audioCtx)return null;if(brownBuf)return brownBuf;
+  const len=Math.floor(audioCtx.sampleRate*6); // 6s loop
+  brownBuf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+  const d=brownBuf.getChannelData(0);
+  let last=0;
+  for(let i=0;i<len;i++){
+    const white=Math.random()*2-1;
+    last=(last+0.02*white)/1.02;
+    d[i]=last*3.5;
+  }
+  // crossfade seam so loop is seamless
+  const fade=Math.floor(audioCtx.sampleRate*0.15);
+  for(let i=0;i<fade;i++){
+    const t=i/fade;
+    d[i]=d[i]*t+d[len-fade+i]*(1-t);
+  }
+  return brownBuf;
+}
+function playNoise(dur,type,freq,q,vol,sweepTo){
+  if(!soundOn||!audioCtx)return;
+  const buf=getNoiseBuf();if(!buf)return;
+  if(audioVoices>20)return;
+  try{
+    audioVoices++;
+    const now=audioCtx.currentTime;
+    const src=audioCtx.createBufferSource();
+    src.buffer=buf;src.loop=false; // one-shot — no loop glitch
+    const f=audioCtx.createBiquadFilter();
+    f.type=type||"lowpass";
+    f.frequency.setValueAtTime(freq||900,now);
+    if(sweepTo)f.frequency.exponentialRampToValueAtTime(Math.max(40,sweepTo),now+Math.max(0.05,dur));
+    f.Q.value=q||0.7;
+    const g=audioCtx.createGain();
+    const g0=Math.max(0.0001,vol||0.15);
+    const d=Math.max(0.05,dur);
+    g.gain.setValueAtTime(0.00001,now);
+    g.gain.exponentialRampToValueAtTime(g0,now+0.015);
+    g.gain.exponentialRampToValueAtTime(0.0003,now+d);
+    src.connect(f);f.connect(g);g.connect(masterFilter||audioCtx.destination);
+    src.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};
+    src.start(now);src.stop(now+d+0.05);
+  }catch(e){audioVoices=Math.max(0,audioVoices-1)}
+}
 // ---- Real sound files (bundled locally in assets/sounds/) ----
 // Each SFX tries to play a real audio buffer first; if a file isn't loaded
 // (offline / slow / decode error) it gracefully falls back to the Web Audio synth.
@@ -666,9 +721,10 @@ function ensureRainSource(){
       rainSrc=audioCtx.createBufferSource();rainSrc.buffer=real;rainSrc.loop=true;
       rainSrc.connect(rainGain);rainUsingReal=true;
     }else{
-      const b=getNoiseBuf();if(!b)return false;
+      // Brown noise fallback — smooth, no white-noise loop clicks
+      const b=getBrownBuf();if(!b)return false;
       rainSrc=audioCtx.createBufferSource();rainSrc.buffer=b;rainSrc.loop=true;
-      rainFilter=audioCtx.createBiquadFilter();rainFilter.type="highpass";rainFilter.frequency.value=900;rainFilter.Q.value=0.5;
+      rainFilter=audioCtx.createBiquadFilter();rainFilter.type="bandpass";rainFilter.frequency.value=1200;rainFilter.Q.value=0.6;
       rainSrc.connect(rainFilter);rainFilter.connect(rainGain);rainUsingReal=false;
     }
     rainGain.connect(masterFilter||audioCtx.destination);
@@ -707,31 +763,56 @@ function sfxYowl(){if(playBuf(pickMeow(),0.75))return;playSlide(720,480,0.22,0.2
 function sfxMeowHappy(){/* reserved — not used on jumps */}
 function sfxFall(){sfxYowl();playNoise(0.45,"bandpass",600,1.2,0.14,2800)}
 function sfxLand(){sfxImpact()}
-// Ocean waves crashing on rocks — continuous ambient under the storm
-let waveSrc=null,waveGain=null,waveFilter=null,waveTimer=null;
+// Ocean swell — smooth brown-noise bed (no white-noise loop = no glitch/static)
+let waveSrc=null,waveGain=null,waveFilter=null,waveTimer=null,waveLfo=null;
 function startWaves(){
   if(!audioCtx||!soundOn||waveSrc)return;
   try{
-    const b=getNoiseBuf();if(!b)return;
-    waveSrc=audioCtx.createBufferSource();waveSrc.buffer=b;waveSrc.loop=true;
-    waveFilter=audioCtx.createBiquadFilter();waveFilter.type="lowpass";waveFilter.frequency.value=280;waveFilter.Q.value=0.8;
-    waveGain=audioCtx.createGain();waveGain.gain.value=0.0001;
-    waveSrc.connect(waveFilter);waveFilter.connect(waveGain);waveGain.connect(masterFilter||audioCtx.destination);
+    const b=getBrownBuf();if(!b)return;
+    waveSrc=audioCtx.createBufferSource();
+    waveSrc.buffer=b;
+    waveSrc.loop=true;
+    // Very dark lowpass — soft distant surf, not static
+    waveFilter=audioCtx.createBiquadFilter();
+    waveFilter.type="lowpass";
+    waveFilter.frequency.value=180;
+    waveFilter.Q.value=0.4;
+    waveGain=audioCtx.createGain();
+    waveGain.gain.value=0.0001;
+    waveSrc.connect(waveFilter);
+    waveFilter.connect(waveGain);
+    waveGain.connect(masterFilter||audioCtx.destination);
     waveSrc.start();
-    waveGain.gain.setTargetAtTime(0.09,audioCtx.currentTime,0.8);
-    // Occasional bigger crash
+    // Gentle constant bed
+    waveGain.gain.setTargetAtTime(0.035,audioCtx.currentTime,1.2);
+    // Soft volume swell (no extra noise bursts — those were the glitch)
     waveTimer=setInterval(()=>{
-      if(!soundOn||state!=="PLAYING")return;
-      playNoise(0.7,"lowpass",400,0.9,0.12,80);
-      setTimeout(()=>playNoise(0.5,"lowpass",220,1.0,0.08,60),180);
-    },4200+Math.random()*3000);
-  }catch(e){}
+      if(!soundOn||state!=="PLAYING"||!waveGain)return;
+      try{
+        const now=audioCtx.currentTime;
+        // slow breathe in/out
+        waveGain.gain.setTargetAtTime(0.025+Math.random()*0.025,now,0.8);
+        // soft low sine "wave roll" — smooth, not noisy
+        const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+        o.type="sine";
+        o.frequency.setValueAtTime(40+Math.random()*20,now);
+        o.frequency.linearRampToValueAtTime(28,now+1.4);
+        g.gain.setValueAtTime(0.0001,now);
+        g.gain.linearRampToValueAtTime(0.03,now+0.4);
+        g.gain.linearRampToValueAtTime(0.0001,now+1.6);
+        o.connect(g);g.connect(masterFilter||audioCtx.destination);
+        o.start(now);o.stop(now+1.7);
+      }catch(e){}
+    },5000+Math.random()*2500);
+  }catch(e){waveSrc=null}
 }
 function stopWaves(){
   try{if(waveTimer){clearInterval(waveTimer);waveTimer=null}}catch(e){}
-  try{if(waveGain)waveGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.3)}catch(e){}
-  try{if(waveSrc){waveSrc.stop();waveSrc=null}}catch(e){waveSrc=null}
-  waveGain=null;waveFilter=null;
+  try{if(waveGain)waveGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.4)}catch(e){}
+  setTimeout(()=>{
+    try{if(waveSrc){waveSrc.stop();waveSrc=null}}catch(e){waveSrc=null}
+    waveGain=null;waveFilter=null;
+  },500);
 }
 function sfxPower(){playTone(300,"sine",0.12,0.2);setTimeout(()=>playTone(1500,"triangle",0.2,0.16),60)}
 function sfxSurge(){playTone(180,"sawtooth",0.4,0.2);setTimeout(()=>playTone(320,"sawtooth",0.4,0.2),90)}
@@ -754,44 +835,151 @@ function sfxBuy(){if(playBuf("coin",0.6))return;playTone(800,"sine",0.08,0.2);se
 function sfxDive(){playTone(200,"sine",0.15,0.2);setTimeout(()=>playTone(120,"sine",0.2,0.15),80)}
 function sfxBubble(){playTone(400+Math.random()*200,"sine",0.05,0.08)}
 
-// Background music — plays the real bundled music.ogg on a loop when available,
-// otherwise falls back to the gentle procedural pentatonic arpeggio.
-const MUSIC_NOTES=[261.6,293.7,329.6,392.0,440.0,523.3,587.3];
-let musicSrc=null,musicGain=null;
+// ============================================================
+// SPOOKY FLOOD THEME — full multi-section song (not a short loop)
+// Structure: Intro → Verse → Build → Chorus → Bridge → Verse2 → Chorus → Outro → repeat
+// Key: D minor / D phrygian (spooky). Catchy ostinato + rising tension.
+// ============================================================
+let musicSrc=null,musicGain=null,musicBus=null;
+let musicBeat=0,musicBar=0,musicSection=0;
+const BPM=96;
+const BEAT_MS=Math.round(60000/BPM); // ~625ms per beat
+// Scale degrees in Hz (D3 root) — minor + phrygian flat-2 for dread
+const ROOT=146.83; // D3
+const DEG={
+  1:ROOT,          // D
+  b2:ROOT*16/15,   // Eb (phrygian)
+  2:ROOT*9/8,      // E
+  b3:ROOT*6/5,     // F
+  3:ROOT*5/4,      // F#
+  4:ROOT*4/3,      // G
+  b5:ROOT*45/32,   // Ab
+  5:ROOT*3/2,      // A
+  b6:ROOT*8/5,     // Bb
+  6:ROOT*5/3,      // B
+  b7:ROOT*9/5,     // C
+  7:ROOT*15/8,     // C#
+  8:ROOT*2         // D4
+};
+// 8-bar sections — each entry is 8 bars of chord roots (scale degree keys)
+const SONG_SECTIONS=[
+  {name:"intro",bars:8,chords:["1","1","b6","b6","4","4","5","5"],mel:[["1","b3","5","8"],["1","b3","4","5"],["b6","1","b3","5"],["b6","b3","5","8"],["4","b6","1","4"],["4","5","b7","8"],["5","b7","8","5"],["5","4","b3","1"]],dens:0.35,bass:true,pad:true,lead:false,pulse:false},
+  {name:"verse",bars:8,chords:["1","b7","b6","5","1","b7","4","5"],mel:[["1","b3","5","b3"],["b7","2","4","2"],["b6","1","b3","1"],["5","b7","2","5"],["1","5","8","b3"],["b7","4","b7","2"],["4","b6","8","4"],["5","8","5","b3"]],dens:0.7,bass:true,pad:true,lead:true,pulse:true},
+  {name:"build",bars:4,chords:["b6","4","5","5"],mel:[["b6","b6","1","b3"],["4","4","5","b7"],["5","5","8","5"],["5","b7","8","b2"]],dens:0.85,bass:true,pad:true,lead:true,pulse:true},
+  {name:"chorus",bars:8,chords:["1","b6","4","5","1","b6","b7","5"],mel:[["1","5","8","5","b3","5"],["b6","b3","8","b3"],["4","1","8","4"],["5","b7","8","5"],["1","5","8","b7","5"],["b6","1","b3","5"],["b7","2","5","b7"],["5","8","5","1"]],dens:1.0,bass:true,pad:true,lead:true,pulse:true},
+  {name:"bridge",bars:8,chords:["b2","1","b6","5","b2","b3","4","5"],mel:[["b2","4","b6","b2"],["1","b3","5","1"],["b6","1","4","b6"],["5","1","5","b7"],["b2","b6","b2","4"],["b3","5","b3","1"],["4","b6","8","4"],["5","b7","5","1"]],dens:0.55,bass:true,pad:true,lead:true,pulse:false},
+  {name:"verse2",bars:8,chords:["1","5","b6","b7","1","4","5","1"],mel:[["1","b3","5","8"],["5","b7","5","2"],["b6","b3","1","b6"],["b7","2","4","b7"],["1","5","8","b3"],["4","b6","4","1"],["5","8","5","b7"],["1","5","b3","1"]],dens:0.75,bass:true,pad:true,lead:true,pulse:true},
+  {name:"chorus2",bars:8,chords:["1","b6","4","5","1","b6","b7","5"],mel:[["1","5","8","5","b3","8"],["b6","b3","8","5"],["4","1","8","b7"],["5","8","5","1"],["1","5","8","5"],["b6","1","b3","8"],["b7","5","b7","2"],["5","8","b7","5"]],dens:1.0,bass:true,pad:true,lead:true,pulse:true},
+  {name:"outro",bars:4,chords:["1","b6","5","1"],mel:[["1","b3","5"],["b6","1","b3"],["5","1","5"],["1","1","1","1"]],dens:0.4,bass:true,pad:true,lead:false,pulse:false}
+];
+function degHz(d){
+  if(typeof d==="number")return d;
+  return DEG[d]||ROOT;
+}
+function playMusicNote(freq,type,dur,vol,slideTo){
+  if(!soundOn||!audioCtx||!musicBus)return;
+  if(audioVoices>28)return;
+  try{
+    audioVoices++;
+    const now=audioCtx.currentTime;
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.type=type||"triangle";
+    o.frequency.setValueAtTime(Math.max(30,freq),now);
+    if(slideTo)o.frequency.exponentialRampToValueAtTime(Math.max(30,slideTo),now+dur*0.9);
+    const v=Math.max(0.0001,vol||0.08);
+    g.gain.setValueAtTime(0.00001,now);
+    g.gain.exponentialRampToValueAtTime(v,now+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.05,dur));
+    o.connect(g);g.connect(musicBus);
+    o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};
+    o.start(now);o.stop(now+Math.max(0.05,dur)+0.05);
+  }catch(e){audioVoices=Math.max(0,audioVoices-1)}
+}
 function musicStep(){
-  if(!soundOn||!audioCtx)return;
-  // Sparse, gentle arpeggio — leave rests so it breathes instead of droning constantly
-  if(Math.random()<0.4)return; // rest step
-  const n=MUSIC_NOTES[Math.floor(Math.random()*MUSIC_NOTES.length)];
-  playTone(n,"triangle",0.3,0.028);
-  if(Math.random()<0.5)setTimeout(()=>playTone(n*1.5,"sine",0.35,0.015),320);
-  // soft bass under the arpeggio for warmth
-  if(Math.random()<0.25)playTone(n/2,"sine",0.4,0.022);
+  if(!soundOn||!audioCtx||state!=="PLAYING")return;
+  const sec=SONG_SECTIONS[musicSection%SONG_SECTIONS.length];
+  const barInSec=musicBar%sec.bars;
+  const chordKey=sec.chords[barInSec]||"1";
+  const chordHz=degHz(chordKey);
+  const beat=musicBeat%4; // 4/4
+
+  // --- Pad (held chord tone) on beat 0 ---
+  if(sec.pad&&beat===0){
+    playMusicNote(chordHz*0.5,"sine",BEAT_MS*3.6/1000,0.045*sec.dens);
+    playMusicNote(chordHz,"triangle",BEAT_MS*3.2/1000,0.03*sec.dens);
+    playMusicNote(chordHz*1.5,"sine",BEAT_MS*2.8/1000,0.02*sec.dens); // fifth
+  }
+  // --- Bass pulse ---
+  if(sec.bass&&(beat===0||beat===2)){
+    playMusicNote(chordHz*0.5,"triangle",BEAT_MS*0.7/1000,0.09*sec.dens);
+    if(beat===0)playMusicNote(chordHz*0.25,"sine",BEAT_MS*1.1/1000,0.06*sec.dens);
+  }
+  // --- Catchy lead motif ---
+  if(sec.lead){
+    const motif=sec.mel[barInSec]||sec.mel[0];
+    const noteIdx=beat%motif.length;
+    // denser in chorus: play on every beat; verse often on 0,1,2
+    if(beat<motif.length&&(sec.dens>0.8||beat!==3||Math.random()<0.6)){
+      const nHz=degHz(motif[noteIdx])*2; // octave up for lead
+      const next=degHz(motif[(noteIdx+1)%motif.length])*2;
+      playMusicNote(nHz,"square",BEAT_MS*0.55/1000,0.028*sec.dens,sec.name.indexOf("chorus")>=0?next:null);
+      // ghost harmony
+      if(sec.dens>0.85)playMusicNote(nHz*1.5,"sine",BEAT_MS*0.4/1000,0.012*sec.dens);
+    }
+  }
+  // --- Soft pulse / heartbeat tick for tension ---
+  if(sec.pulse&&(beat===0||beat===2)){
+    playNoise(0.04,"bandpass",180,2.0,0.04*sec.dens,80);
+  }
+  // --- Occasional spooky high drip ---
+  if(Math.random()<0.08*sec.dens){
+    playMusicNote(ROOT*8*(1+Math.random()*0.5),"sine",0.35,0.018,ROOT*4);
+  }
+
+  musicBeat++;
+  if(musicBeat%4===0){
+    musicBar++;
+    if(musicBar%sec.bars===0){
+      musicSection++;
+      // full song length before repeat: sum of all section bars
+    }
+  }
 }
 function startMusic(){
   if(!soundOn||musicTimer)return;
   initAudio();
-  // Try the real music.ogg loop first
-  if(audioCtx&&soundBufs&&soundBufs["music"]){
+  if(!audioCtx)return;
+  try{
+    if(!musicBus){
+      musicBus=audioCtx.createGain();
+      musicBus.gain.value=0.55;
+      // Mild lowpass so music sits under SFX
+      const mf=audioCtx.createBiquadFilter();
+      mf.type="lowpass";mf.frequency.value=4200;
+      musicBus.connect(mf);mf.connect(masterFilter||audioCtx.destination);
+    }
+  }catch(e){}
+  musicBeat=0;musicBar=0;musicSection=0;
+  // Prefer the generative full song over the short music.ogg loop
+  musicTimer=setInterval(musicStep,BEAT_MS);
+  // Optional: very quiet real music.ogg underneath if present (texture only)
+  if(audioCtx&&soundBufs&&soundBufs["music"]&&!musicSrc){
     try{
-      if(!musicSrc||!musicGain){
-        musicSrc=audioCtx.createBufferSource();
-        musicSrc.buffer=soundBufs["music"];
-        musicSrc.loop=true;
-        musicGain=audioCtx.createGain();
-        musicGain.gain.value=0.5;
-        musicSrc.connect(musicGain);musicGain.connect(masterFilter||audioCtx.destination);
-        musicSrc.start();
-      }
-      return; // real loop is playing
-    }catch(e){/* fall through to synth */}
+      musicSrc=audioCtx.createBufferSource();
+      musicSrc.buffer=soundBufs["music"];
+      musicSrc.loop=true;
+      musicGain=audioCtx.createGain();
+      musicGain.gain.value=0.08; // barely there bed
+      musicSrc.connect(musicGain);musicGain.connect(masterFilter||audioCtx.destination);
+      musicSrc.start();
+    }catch(e){musicSrc=null}
   }
-  musicTimer=setInterval(musicStep,540);
 }
 function stopMusic(){
   if(musicTimer){clearInterval(musicTimer);musicTimer=null}
   try{if(musicSrc){musicSrc.stop();musicSrc=null}}catch(e){musicSrc=null}
   if(musicGain){try{musicGain.disconnect()}catch(e){}musicGain=null}
+  musicBeat=0;musicBar=0;musicSection=0;
 }
 function updateMuteBtn(){if(muteBtn)muteBtn.innerText=soundOn?"🔊":"🔇"}
 function toggleSound(){
