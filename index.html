@@ -718,12 +718,15 @@ function playNoise(dur,type,freq,q,vol,sweepTo){
 const SOUNDS={
   meow1:["assets/sounds/meow1.ogg"],
   meow2:["assets/sounds/meow2.ogg"],
-  meow3:["assets/sounds/meow3.ogg"],
   thunder:["assets/sounds/thunder.ogg"],
   rain:["assets/sounds/rain.ogg"],
-  splash:["assets/sounds/splash.ogg"],
-  music:["assets/sounds/music.ogg"],
   coin:["assets/sounds/coin.ogg"]
+};
+// Large files deferred
+const SOUNDS_DEFER={
+  meow3:["assets/sounds/meow3.ogg"],
+  splash:["assets/sounds/splash.ogg"],
+  music:["assets/sounds/music.ogg"]
 };
 const soundBufs={};
 function loadSoundBuf(key){
@@ -755,12 +758,18 @@ function loadSoundBuf(key){
 function loadSounds(){
   const p=Promise.all(Object.keys(SOUNDS).map(k=>loadSoundBuf(k)));
   p.then(results=>{
-    const ok=results.filter(Boolean).length;
-    console.log("[audio] loaded",ok,"/",results.length,"buffers");
+    console.log("[audio] core",results.filter(Boolean).length);
     if(state==="PLAYING"&&soundOn){
       try{setRainGain(weather.intensity||0.3)}catch(e){}
       try{startMusic()}catch(e){}
     }
+    // Defer heavy oggs so first paint stays fast
+    setTimeout(()=>{
+      Object.keys(SOUNDS_DEFER||{}).forEach(k=>{
+        SOUNDS[k]=SOUNDS_DEFER[k];
+        loadSoundBuf(k);
+      });
+    },2500);
   }).catch(()=>{});
   return p;
 }
@@ -1463,8 +1472,7 @@ function syncClimbTheme(){
   if(next&&currentTheme&&next.id!==currentTheme.id){
     currentTheme=next;
     announcePhase(next.emoji+" "+next.name.toUpperCase());
-    // Clear window lights so new palette can re-roll
-    for(let k in windowRegistry)delete windowRegistry[k];
+    // Keep existing window lights — only new windows roll individually
   }
 }
 function announcePhase(t){phaseAnnouncer.innerText=t;phaseAnnouncer.style.opacity=1;setTimeout(()=>phaseAnnouncer.style.opacity=0,2200)}
@@ -1580,7 +1588,7 @@ function startGame(freeRestart){
     shieldActive=getUpgradeLevel("shield")>0;
 
     for(let i=0;i<9;i++)debris.push({worldX:Math.random()*canvas.width*5-canvas.width*2.5,type:Math.random()>0.5?"cab":"pallet",seed:Math.random()*300});
-    for(let i=0;i<45;i++)rain.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,z:0.5+Math.random()*2,len:9+Math.random()*14,speed:0.7+Math.random()*0.5});
+    for(let i=0;i<28;i++)rain.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,z:0.5+Math.random()*2,len:9+Math.random()*14,speed:0.7+Math.random()*0.5});
 
     if(livesUI)livesUI.innerText=lives;
     updateLifeWarn();
@@ -1605,7 +1613,7 @@ function startGame(freeRestart){
 }
 
 // ---- Infinite vertical platforms (height-based, never runs out) ----
-const FLOOR_H=70;
+const FLOOR_H=92;
 let genTopY=null, genBotY=null; // worldY of highest / lowest generated floor
 const genFloors={}; // key = floor index to avoid dupes
 
@@ -1615,44 +1623,48 @@ function generateFloorRow(cy){
   const key=floorKey(cy);
   if(genFloors[key])return;
   genFloors[key]=true;
-  const BSPAN=520;
-  const BW=380;
-  // Only 3 buildings — less left/right clutter, continuous UP path
+  const BSPAN=540;
+  const BW=360;
+  // 3 buildings but not every building every floor — keeps climb fair, not packed
   for(let bo=-1;bo<=1;bo++){
-    const bx=bo*BSPAN+80;
-    // Main solid ledge — always
-    const mainW=160+Math.random()*90;
-    const mainX=bx+15+Math.random()*Math.max(5,BW-mainW-30);
+    // Side buildings sometimes skip a floor (center almost always has a ledge)
+    if(bo!==0&&Math.random()<0.28)continue;
+    const bx=bo*BSPAN+90;
+    const mainW=120+Math.random()*70;
+    const mainX=bx+20+Math.random()*Math.max(8,BW-mainW-40);
     let t="ledge";
     const r=Math.random();
-    if(r>0.9)t="stairs";
-    else if(r>0.82)t="scaffolding";
-    else if(r>0.65)t="fire-escape";
-    else if(r>0.5)t="ac";
-    else if(r>0.93)t="cracked";
-    platforms.push({worldX:mainX,worldY:cy,w:mainW,h:15,type:t,vx:0,buildingIdx:bo,hp:t==="cracked"?2:99,broken:false});
-    // Side landing left
-    platforms.push({worldX:bx+8,worldY:cy-6,w:52,h:10,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
-    // Side landing right
-    platforms.push({worldX:bx+BW-60,worldY:cy-6,w:52,h:10,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
-    // One mid step so vertical gaps stay jumpable
-    platforms.push({worldX:bx+70+Math.random()*(BW-140),worldY:cy-FLOOR_H*0.45,w:55,h:12,type:"crate",vx:0,buildingIdx:bo,hp:99,broken:false});
-    // Bridge between buildings (center connections)
-    if(bo<1&&Math.random()>0.25){
-      platforms.push({worldX:bx+BW-12,worldY:cy-2,w:BSPAN-BW+24,h:11,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
+    if(r>0.92)t="stairs";
+    else if(r>0.84)t="scaffolding";
+    else if(r>0.68)t="fire-escape";
+    else if(r>0.52)t="ac";
+    else if(r>0.95)t="cracked";
+    platforms.push({worldX:mainX,worldY:cy,w:mainW,h:14,type:t,vx:0,buildingIdx:bo,hp:t==="cracked"?2:99,broken:false});
+    // Only one side landing (not both) — less clutter
+    if(Math.random()>0.4){
+      const left=Math.random()>0.5;
+      platforms.push({worldX:left?bx+8:bx+BW-56,worldY:cy-5,w:48,h:9,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
     }
-    if(Math.random()>0.7){
+    // Occasional mid crate
+    if(Math.random()>0.45){
+      platforms.push({worldX:bx+50+Math.random()*(BW-100),worldY:cy-FLOOR_H*0.42,w:48,h:11,type:"crate",vx:0,buildingIdx:bo,hp:99,broken:false});
+    }
+    // Occasional bridge
+    if(bo<1&&Math.random()>0.55){
+      platforms.push({worldX:bx+BW-14,worldY:cy-2,w:BSPAN-BW+28,h:10,type:"bridge",vx:0,buildingIdx:bo,hp:99,broken:false});
+    }
+    if(Math.random()>0.78){
       const r2=Math.random();
       let kind="fish";
-      if(r2>0.96)kind="bomb";
-      else if(r2>0.92)kind="jetpack";
-      else if(r2>0.88)kind="cape";
-      else if(r2>0.84)kind="armor";
-      else if(r2>0.78)kind="amp";
-      else if(r2>0.65)kind="gold";
+      if(r2>0.97)kind="bomb";
+      else if(r2>0.93)kind="jetpack";
+      else if(r2>0.89)kind="cape";
+      else if(r2>0.85)kind="armor";
+      else if(r2>0.8)kind="amp";
+      else if(r2>0.68)kind="gold";
       collectibles.push({worldX:mainX+mainW/2-8,worldY:cy-28,active:true,kind:kind});
     }
-    if(Math.random()>0.96)windowNPCs.push({worldX:bx+40+Math.random()*(BW-80),worldY:cy-10,cooldown:0,swinging:0});
+    if(Math.random()>0.97)windowNPCs.push({worldX:bx+40+Math.random()*(BW-80),worldY:cy-10,cooldown:0,swinging:0});
   }
 }
 
@@ -1662,21 +1674,21 @@ function ensureClimbPlatforms(){
   if(genTopY==null){
     genTopY=cat.worldY+40;
     genBotY=cat.worldY+40;
-    for(let i=0;i<12;i++){
+    for(let i=0;i<8;i++){
       generateFloorRow(genTopY-i*FLOOR_H);
     }
-    genTopY=cat.worldY+40-11*FLOOR_H;
+    genTopY=cat.worldY+40-7*FLOOR_H;
     genBotY=cat.worldY+40;
   }
   // Generate UP infinitely (worldY decreases)
   let guard=0;
-  while(genTopY>cat.worldY-900&&guard++<20){
+  while(genTopY>cat.worldY-700&&guard++<12){
     genTopY-=FLOOR_H;
     generateFloorRow(genTopY);
   }
   // Generate DOWN for fall recovery
   guard=0;
-  while(genBotY<cat.worldY+700&&guard++<12){
+  while(genBotY<cat.worldY+500&&guard++<8){
     genBotY+=FLOOR_H;
     generateFloorRow(genBotY);
   }
@@ -2745,16 +2757,23 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
     lightningFlash*=0.76;
   }
 
-  // Buildings + rooftop clutter
-  for(let bo=-2;bo<=2;bo++){
-    const bwx=bo*500+60,bsx=bwx-cameraX,bw=430;
+  // Buildings — fixed per-column colors (theme tints slightly, no full flash)
+  const bCols=["#1a2838","#243040","#1e2530","#2a3545","#182230"];
+  for(let bo=-1;bo<=1;bo++){
+    const bwx=bo*540+90,bsx=bwx-cameraX,bw=360;
     if(bsx+bw<-30||bsx>canvas.width+30)continue;
-    ctx.fillStyle=(bo%2===0?(currentTheme.building):(currentTheme.building2||currentTheme.building));
+    ctx.fillStyle=bCols[(bo+1)%bCols.length];
     ctx.fillRect(bsx,0,bw,canvas.height);
-    // Theme accent stripe under roof line
+    // Soft theme wash (doesn't replace unique building colors)
+    if(currentTheme.building){
+      ctx.fillStyle=currentTheme.building;
+      ctx.globalAlpha=0.35;
+      ctx.fillRect(bsx,0,bw,canvas.height);
+      ctx.globalAlpha=1;
+    }
     if(currentTheme.accent){
       ctx.fillStyle=currentTheme.accent;
-      ctx.globalAlpha=0.15+Math.sin(time*0.05+bo)*0.05;
+      ctx.globalAlpha=0.1;
       ctx.fillRect(bsx,8,bw,3);
       ctx.globalAlpha=1;
     }
@@ -2905,9 +2924,13 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
       for(let k=0;k<5;k++){
         if(windowRegistry[ids[k]]===undefined){
           const roll=Math.random();
-          windowRegistry[ids[k]]=roll>0.58?"#ffeb9f":(roll>0.35?"#1a2030":"#0a1018");
+          windowRegistry[ids[k]]=roll>0.55?"#ffeb9f":(roll>0.32?"#1a2030":"#0a1018");
           windowRegistry[ids[k]+"_blind"]=Math.random()>0.55;
-          windowRegistry[ids[k]+"_balc"]=Math.random()>0.72;
+          windowRegistry[ids[k]+"_balc"]=Math.random()>0.75;
+        }else if(time%180===0&&Math.random()>0.992){
+          // Rare individual light toggle — not all windows at once
+          const roll=Math.random();
+          windowRegistry[ids[k]]=roll>0.5?"#ffeb9f":(roll>0.25?"#1a2030":"#0a1018");
         }
         const lit=windowRegistry[ids[k]];
         const wx0=bsx+wxs[k], wy0=wsy+10;
@@ -3817,7 +3840,7 @@ ctx.stroke();
   if(weather.gust>4&&weather.intensity>0.2){
     ctx.strokeStyle=`rgba(255,255,255,${0.03+weather.intensity*0.05})`;
     ctx.lineWidth=1;
-    for(let i=0;i<12;i++){
+    for(let i=0;i<8;i++){
       const gy=((i*57+cameraY*0.3)%canvas.height);
       const gx=((i*91+time*weather.gust)% (canvas.width+300))-150;
       ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(gx+120+weather.gust*2,gy);ctx.stroke();
