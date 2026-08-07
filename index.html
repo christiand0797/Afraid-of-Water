@@ -586,10 +586,10 @@ let audioVoices=0;
 function playTone(f,t="sine",d=0.1,v=0.18){if(!soundOn||!audioCtx)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,now);const g0=Math.max(0.0001,v);g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.008);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.02,d));o.connect(g);g.connect(masterFilter||audioCtx.destination);o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};o.start(now);o.stop(now+Math.max(0.02,d)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
 function buzz(pattern){if(!hapticsOn)return;try{if(navigator.vibrate)navigator.vibrate(pattern)}catch(e){}}
 // Jump SFX — pure bounce tones (NO meow). Meows only play when the cat falls / dies.
-function sfxJump(){playTone(420,"sine",0.05,0.22);setTimeout(()=>playTone(640,"triangle",0.07,0.16),22);playNoise(0.06,"bandpass",900,1.2,0.06,400)}
-function sfxDouble(){playTone(560,"square",0.04,0.16);setTimeout(()=>playTone(820,"triangle",0.09,0.12),28);playNoise(0.05,"bandpass",1200,1.0,0.05,500)}
-function sfxCollect(){if(playBuf("coin",0.5))return;playTone(1400,"square",0.03,0.18);setTimeout(()=>playTone(2100,"square",0.08,0.14),40)}
-function sfxImpact(){playNoise(0.12,"lowpass",500,1.0,0.18,120);playTone(90,"triangle",0.1,0.12)}
+function sfxJump(){playTone(420,"sine",0.05,0.2);setTimeout(()=>playTone(640,"triangle",0.07,0.14),22)}
+function sfxDouble(){playTone(560,"triangle",0.04,0.14);setTimeout(()=>playTone(820,"sine",0.09,0.11),28)}
+function sfxCollect(){if(playBuf("coin",0.5))return;playTone(1400,"sine",0.04,0.14);setTimeout(()=>playTone(2100,"triangle",0.08,0.11),40)}
+function sfxImpact(){playTone(90,"triangle",0.12,0.14);playTone(55,"sine",0.15,0.08)}
 function playSlide(f0,f1,d,v){if(!soundOn||!audioCtx)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type="triangle";o.frequency.setValueAtTime(f0,now);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),now+d);const g0=Math.max(0.0001,v);g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.004);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.05,d));o.connect(g);g.connect(masterFilter||audioCtx.destination);o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};o.start(now);o.stop(now+Math.max(0.05,d)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
 let noiseBuf=null,brownBuf=null;
 // White noise — short bursts only (SFX). Seamless fade at edges to avoid clicks.
@@ -756,63 +756,25 @@ function killRain(){
 function pickMeow(){const ms=["meow1","meow2","meow3"];const avail=ms.filter(k=>soundBufs[k]);return (avail.length?avail:ms)[Math.floor(Math.random()*(avail.length||ms.length))]}
 // Splash removed — ocean waves ambient covers water. Keep stub so old calls are silent.
 function sfxSplash(){/* intentionally silent — waves ambient handles water */ }
-function sfxThunder(){if(playBuf("thunder",0.75))return;playNoise(1.3,"lowpass",340,1.1,0.3,90);setTimeout(()=>playNoise(0.45,"bandpass",220,1.6,0.18),90);setTimeout(()=>playTone(52,"triangle",1.3,0.11),100);setTimeout(()=>playNoise(0.6,"lowpass",500,1.2,0.12,150),320)}
+function sfxThunder(){if(playBuf("thunder",0.75))return;playTone(52,"triangle",1.2,0.14);setTimeout(()=>playTone(40,"sine",1.5,0.1),80)}
 // Meow ONLY when the cat falls / is washed away
 function sfxMeow(){if(playBuf(pickMeow(),0.65))return;playSlide(540,880,0.08,0.17);setTimeout(()=>playSlide(880,500,0.14,0.16),80)}
 function sfxYowl(){if(playBuf(pickMeow(),0.75))return;playSlide(720,480,0.22,0.2);setTimeout(()=>playSlide(500,130,0.16,0.14),110)}
 function sfxMeowHappy(){/* reserved — not used on jumps */}
-function sfxFall(){sfxYowl();playNoise(0.45,"bandpass",600,1.2,0.14,2800)}
+function sfxFall(){sfxYowl()}
 function sfxLand(){sfxImpact()}
 // Ocean swell — smooth brown-noise bed (no white-noise loop = no glitch/static)
 let waveSrc=null,waveGain=null,waveFilter=null,waveTimer=null,waveLfo=null;
 function startWaves(){
-  if(!audioCtx||!soundOn||waveSrc)return;
-  try{
-    const b=getBrownBuf();if(!b)return;
-    waveSrc=audioCtx.createBufferSource();
-    waveSrc.buffer=b;
-    waveSrc.loop=true;
-    // Very dark lowpass — soft distant surf, not static
-    waveFilter=audioCtx.createBiquadFilter();
-    waveFilter.type="lowpass";
-    waveFilter.frequency.value=180;
-    waveFilter.Q.value=0.4;
-    waveGain=audioCtx.createGain();
-    waveGain.gain.value=0.0001;
-    waveSrc.connect(waveFilter);
-    waveFilter.connect(waveGain);
-    waveGain.connect(masterFilter||audioCtx.destination);
-    waveSrc.start();
-    // Gentle constant bed
-    waveGain.gain.setTargetAtTime(0.035,audioCtx.currentTime,1.2);
-    // Soft volume swell (no extra noise bursts — those were the glitch)
-    waveTimer=setInterval(()=>{
-      if(!soundOn||state!=="PLAYING"||!waveGain)return;
-      try{
-        const now=audioCtx.currentTime;
-        // slow breathe in/out
-        waveGain.gain.setTargetAtTime(0.025+Math.random()*0.025,now,0.8);
-        // soft low sine "wave roll" — smooth, not noisy
-        const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-        o.type="sine";
-        o.frequency.setValueAtTime(40+Math.random()*20,now);
-        o.frequency.linearRampToValueAtTime(28,now+1.4);
-        g.gain.setValueAtTime(0.0001,now);
-        g.gain.linearRampToValueAtTime(0.03,now+0.4);
-        g.gain.linearRampToValueAtTime(0.0001,now+1.6);
-        o.connect(g);g.connect(masterFilter||audioCtx.destination);
-        o.start(now);o.stop(now+1.7);
-      }catch(e){}
-    },5000+Math.random()*2500);
-  }catch(e){waveSrc=null}
+  // DISABLED — synthetic ocean was causing continuous glitch/static.
+  // Real rain.ogg + thunder.ogg cover storm ambient instead.
+  return;
 }
 function stopWaves(){
   try{if(waveTimer){clearInterval(waveTimer);waveTimer=null}}catch(e){}
-  try{if(waveGain)waveGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.4)}catch(e){}
-  setTimeout(()=>{
-    try{if(waveSrc){waveSrc.stop();waveSrc=null}}catch(e){waveSrc=null}
-    waveGain=null;waveFilter=null;
-  },500);
+  try{if(waveGain)waveGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.2)}catch(e){}
+  try{if(waveSrc){waveSrc.stop();waveSrc=null}}catch(e){waveSrc=null}
+  waveGain=null;waveFilter=null;
 }
 function sfxPower(){playTone(300,"sine",0.12,0.2);setTimeout(()=>playTone(1500,"triangle",0.2,0.16),60)}
 function sfxSurge(){playTone(180,"sawtooth",0.4,0.2);setTimeout(()=>playTone(320,"sawtooth",0.4,0.2),90)}
@@ -922,15 +884,12 @@ function musicStep(){
     if(beat<motif.length&&(sec.dens>0.8||beat!==3||Math.random()<0.6)){
       const nHz=degHz(motif[noteIdx])*2; // octave up for lead
       const next=degHz(motif[(noteIdx+1)%motif.length])*2;
-      playMusicNote(nHz,"square",BEAT_MS*0.55/1000,0.028*sec.dens,sec.name.indexOf("chorus")>=0?next:null);
+      playMusicNote(nHz,"triangle",BEAT_MS*0.55/1000,0.022*sec.dens,sec.name.indexOf("chorus")>=0?next:null);
       // ghost harmony
       if(sec.dens>0.85)playMusicNote(nHz*1.5,"sine",BEAT_MS*0.4/1000,0.012*sec.dens);
     }
   }
-  // --- Soft pulse / heartbeat tick for tension ---
-  if(sec.pulse&&(beat===0||beat===2)){
-    playNoise(0.04,"bandpass",180,2.0,0.04*sec.dens,80);
-  }
+  // pulse noise removed (was continuous static)
   // --- Occasional spooky high drip ---
   if(Math.random()<0.08*sec.dens){
     playMusicNote(ROOT*8*(1+Math.random()*0.5),"sine",0.35,0.018,ROOT*4);
@@ -1035,7 +994,7 @@ window.addEventListener("keyup",e=>{
 function tap(el,fn){
   if(!el)return;
   let locked=false;
-  const run=e=>{if(locked)return;locked=true;if(e){e.preventDefault();e.stopPropagation()}try{fn()}catch(err){console.error(err)}try{playTone(660,"square",0.03,0.05)}catch(e){}setTimeout(()=>{locked=false},350)};
+  const run=e=>{if(locked)return;locked=true;if(e){e.preventDefault();e.stopPropagation()}try{fn()}catch(err){console.error(err)}try{playTone(660,"sine",0.03,0.04)}catch(e){}setTimeout(()=>{locked=false},350)};
   el.addEventListener("touchend",run,{passive:false});
   el.addEventListener("click",run);
   el.style.cursor="pointer";
@@ -1665,7 +1624,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
         cat.grounded=true;cat.vy=0;cat.worldY=p.worldY-cat.h;cat.worldX+=(p.vx||0)*0.85;cat.jumps=0;
         if(!wasG){
           sfxLand();createSplash(cat.worldX+cat.w/2,cat.worldY+cat.h,5);
-          if(p.type==="cracked"){p.hp--;if(p.hp<=0){p.broken=true;playTone(90,"sawtooth",0.2,0.25);createParticles(p.worldX+p.w/2,p.worldY,"#8d6e63",12,8);cat.vy=2;cat.grounded=false}}
+          if(p.type==="cracked"){p.hp--;if(p.hp<=0){p.broken=true;playTone(90,"triangle",0.2,0.18);createParticles(p.worldX+p.w/2,p.worldY,"#8d6e63",12,8);cat.vy=2;cat.grounded=false}}
         }
       }
     }
@@ -1761,7 +1720,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   for(let i=0;i<acBlows.length;i++){
     const a=acBlows[i];
     if(a.on>0){a.on--;if(a.on%3===0)createParticles(a.worldX,a.worldY-2,"rgba(190,210,230,0.6)",2,9)}
-    else{a.timer--;if(a.timer<=0){a.timer=110+Math.random()*90;a.on=26;playTone&&playTone(320,"sawtooth",0.18,0.08)}}
+    else{a.timer--;if(a.timer<=0){a.timer=110+Math.random()*90;a.on=26;playTone&&playTone(320,"triangle",0.18,0.06)}}
     if(a.on>0){
       const cx=cat.worldX+cat.w/2,cy=cat.worldY+cat.h/2;
       if(Math.abs(cx-a.worldX)<46&&cy<a.worldY-4&&cy>a.worldY-110&&cat.vy<8){
