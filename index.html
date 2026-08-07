@@ -855,8 +855,18 @@ function sfxBubble(){playTone(400+Math.random()*200,"sine",0.05,0.08)}
 // ============================================================
 let musicSrc=null,musicGain=null,musicBus=null;
 let musicBeat=0,musicBar=0,musicPhrase=0;
-let musicSeed=1,melCursor=0,melPhrase=[],modeIdx=0,mood=0;
-const BEAT_MS=720; // slower = less dense, less glitch
+let musicSeed=1,melCursor=0,melPhrase=[],modeIdx=0,mood=0,musicBPM=96;
+// Target groove: 80–140 BPM, climbs with height / intensity
+function currentBPM(){
+  const sc=typeof score==="number"?score:0;
+  // 80 at start → ~140 at high scores
+  let bpm=80+Math.min(60, sc/40); // +1.5 BPM per 60m roughly
+  // mood shifts
+  const m=MOODS[mood]||MOODS[0];
+  bpm=bpm*(m.bpmMul||1);
+  return Math.max(80, Math.min(140, Math.round(bpm)));
+}
+function beatMs(){return Math.round(60000/currentBPM())}
 
 const MODES=[
   [146.83,164.81,174.61,196.00,220.00,233.08,261.63,293.66],
@@ -865,13 +875,14 @@ const MODES=[
   [130.81,146.83,155.56,174.61,196.00,207.65,233.08,261.63],
   [174.61,196.00,207.65,233.08,261.63,293.66,311.13,349.23]
 ];
+// dens = melody chance; bpmMul scales 80–140 range
 const MOODS=[
-  {dens:0.25,tempo:1.2},
-  {dens:0.4,tempo:1.05},
-  {dens:0.55,tempo:0.95},
-  {dens:0.45,tempo:1.0},
-  {dens:0.35,tempo:1.15},
-  {dens:0.6,tempo:0.88}
+  {dens:0.3, bpmMul:0.92},   // lurk ~80–90
+  {dens:0.4, bpmMul:1.0},    // climb ~96
+  {dens:0.55,bpmMul:1.15},   // chase ~110–120
+  {dens:0.45,bpmMul:1.05},   // storm ~100
+  {dens:0.35,bpmMul:0.95},   // float ~85–95
+  {dens:0.65,bpmMul:1.25}    // finale ~120–140
 ];
 
 function mrand(){musicSeed=(musicSeed*1664525+1013904223)>>>0;return (musicSeed&0xffff)/0xffff}
@@ -919,23 +930,29 @@ function musicStep(){
   const m=MOODS[mood]||MOODS[0];
   const scale=MODES[modeIdx%MODES.length];
   if(!melPhrase.length)newPhrase();
+  musicBPM=currentBPM();
+  const ms=beatMs();
   const beat=musicBeat%8;
-  // Bass — loud enough to hear
+  // Kick-ish bass on 1 & 5
   if(beat===0||beat===4){
-    playMusicNote(scale[0]*0.5, BEAT_MS*2.6/1000*m.tempo, 0.16);
-    playMusicNote(scale[0], BEAT_MS*1.6/1000*m.tempo, 0.07);
+    playMusicNote(scale[0]*0.5, ms*2.2/1000, 0.16);
+    playMusicNote(scale[0], ms*1.4/1000, 0.08);
+  }
+  // Off-beat ghost note for groove at higher BPM
+  if((beat===2||beat===6)&&musicBPM>=110&&mrand()<0.5){
+    playMusicNote(scale[0]*0.5, ms*0.6/1000, 0.05);
   }
   // Melody
-  if(mrand()<Math.max(0.4, m.dens)){
+  if(mrand()<Math.max(0.35, m.dens)){
     const deg=melPhrase[melCursor%melPhrase.length];
     melCursor++;
     if(deg>=0){
-      playMusicNote(scale[deg%scale.length]*2, BEAT_MS*(0.9+mrand()*0.4)/1000*m.tempo, 0.13);
+      playMusicNote(scale[deg%scale.length]*2, ms*(0.7+mrand()*0.5)/1000, 0.13);
     }
   }
   musicBeat++;
   if(musicBeat%8===0)musicBar++;
-  if(musicBar>0&&musicBar%5===0&&musicBeat%8===0)newPhrase();
+  if(musicBar>0&&musicBar%4===0&&musicBeat%8===0)newPhrase();
 }
 function startMusic(){
   if(!soundOn)return;
@@ -961,8 +978,8 @@ function startMusic(){
   const tick=()=>{
     if(!soundOn||state!=="PLAYING"){musicTimer=null;return}
     try{musicStep()}catch(e){}
-    const m=MOODS[mood]||MOODS[0];
-    musicTimer=setTimeout(tick, Math.max(360, BEAT_MS*(m.tempo||1)));
+    // Schedule next beat from live 80–140 BPM
+    musicTimer=setTimeout(tick, Math.max(428, Math.min(750, beatMs()))); // 140bpm→428ms, 80bpm→750ms
   };
   tick();
 }
@@ -2021,25 +2038,33 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     if(Math.hypot(cat.worldX+cat.w/2-c.worldX,cat.worldY+cat.h/2-c.worldY)<magnetR){
       c.active=false;
 if(c.kind==="jetpack"){
-        jetpackTimer=420; // ~7 sec at 60fps
-        sfxPower();riseText(c.worldX+c.w/2,c.worldY-8,"🚀 JETPACK!","#e67e22");buzz(22);
+        jetpackTimer=420;
+        sfxPower();buzz(22);
         createParticles(c.worldX,c.worldY,"#e67e22",18,10);
+        comboBanner=100;comboBannerText="🚀 JETPACK!";comboBannerColor="#e67e22";
+        riseText(c.worldX+c.w/2,c.worldY-8,"JETPACK 7s","#e67e22");
         continue;
       }
       if(c.kind==="cape"){
         capeTimer=420;
-        sfxPower();riseText(c.worldX+c.w/2,c.worldY-8,"🦸 CAPE FLY!","#9b59b6");buzz(22);
+        sfxPower();buzz(22);
         createParticles(c.worldX,c.worldY,"#9b59b6",18,10);
+        comboBanner=100;comboBannerText="🦸 SUPER CAPE!";comboBannerColor="#9b59b6";
+        riseText(c.worldX+c.w/2,c.worldY-8,"FLY 7s","#9b59b6");
         continue;
       }
       if(c.kind==="armor"){
-        armorTimer=600; // 10 sec
-        sfxPower();riseText(c.worldX+c.w/2,c.worldY-8,"🛡️ ARMOR!","#3498db");buzz(20);
+        armorTimer=600;
+        sfxPower();buzz(20);
         createParticles(c.worldX,c.worldY,"#3498db",16,9);
+        comboBanner=100;comboBannerText="🛡️ FORCE FIELD!";comboBannerColor="#3498db";
+        riseText(c.worldX+c.w/2,c.worldY-8,"ARMOR 10s","#3498db");
         continue;
       }
       if(c.kind==="amp"){
-        ampTimer=720;sfxPower();riseText(c.worldX+c.w/2,c.worldY-8,"❄ TIME STOP!","#00dfe0");buzz(20);createParticles(c.worldX,c.worldY,"#a0e8ff",16,9);
+        ampTimer=720;sfxPower();buzz(20);createParticles(c.worldX,c.worldY,"#a0e8ff",16,9);
+        comboBanner=100;comboBannerText="❄ TIME STOP!";comboBannerColor="#00dfe0";
+        riseText(c.worldX+c.w/2,c.worldY-8,"FLOOD FROZEN","#00dfe0");
         continue;
       }
 if(c.kind==="gold"){
@@ -2047,6 +2072,7 @@ if(c.kind==="gold"){
         coins+=bonus;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",16,9);refreshCoinUI();buzz(20);
         totalFish++;safeStorage.set("aow_fish",totalFish);if(totalFish>=50)unlockAchievement("collect_50");
         riseText(c.worldX+c.w/2,c.worldY,"GOLD +"+bonus,"#f1c40f");
+        comboBanner=70;comboBannerText="🪙 GOLD FISH!";comboBannerColor="#f1c40f";
         comboFlash=1;streak++;streakTimer=120;if(streak>bestStreakRun)bestStreakRun=streak;
         continue;
       }
@@ -2909,54 +2935,75 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
     }
   }
 
-  // Fish
+  // Collectibles — glow + sparkle so they stand out
+  function sparkleRing(r,color,pulse){
+    ctx.fillStyle=hexA(color,0.18+pulse*0.22);
+    ctx.beginPath();ctx.arc(0,0,r+5+pulse*3,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=hexA(color,0.45+pulse*0.3);
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(0,0,r+2,0,Math.PI*2);ctx.stroke();
+    for(let s=0;s<5;s++){
+      const ang=time*0.08+s*1.256;
+      const sr=r+7+Math.sin(time*0.2+s)*3;
+      ctx.fillStyle="rgba(255,255,255,"+(0.45+pulse*0.45)+")";
+      ctx.beginPath();ctx.arc(Math.cos(ang)*sr,Math.sin(ang)*sr,1.4,0,Math.PI*2);ctx.fill();
+    }
+  }
+  function hexA(hex,a){
+    const n=parseInt(hex.slice(1),16);
+    return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+","+a+")";
+  }
   ctx.font="20px Arial";ctx.textAlign="center";
   for(let i=0;i<collectibles.length;i++){
     const c=collectibles[i];if(!c.active)continue;
-    const hover=Math.sin(time*0.1+c.worldX*0.01)*4;
-    if(c.kind==="amp"){
-      ctx.save();
-      ctx.translate(c.worldX-cameraX,c.worldY-cameraY+hover);
-      ctx.rotate(Math.sin(time*0.15)*0.4);
-      ctx.font="16px Arial";ctx.textAlign="center";
-ctx.fillText("⚡",0,6);
-      if(Math.sin(time*0.2)>0)ctx.fillText("❄",0,-4);
-      ctx.restore();
-} else if(c.kind==="gold"){
-      ctx.save();
-      ctx.translate(c.worldX-cameraX,c.worldY-cameraY+hover);
-      ctx.rotate(Math.sin(time*0.12)*0.2);
-      // golden coin-fish
-      ctx.globalAlpha=0.6;ctx.fillStyle="#f1c40f";ctx.beginPath();ctx.arc(0,0,10+Math.sin(time*0.2)*1.5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-      const cg=ctx.createLinearGradient(-6,0,6,0);cg.addColorStop(0,"#f9df6a");cg.addColorStop(0.5,"#f1c40f");cg.addColorStop(1,"#b8860b");
-      ctx.fillStyle=cg;ctx.beginPath();ctx.ellipse(0,0,7.5,5.5,0,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle="#b8860b";ctx.beginPath();ctx.moveTo(-7.5,0);ctx.lineTo(-11,2.6);ctx.quadraticCurveTo(-13,3.5,-12,0);ctx.lineTo(-11,-2.6);ctx.closePath();ctx.fill();
-      ctx.fillStyle="#ddd";ctx.beginPath();ctx.arc(3.5,-1,1.6,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle="rgba(120,80,0,0.5)";ctx.lineWidth=1;ctx.beginPath();ctx.arc(0,0,4,0,Math.PI*2);ctx.stroke();
-      ctx.restore();
+    const hover=Math.sin(time*0.12+c.worldX*0.01)*5;
+    const pulse=0.5+Math.sin(time*0.18+c.worldX)*0.5;
+    const sx=c.worldX-cameraX, sy=c.worldY-cameraY+hover;
+    if(sx<-40||sx>canvas.width+40||sy<-40||sy>canvas.height+40)continue;
+    ctx.save();
+    ctx.translate(sx,sy);
+    if(c.kind==="jetpack"){
+      sparkleRing(12,"#e67e22",pulse);
+      ctx.font="22px Arial";ctx.fillText("🚀",0,6);
+      ctx.fillStyle="#f39c12";ctx.font="bold 8px Arial";ctx.fillText("JET",0,-14);
+    } else if(c.kind==="cape"){
+      sparkleRing(12,"#9b59b6",pulse);
+      ctx.font="22px Arial";ctx.fillText("🦸",0,6);
+      ctx.fillStyle="#d2b4de";ctx.font="bold 8px Arial";ctx.fillText("CAPE",0,-14);
+    } else if(c.kind==="armor"){
+      sparkleRing(12,"#3498db",pulse);
+      ctx.font="22px Arial";ctx.fillText("🛡️",0,6);
+      ctx.fillStyle="#5dade2";ctx.font="bold 8px Arial";ctx.fillText("ARMOR",0,-14);
+    } else if(c.kind==="amp"){
+      sparkleRing(11,"#00dfe0",pulse);
+      ctx.rotate(Math.sin(time*0.15)*0.3);
+      ctx.font="18px Arial";ctx.fillText("❄",0,6);
+      ctx.fillStyle="#a0e8ff";ctx.font="bold 8px Arial";ctx.fillText("STOP",0,-14);
+    } else if(c.kind==="gold"){
+      sparkleRing(11,"#f1c40f",pulse);
+      ctx.rotate(Math.sin(time*0.12)*0.25);
+      const cg=ctx.createLinearGradient(-6,0,6,0);cg.addColorStop(0,"#fff3a0");cg.addColorStop(0.5,"#f1c40f");cg.addColorStop(1,"#b8860b");
+      ctx.fillStyle=cg;ctx.beginPath();ctx.ellipse(0,0,8,6,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="rgba(255,255,200,0.8)";ctx.lineWidth=1.5;ctx.stroke();
+      ctx.fillStyle="#fff";ctx.font="bold 9px Arial";ctx.fillText("$",0,3);
     } else if(c.kind==="bomb"){
-      ctx.save();
-      ctx.translate(c.worldX-cameraX,c.worldY-cameraY+hover);
-      ctx.rotate(Math.sin(time*0.2)*0.3);
-      ctx.font="20px Arial";ctx.textAlign="center";
-      ctx.fillText("💣",0,6);
-      // blinking red warning glow
-      if(Math.sin(time*0.3)>0)ctx.fillStyle="rgba(231,76,60,0.7)";
-      ctx.font="10px Arial";
-      ctx.fillText("!!",0,-10);
-      ctx.restore();
+      sparkleRing(10,"#e74c3c",pulse);
+      ctx.font="20px Arial";ctx.fillText("💣",0,6);
+      if(pulse>0.7){ctx.fillStyle="#e74c3c";ctx.font="bold 10px Arial";ctx.fillText("!",0,-12)}
     } else if(c.kind==="bubble"){
-      ctx.save();
-      ctx.translate(c.worldX-cameraX,c.worldY-cameraY+hover);
-      ctx.globalAlpha=0.5+Math.sin(time*0.2)*0.3;
-      ctx.fillStyle="#4fd3ff";
-      ctx.beginPath();ctx.arc(0,0,7,0,Math.PI*2);ctx.fill();
+      sparkleRing(9,"#4fd3ff",pulse);
+      ctx.globalAlpha=0.55+pulse*0.35;
+      ctx.fillStyle="#7fdbff";ctx.beginPath();ctx.arc(0,0,8,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="rgba(255,255,255,0.7)";ctx.beginPath();ctx.arc(-2,-2,2.5,0,Math.PI*2);ctx.fill();
       ctx.globalAlpha=1;
-      ctx.restore();
     } else {
-      ctx.font="20px Arial";ctx.textAlign="center";
-      drawFish(c.worldX-cameraX,c.worldY-cameraY+hover,9,currentTheme.id==="venice"?"#17a589":(currentTheme.id==="arctic"?"#5dade2":"#4facfe"));
+      // fish — cyan glow
+      sparkleRing(10,"#4facfe",pulse);
+      ctx.restore();
+      drawFish(sx,sy,10,currentTheme.id==="venice"?"#17a589":(currentTheme.id==="arctic"?"#5dade2":"#4facfe"));
+      ctx.save();ctx.translate(sx,sy);
     }
+    ctx.restore();
   }
   // Birds
   for(let i=0;i<birds.length;i++){
