@@ -31,6 +31,8 @@ Or open `index.html` locally in any browser.
 - Combo multiplier system for chained fish pickups (bigger coins + score)
 - Water-danger red vignette warning + in-game how-to-play guide
 - Layered realism: drifting cloud banks, atmospheric haze, glinting water, mist hugging the flood, dynamic rain drop shadows, wind-gust streaks and an immersive screen vignette
+- Underwater audio muffling when you dive, wind-blown litter tumbling by, floating flood debris you can hop across, and dawn light breaking through as you climb above the storm
+- 🏁 milestone checkpoint banners every 100 m
 
 ## Deploy on Render
 

@@ -1236,6 +1236,53 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
     platforms=platforms.filter(p=>p.worldY<water.worldY+600);
     collectibles=collectibles.filter(c=>c.active&&c.worldY<water.worldY+450);
   }
+
+  // Wind-blown litter (leaves, papers) sweeping across the scene
+  if((weather.gust>2||weather.intensity>0.2)&&Math.random()<0.03&&drifts.length<14){
+    const fromLeft=Math.random()>0.5;
+    drifts.push({
+      x:fromLeft?-20:canvas.width+20,
+      y:20+Math.random()*(canvas.height*0.7),
+      z:0.4+Math.random()*1.2,
+      vx:(fromLeft?1:-1)*(1+weather.wind*0.6)*Math.random(),
+      spin:(Math.random()-0.5)*12,
+      rot:Math.random()*Math.PI,
+      color:Math.random()>0.5?"rgba(255,240,220,0.9)":"rgba(90,140,70,0.9)",
+      w:Math.random()>0.5?6:5,h:Math.random()>0.5?4:6
+    });
+  }
+  for(let i=drifts.length-1;i>=0;i--){
+    const d=drifts[i];
+    d.x+=d.vx;d.y+=Math.sin(time*0.06+d.rot)*0.8+0.15;d.vx*=0.995;d.rot+=d.spin*0.01;
+    if(d.x<-80||d.x>canvas.width+80||d.y>canvas.height+40)drifts.splice(i,1);
+  }
+
+  // Floating flood debris (crates/pallets) you can briefly hop across before the flood swallows them
+  if(floaters.length<6&&Math.random()<0.008){
+    const side=Math.random()>0.5?1:-1;
+    floaters.push({
+      x:cat.worldX+side*(360+Math.random()*500),
+      worldY:water.worldY-30-Math.random()*120,
+      w:32+Math.random()*20,
+      seed:Math.random()*Math.PI*2,
+      type:Math.random()>0.5?"crate":"pallet"
+    });
+  }
+  for(let i=floaters.length-1;i>=0;i--){
+    const f=floaters[i];f.seed+=0.05;
+    // Swallowed once the flood covers it, or drifted out of reach
+    if(water.worldY< f.worldY-14||Math.abs(f.x-cat.worldX)>1400)floaters.splice(i,1);
+  }
+
+  // Land on floating debris — these rise above the flood, so riding them is a brief reprieve, not an escape
+  for(let i=0;i<floaters.length;i++){
+    const f=floaters[i];
+    const fY=f.worldY+(Math.sin(f.seed)>0?2:-2);
+    if(cat.vy>=0&&cat.worldY+cat.h>=fY&&cat.worldY+cat.h<=fY+Math.abs(cat.vy)+4&&cat.worldX+cat.w>f.x-f.w/2&&cat.worldX<f.x+f.w/2){
+      cat.grounded=true;cat.vy=0;cat.worldY=fY-cat.h;
+    }
+  }
+
   if(shakeAmount>0)shakeAmount*=0.83;
 
   draw();
@@ -1379,6 +1426,17 @@ function draw(){
   const haze=ctx.createLinearGradient(0,0,0,canvas.height*0.5);
   haze.addColorStop(0,"rgba(110,150,220,0.10)");haze.addColorStop(1,"rgba(80,110,180,0)");
   ctx.fillStyle=haze;ctx.fillRect(0,0,canvas.width,canvas.height*0.5);
+
+  // Dawn light breaking through as you climb out of the storm clouds
+  const altF=Math.min(1,Math.max(0,score/2400));
+  if(altF>0.02){
+    const dawn=ctx.createLinearGradient(0,0,0,canvas.height*0.35);
+    dawn.addColorStop(0,`rgba(200,215,255,${0.05+altF*0.16})`);
+    dawn.addColorStop(1,"rgba(200,215,255,0)");
+    ctx.fillStyle=dawn;ctx.fillRect(0,0,canvas.width,canvas.height*0.35);
+    ctx.fillStyle=`rgba(255,200,150,${altF*0.05})`;
+    ctx.fillRect(0,0,canvas.width,canvas.height*0.12);
+  }
 
   // Distant drifting cloud bank (slow parallax) for depth
   ctx.fillStyle="rgba(130,150,210,0.08)";
@@ -1659,6 +1717,27 @@ function draw(){
     ctx.restore();
   }
 
+  // Floating flood harbor debris (crates/pallets) — belly sits at the waterline
+  const flsy=water.worldY;
+  for(let i=0;i<floaters.length;i++){
+    const f=floaters[i];
+    const fx=f.x-cameraX,fy=f.worldY-cameraY+(Math.sin(f.seed)>0?2:-2);
+    if(fx+f.w<-20||fx>canvas.width+20||fy<-40||fy>canvas.height+40)continue;
+    ctx.save();ctx.translate(fx,fy);ctx.rotate(Math.sin(f.seed)*0.06);
+    if(f.type==="crate"){
+      ctx.fillStyle="#a37d4f";ctx.fillRect(-f.w/2,-12,f.w,12);
+      ctx.fillStyle="#6b4e2a";ctx.fillRect(-f.w/2,-12,f.w,3);
+      ctx.strokeStyle="#6b4e2a";ctx.lineWidth=2;ctx.strokeRect(-f.w/2,-12,f.w,12);
+    }else{
+      ctx.fillStyle="#c97d4a";ctx.fillRect(-f.w/2,-7,f.w,7);
+      ctx.fillStyle="#96562a";ctx.fillRect(-f.w/2,-7,f.w,2);
+      ctx.beginPath();ctx.moveTo(-f.w/2,0);ctx.lineTo(f.w/2,0);ctx.stroke();
+    }
+    // shallow reflection/shadow under it on the water
+    ctx.fillStyle="rgba(0,0,0,0.25)";ctx.fillRect(-f.w/2+3,6,f.w-6,4);
+    ctx.restore();
+  }
+
   // Water
   const wsy=water.worldY-cameraY;
   const wg=ctx.createLinearGradient(0,wsy,0,canvas.height);
@@ -1767,6 +1846,17 @@ function draw(){
       }
     }
   }
+
+  // Wind-blown litter tumbling through the air
+  ctx.save();ctx.globalAlpha=0.9;
+  for(let i=0;i<drifts.length;i++){
+    const d=drifts[i];
+    ctx.save();ctx.translate(d.x,d.y);ctx.rotate(d.rot);
+    ctx.fillStyle=d.color;ctx.fillRect(-d.w/2,-d.h/2,d.w,d.h);
+    ctx.fillStyle="rgba(0,0,0,0.15)";ctx.fillRect(-d.w/2,-d.h/2,d.w,1);
+    ctx.restore();
+  }
+  ctx.restore();
 
   // Milestone checkpoint banner (pop-in + fade)
   if(milestoneBanner&&milestoneBanner.t>0){
