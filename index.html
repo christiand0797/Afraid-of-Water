@@ -622,7 +622,11 @@ function loadSoundBuf(key){
 }
 function loadSounds(){
   const p=Promise.all(Object.keys(SOUNDS).map(k=>loadSoundBuf(k)));
-  p.then(()=>{/* warm caches; per-file fallback handles any failures */}).catch(()=>{});
+  p.then(()=>{
+    // Once real rain loads mid-session, swap the loop over
+    if(state==="PLAYING"&&soundOn){try{setRainGain(weather.intensity||0.3)}catch(e){}}
+    if(state==="PLAYING"&&soundOn&&!musicSrc){try{startMusic()}catch(e){}}
+  }).catch(()=>{});
   return p;
 }
 // Play a real buffer at a given volume. Returns true if a real file played.
@@ -645,32 +649,51 @@ function playBuf(key,vol){
   }catch(e){return false}
 }
 
-let rainSrc=null,rainGain=null,rainFilter=null;
+let rainSrc=null,rainGain=null,rainFilter=null,rainUsingReal=false;
+function ensureRainSource(){
+  if(!audioCtx||!soundOn)return false;
+  const real=soundBufs&&soundBufs["rain"];
+  // Upgrade to real buffer if it loaded after synth started
+  if(rainSrc&&!rainUsingReal&&real){
+    try{rainSrc.stop()}catch(e){}
+    rainSrc=null;rainFilter=null;
+  }
+  if(rainSrc)return true;
+  try{
+    rainGain=rainGain||audioCtx.createGain();
+    rainGain.gain.value=0;
+    if(real){
+      rainSrc=audioCtx.createBufferSource();rainSrc.buffer=real;rainSrc.loop=true;
+      rainSrc.connect(rainGain);rainUsingReal=true;
+    }else{
+      const b=getNoiseBuf();if(!b)return false;
+      rainSrc=audioCtx.createBufferSource();rainSrc.buffer=b;rainSrc.loop=true;
+      rainFilter=audioCtx.createBiquadFilter();rainFilter.type="highpass";rainFilter.frequency.value=900;rainFilter.Q.value=0.5;
+      rainSrc.connect(rainFilter);rainFilter.connect(rainGain);rainUsingReal=false;
+    }
+    rainGain.connect(masterFilter||audioCtx.destination);
+    rainSrc.start();
+    return true;
+  }catch(e){rainSrc=null;return false}
+}
 function setRainGain(peak){
   if(!audioCtx||!soundOn||!masterGain)return;
   try{
     if(peak>0.012){
-      if(!rainSrc){
-        // Prefer the real bundled rain.ogg loop; otherwise fall back to filtered noise.
-        const real=soundBufs&&soundBufs["rain"];
-        rainGain=audioCtx.createGain();rainGain.gain.value=0;
-        if(real){
-          rainSrc=audioCtx.createBufferSource();rainSrc.buffer=real;rainSrc.loop=true;
-          rainSrc.connect(rainGain);
-        }else{
-          const b=getNoiseBuf();if(!b)return;
-          rainSrc=audioCtx.createBufferSource();rainSrc.buffer=b;rainSrc.loop=true;
-          rainFilter=audioCtx.createBiquadFilter();rainFilter.type="highpass";rainFilter.frequency.value=900;rainFilter.Q.value=0.5;
-          rainSrc.connect(rainFilter);rainFilter.connect(rainGain);
-        }
-        rainGain.connect(masterFilter||audioCtx.destination);
-        rainSrc.start();
-      }
-      rainGain.gain.setTargetAtTime(Math.min(0.16,0.04+peak*0.14),audioCtx.currentTime,0.35);
+      if(!ensureRainSource())return;
+      // Real rain.ogg needs more presence; synth was quieter
+      const target=rainUsingReal
+        ? Math.min(0.55,0.12+peak*0.45)
+        : Math.min(0.16,0.04+peak*0.14);
+      rainGain.gain.setTargetAtTime(target,audioCtx.currentTime,0.35);
     }else if(rainGain){rainGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.18)}
   }catch(e){}
 }
-function killRain(){try{if(rainGain)rainGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.12)}catch(e){}}
+function killRain(){
+  try{if(rainGain)rainGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.12)}catch(e){}
+  try{if(rainSrc){rainSrc.stop();rainSrc=null}}catch(e){rainSrc=null}
+  rainUsingReal=false;
+}
 // Each SFX tries a real bundled sound first, then falls back to the cheap synth.
 // pickMeow() rotates through the real cat meows that are bundled. Only meow3.ogg
 // ships right now, so all three slots point at it to guarantee a real meow on jumps.
@@ -2116,12 +2139,79 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
     if(bsx+bw<-30||bsx>canvas.width+30)continue;
     ctx.fillStyle=currentTheme.building;ctx.fillRect(bsx,0,bw,canvas.height);
     ctx.fillStyle="rgba(0,0,0,0.3)";ctx.fillRect(bsx,0,14,canvas.height);ctx.fillRect(bsx+bw-14,0,14,canvas.height);
-    // Fire escapes on side
+    // NYC-style fire escapes bolted to the building face (landings + ladders)
     if(bo%2===0){
-      ctx.strokeStyle="rgba(40,50,60,0.7)";ctx.lineWidth=2;
-      for(let fy=50;fy<canvas.height;fy+=90){
-        const fsy=fy-cameraY*0.3;
-        ctx.strokeRect(bsx+bw-28,fsy,22,70);
+      const feX=bsx+bw-52; // hangs off the right edge of the facade
+      const feW=44;
+      const floorH=92;
+      const startY=Math.floor((-cameraY*0.25)/floorH)*floorH-floorH;
+      for(let fy=startY;fy<canvas.height+floorH*2;fy+=floorH){
+        const ly=fy;
+        if(ly>canvas.height+40||ly<-80)continue;
+        // Landing platform (grated)
+        ctx.fillStyle="#2c3540";
+        ctx.fillRect(feX,ly+58,feW,5);
+        ctx.strokeStyle="#4a5562";ctx.lineWidth=1;
+        for(let gx=3;gx<feW-2;gx+=4){
+          ctx.beginPath();ctx.moveTo(feX+gx,ly+58);ctx.lineTo(feX+gx,ly+63);ctx.stroke();
+        }
+        // Outer railing posts + top rail
+        ctx.strokeStyle="#5a6570";ctx.lineWidth=1.6;
+        ctx.beginPath();
+        ctx.moveTo(feX+2,ly+58);ctx.lineTo(feX+2,ly+40);
+        ctx.moveTo(feX+feW-2,ly+58);ctx.lineTo(feX+feW-2,ly+40);
+        ctx.moveTo(feX+2,ly+40);ctx.lineTo(feX+feW-2,ly+40);
+        ctx.moveTo(feX+2,ly+48);ctx.lineTo(feX+feW-2,ly+48); // mid rail
+        ctx.stroke();
+        // Vertical bars on railing
+        for(let bx=6;bx<feW-4;bx+=5){
+          ctx.beginPath();ctx.moveTo(feX+bx,ly+40);ctx.lineTo(feX+bx,ly+58);ctx.stroke();
+        }
+        // Ladder going down to next landing (right side of platform)
+        const ladX=feX+feW-11;
+        ctx.strokeStyle="#6a7580";ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.moveTo(ladX,ly+63);ctx.lineTo(ladX,ly+floorH+58);
+        ctx.moveTo(ladX+7,ly+63);ctx.lineTo(ladX+7,ly+floorH+58);
+        ctx.stroke();
+        // Rungs
+        ctx.lineWidth=1.4;
+        for(let ry=ly+70;ry<ly+floorH+55;ry+=9){
+          ctx.beginPath();ctx.moveTo(ladX,ry);ctx.lineTo(ladX+7,ry);ctx.stroke();
+        }
+        // Wall mount brackets
+        ctx.strokeStyle="#3a4550";ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.moveTo(feX,ly+58);ctx.lineTo(feX-8,ly+58);
+        ctx.moveTo(feX,ly+45);ctx.lineTo(feX-8,ly+45);
+        ctx.stroke();
+      }
+    }
+    // Left-side fire escape on odd buildings
+    if(bo%2===1){
+      const feX=bsx+8;
+      const feW=44;
+      const floorH=92;
+      const startY=Math.floor((-cameraY*0.25)/floorH)*floorH-floorH;
+      for(let fy=startY;fy<canvas.height+floorH*2;fy+=floorH){
+        const ly=fy;
+        if(ly>canvas.height+40||ly<-80)continue;
+        ctx.fillStyle="#2c3540";ctx.fillRect(feX,ly+58,feW,5);
+        ctx.strokeStyle="#5a6570";ctx.lineWidth=1.6;
+        ctx.beginPath();
+        ctx.moveTo(feX+2,ly+58);ctx.lineTo(feX+2,ly+40);
+        ctx.moveTo(feX+feW-2,ly+58);ctx.lineTo(feX+feW-2,ly+40);
+        ctx.moveTo(feX+2,ly+40);ctx.lineTo(feX+feW-2,ly+40);
+        ctx.moveTo(feX+2,ly+48);ctx.lineTo(feX+feW-2,ly+48);
+        ctx.stroke();
+        for(let bx=6;bx<feW-4;bx+=5){ctx.beginPath();ctx.moveTo(feX+bx,ly+40);ctx.lineTo(feX+bx,ly+58);ctx.stroke()}
+        const ladX=feX+3;
+        ctx.strokeStyle="#6a7580";ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(ladX,ly+63);ctx.lineTo(ladX,ly+floorH+58);ctx.moveTo(ladX+7,ly+63);ctx.lineTo(ladX+7,ly+floorH+58);ctx.stroke();
+        ctx.lineWidth=1.4;
+        for(let ry=ly+70;ry<ly+floorH+55;ry+=9){ctx.beginPath();ctx.moveTo(ladX,ry);ctx.lineTo(ladX+7,ry);ctx.stroke()}
+        ctx.strokeStyle="#3a4550";ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(feX+feW,ly+58);ctx.lineTo(feX+feW+8,ly+58);ctx.moveTo(feX+feW,ly+45);ctx.lineTo(feX+feW+8,ly+45);ctx.stroke();
       }
     }
     // Antenna / water tower silhouettes (near top of view)
@@ -2269,8 +2359,20 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
       ctx.fillStyle=g;ctx.fillRect(psx,psy,p.w,p.h);
       ctx.fillStyle="#a8b0b8";ctx.fillRect(psx,psy,5,p.h);ctx.fillRect(psx+p.w-5,psy,5,p.h);
     }else if(p.type==="fire-escape"){
-      ctx.strokeStyle="#2a3a4f";ctx.lineWidth=3;ctx.strokeRect(psx,psy,p.w,p.h);
-      for(let gi=6;gi<p.w;gi+=11){ctx.beginPath();ctx.moveTo(psx+gi,psy);ctx.lineTo(psx+gi,psy+p.h);ctx.stroke()}
+      // Metal grate landing like a real fire-escape balcony
+      ctx.fillStyle="#2a3340";ctx.fillRect(psx,psy,p.w,p.h);
+      ctx.strokeStyle="#6a7582";ctx.lineWidth=1;
+      for(let gi=3;gi<p.w;gi+=5){ctx.beginPath();ctx.moveTo(psx+gi,psy);ctx.lineTo(psx+gi,psy+p.h);ctx.stroke()}
+      for(let gi=2;gi<p.h;gi+=4){ctx.beginPath();ctx.moveTo(psx,psy+gi);ctx.lineTo(psx+p.w,psy+gi);ctx.stroke()}
+      // Side rails
+      ctx.strokeStyle="#8a95a0";ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(psx,psy);ctx.lineTo(psx,psy-10);ctx.lineTo(psx+p.w,psy-10);ctx.lineTo(psx+p.w,psy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(psx,psy-5);ctx.lineTo(psx+p.w,psy-5);ctx.stroke();
+      // Tiny ladder stub hanging off one side
+      ctx.strokeStyle="#7a8590";ctx.lineWidth=1.5;
+      const lx=psx+p.w-6;
+      ctx.beginPath();ctx.moveTo(lx,psy+p.h);ctx.lineTo(lx,psy+p.h+14);ctx.moveTo(lx+4,psy+p.h);ctx.lineTo(lx+4,psy+p.h+14);ctx.stroke();
+      for(let r=psy+p.h+3;r<psy+p.h+14;r+=4){ctx.beginPath();ctx.moveTo(lx,r);ctx.lineTo(lx+4,r);ctx.stroke()}
     }else if(p.type==="ac"){
       ctx.fillStyle="#9aa8b0";ctx.fillRect(psx,psy,p.w,p.h);
       ctx.fillStyle="#1a2530";for(let v=7;v<p.w-7;v+=12)ctx.fillRect(psx+v,psy+3,4,p.h-7);
