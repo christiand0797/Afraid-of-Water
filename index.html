@@ -1815,6 +1815,18 @@ function draw(){
     if(p.vx){ctx.fillStyle="#ff9800";ctx.fillRect(psx+2,psy+1,5,2);ctx.fillRect(psx+p.w-7,psy+1,5,2)}
   }
 
+  // Combo magnet: faint "lasso" lines pull collectibles toward the cat
+  if(comboMult>=2){
+    const cx=cat.worldX-cameraX+cat.w/2,cy=cat.worldY-cameraY+cat.h/2;
+    ctx.strokeStyle=`rgba(241,196,15,${0.12+Math.sin(time*0.2)*0.05})`;ctx.lineWidth=1;
+    for(let i=0;i<collectibles.length;i++){
+      const c=collectibles[i];if(!c.active)continue;
+      const px=c.worldX-cameraX,py=c.worldY-cameraY;
+      const d=Math.hypot(px-cx,py-cy);
+      if(d<140&&d>20){ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(cx,cy);ctx.stroke()}
+    }
+  }
+
   // Fish
   ctx.font="20px Arial";ctx.textAlign="center";
   for(let i=0;i<collectibles.length;i++){
@@ -1828,7 +1840,7 @@ function draw(){
 ctx.fillText("⚡",0,6);
       if(Math.sin(time*0.2)>0)ctx.fillText("❄",0,-4);
       ctx.restore();
-    } else if(c.kind==="gold"){
+} else if(c.kind==="gold"){
       ctx.save();
       ctx.translate(c.worldX-cameraX,c.worldY-cameraY+hover);
       ctx.rotate(Math.sin(time*0.12)*0.2);
@@ -1837,6 +1849,17 @@ ctx.fillText("⚡",0,6);
       ctx.font="9px Arial";
       ctx.fillStyle="#f1c40f";
       ctx.fillText("★",0,-8);
+      ctx.restore();
+    } else if(c.kind==="bomb"){
+      ctx.save();
+      ctx.translate(c.worldX-cameraX,c.worldY-cameraY+hover);
+      ctx.rotate(Math.sin(time*0.2)*0.3);
+      ctx.font="20px Arial";ctx.textAlign="center";
+      ctx.fillText("💣",0,6);
+      // blinking red warning glow
+      if(Math.sin(time*0.3)>0)ctx.fillStyle="rgba(231,76,60,0.7)";
+      ctx.font="10px Arial";
+      ctx.fillText("!!",0,-10);
       ctx.restore();
     } else {
       ctx.fillText("🐟",c.worldX-cameraX,c.worldY-cameraY+hover);
