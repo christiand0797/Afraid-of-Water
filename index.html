@@ -1054,71 +1054,121 @@ function tap(el,fn){
 const lbScreen=$("lbScreen");
 function show(screen){[startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen,achScreen].forEach(s=>s&&s.classList.add("hidden"));screen.classList.remove("hidden");refreshCoinUI()}
 
-// ---- Global leaderboard (backend API) + local (device) ----
-let globalScores=[];let globalTab=true;
+// ---- Leaderboard: LOCAL (always works) + GLOBAL (API or shared cache) ----
+let globalScores=[];let globalTab=true;let globalOnline=false;
 let lastName=safeStorage.get("aow_name")||"";
-function apiURL(){return window.AOW_API||location.origin}
-function globalRankFor(score){return globalScores.findIndex(e=>e.score===score)+1}
+function apiURL(){return (window.AOW_API||location.origin||"").replace(/\/$/,"")}
+function loadCachedGlobal(){
+  try{
+    const v=JSON.parse(localStorage.getItem("aow_global_cache")||"[]");
+    if(Array.isArray(v)&&v.length)globalScores=v;
+  }catch(e){}
+}
+function saveCachedGlobal(){
+  try{localStorage.setItem("aow_global_cache",JSON.stringify(globalScores.slice(0,50)))}catch(e){}
+}
+loadCachedGlobal();
+function mergeGlobalEntry(name,score){
+  name=(name||"Anonymous").slice(0,16);
+  score=Math.floor(Number(score)||0);
+  if(score<=0)return;
+  // Update existing name if better, else push
+  const i=globalScores.findIndex(e=>e.name===name);
+  if(i>=0){if(score>globalScores[i].score)globalScores[i]={name,score,date:Date.now()}}
+  else globalScores.push({name,score,date:Date.now()});
+  globalScores.sort((a,b)=>b.score-a.score);
+  globalScores=globalScores.slice(0,50);
+  saveCachedGlobal();
+}
 async function fetchGlobalBoard(){
+  // 1) Try backend API (Render web service / custom AOW_API)
   try{
     const r=await fetch(apiURL()+"/api/leaderboard",{cache:"no-store"});
-    if(!r.ok)throw new Error(r.status);
-    const j=await r.json();
-    globalScores=(j.entries||[]).map(e=>({name:e.name,score:e.score,date:e.date}));
-    return true;
-  }catch(e){return false}
+    if(r.ok){
+      const j=await r.json();
+      const entries=(j.entries||j||[]).map(e=>({name:e.name||"?",score:Math.floor(e.score||0),date:e.date||0}));
+      if(entries.length){
+        globalScores=entries.sort((a,b)=>b.score-a.score).slice(0,50);
+        saveCachedGlobal();globalOnline=true;return true;
+      }
+    }
+  }catch(e){}
+  // 2) Offline / static host: keep cached global + merge local bests so board isn't empty
+  loadCachedGlobal();
+  try{
+    leaderboard.forEach(e=>mergeGlobalEntry(e.name||"You",e.score));
+  }catch(e){}
+  globalOnline=false;
+  return globalScores.length>0;
 }
 async function submitGlobalScore(sc){
   const name=(safeStorage.get("aow_name")||"").trim()||"Anonymous";
+  mergeGlobalEntry(name,sc); // always update shared cache
   try{
-    const r=await fetch(apiURL()+"/api/score",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,score:sc})});
-    if(!r.ok)throw new Error(r.status);
-    const j=await r.json();
-    await fetchGlobalBoard();
-    return j.rank||null;
-  }catch(e){return null}
+    const r=await fetch(apiURL()+"/api/score",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name,score:Math.floor(sc)})
+    });
+    if(r.ok){
+      const j=await r.json().catch(()=>({}));
+      globalOnline=true;
+      await fetchGlobalBoard();
+      const rank=globalScores.findIndex(e=>e.name===name&&e.score>=sc)+1;
+      return j.rank||rank||null;
+    }
+  }catch(e){}
+  // Rank from cache when API unavailable
+  const rank=globalScores.findIndex(e=>e.name===name)+1;
+  return rank>0?rank:null;
 }
 function renderLB(){
   const list=$("lbList");if(!list)return;
   const status=$("lbStatus");
   list.innerHTML="";
   if(globalTab){
-    if(status)status.textContent=globalScores.length?globalScores.length+" global climbers 🌍":"Loading global board…";
-    if(!globalScores.length){list.innerHTML='<div class="small">No global scores yet — be the first!</div>';}
-    globalScores.slice(0,20).forEach((e,i)=>{
-      const row=document.createElement("div");
-      row.style.margin="5px 0";row.style.display="flex";row.style.justifyContent="space-between";row.style.maxWidth="300px";row.style.width="100%";
-      const isMe=(safeStorage.get("aow_name")||"").trim()&&e.name===(safeStorage.get("aow_name")||"").trim();
-      const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;
-      row.innerHTML=`<span style="color:${isMe?"#5dade2":"#f1c40f"}">${medal}</span><span style="color:${isMe?"#5dade2":"#dfe4e6"}">${e.name}</span><span>${e.score}m</span>`;
-      list.appendChild(row);
-    });
-    // Kick a refresh if we somehow have none cached
-    if(!globalScores.length)fetchGlobalBoard().then(()=>{if(globalTab)renderLB()});
+    if(status)status.textContent=globalOnline
+      ?(globalScores.length+" global climbers 🌍")
+      :(globalScores.length?globalScores.length+" scores · offline cache 🌐":"Connecting…");
+    if(!globalScores.length){
+      list.innerHTML='<div class="small">No scores yet — finish a run to post!</div>';
+    }else{
+      globalScores.slice(0,20).forEach((e,i)=>{
+        const row=document.createElement("div");
+        row.style.cssText="margin:5px 0;display:flex;justify-content:space-between;max-width:300px;width:100%";
+        const my=(safeStorage.get("aow_name")||"").trim();
+        const isMe=my&&e.name===my;
+        const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":("#"+(i+1));
+        row.innerHTML='<span style="color:'+(isMe?"#5dade2":"#f1c40f")+'">'+medal+'</span><span style="color:'+(isMe?"#5dade2":"#dfe4e6")+'">'+String(e.name).replace(/[<>]/g,"")+'</span><span>'+e.score+"m</span>";
+        list.appendChild(row);
+      });
+    }
+    fetchGlobalBoard().then(()=>{if(globalTab){/* refresh once */ const st=$("lbStatus");if(st)st.textContent=globalOnline?(globalScores.length+" global climbers 🌍"):(globalScores.length+" scores · offline cache 🌐");}});
   }else{
-    if(status)status.textContent=leaderboard.length?leaderboard.length+" local climbers 📱":"";
+    if(status)status.textContent=leaderboard.length?leaderboard.length+" local climbers 📱":"No local scores yet";
     if(!leaderboard.length){list.innerHTML='<div class="small">No local scores yet — climb high!</div>';return}
-    leaderboard.slice(0,10).forEach((e,i)=>{
+    leaderboard.slice(0,15).forEach((e,i)=>{
       const row=document.createElement("div");
-      row.style.margin="5px 0";row.style.display="flex";row.style.justifyContent="space-between";row.style.maxWidth="300px";row.style.width="100%";
-      const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`;
-      row.innerHTML=`<span style="color:#f1c40f">${medal}</span><span>${e.name||"You"}</span><span>${e.score}m</span>`;
+      row.style.cssText="margin:5px 0;display:flex;justify-content:space-between;max-width:300px;width:100%";
+      const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":("#"+(i+1));
+      row.innerHTML='<span style="color:#f1c40f">'+medal+"</span><span>"+String(e.name||"You").replace(/[<>]/g,"")+"</span><span>"+e.score+"m</span>";
       list.appendChild(row);
     });
   }
 }
 function submitScore(sc){
-  // Local: keep top 10 on this device
-  leaderboard.push({name:(safeStorage.get("aow_name")||"").trim()||"You",score:sc,date:Date.now()});
+  sc=Math.floor(Number(sc)||0);
+  const name=(safeStorage.get("aow_name")||"").trim()||"You";
+  leaderboard.push({name,score:sc,date:Date.now()});
   leaderboard.sort((a,b)=>b.score-a.score);
-  leaderboard=leaderboard.slice(0,10);
+  leaderboard=leaderboard.slice(0,15);
   try{localStorage.setItem("aow_lb",JSON.stringify(leaderboard))}catch(e){}
-  // Global: async POST, fall back gracefully
+  const localRank=leaderboard.findIndex(e=>e.score===sc&&e.name===name)+1;
   submitGlobalScore(sc).then(rank=>{
-    if(rank!=null){const rt=$("rankText");if(rt)rt.innerText="#"+rank}
+    const rt=$("rankText");
+    if(rt)rt.innerText=rank!=null?("#"+rank):(localRank>0?("#"+localRank+" local"):"—");
   });
-  const rank=leaderboard.findIndex(e=>e.score===sc)+1;
-  return rank>0?rank:"—";
+  return localRank>0?localRank:"—";
 }
 // Wire leaderboard tabs
 const lbTabGlobal=$("lbTabGlobal"),lbTabLocal=$("lbTabLocal"),lbName=$("lbName");
@@ -1294,8 +1344,8 @@ function updateSkinBar(){
 }
 
 function createParticles(x,y,color,count,spread=6){
-  if(particles.length>80)particles.splice(0,40);
-  for(let i=0;i<Math.min(count||6,8);i++)particles.push({x,y,vx:(Math.random()-0.5)*spread,vy:(Math.random()-0.5)*spread-2,life:0.6+Math.random()*0.3,color,size:Math.random()*2.5+1});
+  if(particles.length>55)return;
+  for(let i=0;i<Math.min(count||4,6);i++)particles.push({x,y,vx:(Math.random()-0.5)*spread,vy:(Math.random()-0.5)*spread-2,life:0.5+Math.random()*0.25,color,size:Math.random()*2.2+1});
 }
 function createSplash(wx,wy,c=7){createParticles(wx,wy,"#a0d8ff",c,6)} // visual only — no splash SFX
 function createBubbles(wx,wy,c=5){for(let i=0;i<c;i++)particles.push({x:wx+(Math.random()-0.5)*20,y:wy,vx:(Math.random()-0.5)*1.5,vy:-1-Math.random()*2,life:0.8+Math.random()*0.5,color:"rgba(180,220,255,0.6)",size:2+Math.random()*3})}
@@ -1479,7 +1529,7 @@ function startGame(freeRestart){
     generateWorldSector(0);generateWorldSector(-1);
 
     for(let i=0;i<9;i++)debris.push({worldX:Math.random()*canvas.width*5-canvas.width*2.5,type:Math.random()>0.5?"cab":"pallet",seed:Math.random()*300});
-    for(let i=0;i<100;i++)rain.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,z:0.5+Math.random()*2,len:9+Math.random()*14,speed:0.7+Math.random()*0.5});
+    for(let i=0;i<45;i++)rain.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,z:0.5+Math.random()*2,len:9+Math.random()*14,speed:0.7+Math.random()*0.5});
 
     if(livesUI)livesUI.innerText=lives;
     updateLifeWarn();
@@ -1511,8 +1561,8 @@ function generateWorldSector(sectorY){
   const baseY=sectorY*480;let cy=baseY+420;
   while(cy>baseY+25){
     cy-=(Math.random()*36+88);
-    for(let bo=-3;bo<=3;bo++){
-      if(Math.random()<0.18)continue;
+    for(let bo=-2;bo<=2;bo++){
+      if(Math.random()<0.22)continue;
       const bx=bo*BSPAN+60,bw=BW;
       let t="ledge",ph=16;const r=Math.random();
       if(r>0.88)t="stairs";
@@ -1622,19 +1672,40 @@ let knockbackTimer=0;
 function gameLoopFrame(){
   if(state!=="PLAYING"||!cat||!water||paused)return;
   time++;
-  // Cull far entities every ~2s to stop lag from infinite world growth
-  if(time%120===0&&cat){
+  // Cull far entities often — prevents freeze from unbounded arrays
+  if(time%60===0&&cat){
     const cy=cat.worldY,cx=cat.worldX;
-    platforms=platforms.filter(p=>Math.abs(p.worldY-cy)<1400&&Math.abs(p.worldX-cx)<1600);
-    collectibles=collectibles.filter(c=>c.active&&Math.abs(c.worldY-cy)<1200);
-    windowNPCs=windowNPCs.filter(n=>Math.abs(n.worldY-cy)<1000);
-    hangingSigns=hangingSigns.filter(s=>Math.abs(s.worldY-cy)<1000);
-    steamVents=steamVents.filter(s=>Math.abs(s.worldY-cy)<1000);
-    acBlows=acBlows.filter(a=>Math.abs(a.worldY-cy)<1000);
-    satDishes=satDishes.filter(d=>Math.abs(d.worldY-cy)<1200);
-    chimneys=chimneys.filter(c=>Math.abs(c.worldY-cy)<1200);
-    securityLasers=securityLasers.filter(L=>Math.abs(L.y-cy)<1000);
-    if(particles.length>60)particles.length=40;
+    const keepY=900,keepX=1100;
+    let np=[];
+    for(let i=0;i<platforms.length;i++){
+      const p=platforms[i];
+      if(Math.abs(p.worldY-cy)<keepY&&Math.abs(p.worldX-cx)<keepX)np.push(p);
+    }
+    platforms=np;
+    if(platforms.length>220)platforms=platforms.slice(-180);
+    collectibles=collectibles.filter(c=>c.active&&Math.abs(c.worldY-cy)<800);
+    windowNPCs=windowNPCs.filter(n=>Math.abs(n.worldY-cy)<700);
+    hangingSigns=hangingSigns.filter(s=>Math.abs(s.worldY-cy)<700);
+    steamVents=steamVents.filter(s=>Math.abs(s.worldY-cy)<700);
+    acBlows=acBlows.filter(a=>Math.abs(a.worldY-cy)<700);
+    satDishes=satDishes.filter(d=>Math.abs(d.worldY-cy)<800);
+    chimneys=chimneys.filter(c=>Math.abs(c.worldY-cy)<800);
+    securityLasers=securityLasers.filter(L=>Math.abs(L.y-cy)<700);
+    birds=birds.filter(b=>Math.abs(b.worldX-cx)<800);
+    attackDogs=attackDogs.filter(d=>Math.abs(d.worldX-cx)<800);
+    laserTurrets=laserTurrets.filter(t=>Math.abs(t.worldX-cx)<900);
+    fallingBricks=fallingBricks.filter(b=>Math.abs(b.worldY-cy)<600);
+    if(particles.length>50)particles.length=30;
+    if(popups.length>20)popups.length=12;
+    // Prune windowRegistry keys far from camera (string keys hold world Y)
+    if(time%300===0){
+      const keys=Object.keys(windowRegistry);
+      if(keys.length>400){
+        for(let i=0;i<keys.length;i++){
+          if(i%3!==0)delete windowRegistry[keys[i]];
+        }
+      }
+    }
   }
 
   if(streakTimer>0){streakTimer--;if(streakTimer<=0){streak=0;comboMult=1}}
@@ -2569,7 +2640,7 @@ ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
   }
 
   // Buildings + rooftop clutter
-  for(let bo=-3;bo<=3;bo++){
+  for(let bo=-2;bo<=2;bo++){
     const bwx=bo*500+60,bsx=bwx-cameraX,bw=430;
     if(bsx+bw<-30||bsx>canvas.width+30)continue;
     ctx.fillStyle=currentTheme.building;ctx.fillRect(bsx,0,bw,canvas.height);
