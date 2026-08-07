@@ -361,6 +361,15 @@ if(typeof ownedUpgrades!=="object"||ownedUpgrades===null)ownedUpgrades={};
 let selectedTheme=safeStorage.get("aow_theme")||"nyc";
 let currentTheme=THEMES.find(t=>t.id===selectedTheme)||THEMES[0];
 let soundOn=safeStorage.get("aow_sound")!=="0";
+let volMaster=parseFloat(safeStorage.get("aow_volM")||"1")||1;
+let volSfx=parseFloat(safeStorage.get("aow_volS")||"1")||1;
+let volMusic=parseFloat(safeStorage.get("aow_volMusic")||"0.85")||0.85;
+function applyVolumes(){
+  try{
+    if(masterGain&&audioCtx)masterGain.gain.setTargetAtTime(Math.max(0.0001,volMaster*(soundOn?1:0)),audioCtx.currentTime,0.05);
+    if(musicBus&&audioCtx)musicBus.gain.setTargetAtTime(Math.max(0.0001,0.42*volMusic*volMaster),audioCtx.currentTime,0.05);
+  }catch(e){}
+}
 let musicTimer=null;
 const DIFFS={
   baby:{name:"BABY",waterMul:0.42,hazardMul:0.3,npcForce:7,npcVy:-3,desc:"Cozy pace · almost no hazards — for tiny climbers"},
@@ -582,13 +591,13 @@ function initAudio(){try{if(!audioCtx){audioCtx=new(window.AudioContext||window.
       masterFilter=audioCtx.createBiquadFilter();masterFilter.type="lowpass";masterFilter.frequency.value=16000;
       masterGain=audioCtx.createGain();masterGain.gain.value=1;
       masterFilter.connect(masterGain);masterGain.connect(masterCompressor);masterCompressor.connect(audioCtx.destination);
-      // Kick off loading the bundled real-sound files (best-effort, non-blocking)
+      try{applyVolumes()}catch(e){}
       loadSounds();
     }if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
 function setUnderwaterAudio(on){if(!audioCtx||!masterFilter)return;const t=audioCtx.currentTime;try{masterFilter.frequency.setTargetAtTime(on?600:15000,t,0.12);masterGain.gain.setTargetAtTime(on?0.5:1,t,0.12)}catch(e){}}
 let masterFilter=null,masterGain=null,masterCompressor=null;
 let audioVoices=0;
-function playTone(f,t="sine",d=0.1,v=0.18){if(!soundOn||!audioCtx)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,now);const g0=Math.max(0.0001,v);g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.008);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.02,d));o.connect(g);g.connect(masterFilter||audioCtx.destination);o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};o.start(now);o.stop(now+Math.max(0.02,d)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
+function playTone(f,t="sine",d=0.1,v=0.18){if(!soundOn||!audioCtx)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,now);const g0=Math.max(0.0001,v*(typeof volSfx==="number"?volSfx:1)*(typeof volMaster==="number"?volMaster:1));g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.008);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.02,d));o.connect(g);g.connect(masterFilter||audioCtx.destination);o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};o.start(now);o.stop(now+Math.max(0.02,d)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
 function buzz(pattern){if(!hapticsOn)return;try{if(navigator.vibrate)navigator.vibrate(pattern)}catch(e){}}
 // Jump SFX — pure bounce tones (NO meow). Meows only play when the cat falls / dies.
 function sfxJump(){playTone(420,"sine",0.05,0.2);setTimeout(()=>playTone(640,"triangle",0.07,0.14),22)}
@@ -703,42 +712,63 @@ const SOUNDS={
 };
 const soundBufs={};
 function loadSoundBuf(key){
-  return new Promise(res=>{
-    if(!audioCtx){res(false);return}
-    const url=SOUNDS[key][0];
-    const xhr=new XMLHttpRequest();
-    xhr.open("GET",url,true);
-    xhr.responseType="arraybuffer";
-    xhr.onload=()=>{try{audioCtx.decodeAudioData(xhr.response,(buf)=>{soundBufs[key]=buf;res(true)},()=>res(false))}catch(e){res(false)}};
-    xhr.onerror=()=>res(false);
-    xhr.send();
+  return new Promise(async res=>{
+    try{
+      if(!audioCtx){res(false);return}
+      const url=SOUNDS[key][0];
+      let arr=null;
+      try{
+        const r=await fetch(url,{cache:"force-cache"});
+        if(r.ok)arr=await r.arrayBuffer();
+      }catch(e){}
+      if(!arr){
+        // XHR fallback
+        arr=await new Promise((resolve,reject)=>{
+          const xhr=new XMLHttpRequest();
+          xhr.open("GET",url,true);xhr.responseType="arraybuffer";
+          xhr.onload=()=>resolve(xhr.response);
+          xhr.onerror=()=>resolve(null);
+          xhr.send();
+        });
+      }
+      if(!arr){res(false);return}
+      const buf=await audioCtx.decodeAudioData(arr.slice?arr.slice(0):arr);
+      soundBufs[key]=buf;res(true);
+    }catch(e){res(false)}
   });
 }
 function loadSounds(){
   const p=Promise.all(Object.keys(SOUNDS).map(k=>loadSoundBuf(k)));
-  p.then(()=>{
-    // Once real rain loads mid-session, swap the loop over
-    if(state==="PLAYING"&&soundOn){try{setRainGain(weather.intensity||0.3)}catch(e){}}
-    if(state==="PLAYING"&&soundOn&&!musicSrc){try{startMusic()}catch(e){}}
+  p.then(results=>{
+    const ok=results.filter(Boolean).length;
+    console.log("[audio] loaded",ok,"/",results.length,"buffers");
+    if(state==="PLAYING"&&soundOn){
+      try{setRainGain(weather.intensity||0.3)}catch(e){}
+      try{startMusic()}catch(e){}
+    }
   }).catch(()=>{});
   return p;
 }
-// Play a real buffer at a given volume. Returns true if a real file played.
+// Play a real buffer. Proper sustain envelope (old version faded out over whole duration = nearly silent).
 function playBuf(key,vol){
   if(!soundOn||!audioCtx)return false;
+  if(audioCtx.state==="suspended")try{audioCtx.resume()}catch(e){}
   const buf=soundBufs[key];
   if(!buf)return false;
   try{
     const src=audioCtx.createBufferSource();
     src.buffer=buf;
     const g=audioCtx.createGain();
-    const g0=Math.max(0.0001,vol==null?0.5:vol);
+    const g0=Math.max(0.0001,(vol==null?0.55:vol)*volSfx*volMaster);
     const now=audioCtx.currentTime;
+    const dur=Math.max(0.05,buf.duration||0.3);
+    const release=Math.min(0.12,dur*0.2);
     g.gain.setValueAtTime(0.00001,now);
-    g.gain.exponentialRampToValueAtTime(g0,now+0.006);
-    g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.05,buf.duration||0.4));
+    g.gain.exponentialRampToValueAtTime(g0,now+0.01);
+    g.gain.setValueAtTime(g0,now+Math.max(0.02,dur-release));
+    g.gain.exponentialRampToValueAtTime(0.0001,now+dur);
     src.connect(g);g.connect(masterFilter||audioCtx.destination);
-    src.start();
+    src.start(now);src.stop(now+dur+0.05);
     return true;
   }catch(e){return false}
 }
@@ -816,7 +846,7 @@ function stopWaves(){
   waveGain=null;waveFilter=null;
 }
 function sfxPower(){playTone(300,"sine",0.12,0.2);setTimeout(()=>playTone(1500,"triangle",0.2,0.16),60)}
-function sfxSurge(){playTone(180,"sawtooth",0.4,0.2);setTimeout(()=>playTone(320,"sawtooth",0.4,0.2),90)}
+function sfxSurge(){playTone(90,"triangle",0.35,0.16);setTimeout(()=>playTone(140,"sine",0.4,0.12),80);setTimeout(()=>playTone(60,"sine",0.5,0.1),160)}
 function sfxReaper(){playTone(240,"triangle",0.5,0.18);setTimeout(()=>playTone(190,"triangle",0.5,0.18),220);setTimeout(()=>playTone(140,"triangle",0.7,0.18),460);setTimeout(()=>playTone(90,"triangle",1,0.16),720)}
 let deathOverlayEl=null;
 function reaperCollect(done){
@@ -987,7 +1017,7 @@ function startMusic(){
   try{
     if(!musicBus){
       musicBus=audioCtx.createGain();
-      musicBus.gain.value=0.42;
+      musicBus.gain.value=0.42*(typeof volMusic==="number"?volMusic:0.85)*(typeof volMaster==="number"?volMaster:1);
       const mf=audioCtx.createBiquadFilter();
       mf.type="lowpass";mf.frequency.value=3600;
       musicBus.connect(mf);mf.connect(masterFilter||audioCtx.destination);
@@ -1015,7 +1045,9 @@ function stopMusic(){
 function updateMuteBtn(){if(muteBtn)muteBtn.innerText=soundOn?"🔊":"🔇"}
 function toggleSound(){
   soundOn=!soundOn;save();
-  if(soundOn)startMusic();else stopMusic();
+  if(soundOn){try{initAudio();if(audioCtx)audioCtx.resume()}catch(e){}if(state==="PLAYING")startMusic()}
+  else{stopMusic();try{setLaserHum(false)}catch(e){}try{killRain()}catch(e){}}
+  try{applyVolumes()}catch(e){}
   updateMuteBtn();buzz(soundOn?20:60);
 }
 
@@ -1446,12 +1478,17 @@ function startGame(freeRestart){
     loopId++;
     const myLoop=loopId;
     initAudio();
-    if(soundOn){startMusic();startWaves()}
+    try{if(audioCtx&&audioCtx.state==="suspended")audioCtx.resume()}catch(e){}
     resetKeys();
-knockbackTimer=0;invulnTimer=0;checkpoint=null;
-    milestone=0;milestoneBanner={text:"",t:0}; // reset milestone checkpoints
-    waterDelay=150; // ~2.5s grace before the flood starts rising
+    knockbackTimer=0;invulnTimer=0;checkpoint=null;
+    milestone=0;milestoneBanner={text:"",t:0};
+    waterDelay=150;
+    surgeSplash=0;
     state="PLAYING";score=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;ampTimer=0;bestAtStart=highestScore||0;surgeTimer=0;surgeNext=0;nextBountyTarget=500;
+    // Restart ambient after state is PLAYING
+    try{stopMusic()}catch(e){}
+    if(soundOn){try{startMusic()}catch(e){}try{startWaves()}catch(e){}}
+    try{applyVolumes()}catch(e){}
     cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
     diving=false;oxygen=100;dangerWarn=0;
     streak=0;streakTimer=0;comboMult=1;comboFlash=0;
@@ -1875,7 +1912,7 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
   const nearLaser=securityLasers.some(L=>L.on&&Math.abs((L.x1+L.x2)/2-cat.worldX)<380);
   setLaserHum(nearLaser);
 
-for(let i=hangingSigns.length-1;i>=0;i--){
+  for(let i=hangingSigns.length-1;i>=0;i--){
     const hs=hangingSigns[i];hs.swing+=0.04;
     if(hs.worldY>water.worldY+60)hangingSigns.splice(i,1);
   }
@@ -3504,7 +3541,9 @@ if(hasScuba()&&btnDive)btnDive.classList.remove("hidden");
   refreshAchBadge();
   const vt=$("verText");if(vt)vt.innerText=VERSION;
   const ac=$("achCount");if(ac)ac.innerText=achieved.length+"/"+ACHIEVEMENTS.length;
-document.addEventListener("pointerdown",function once(){initAudio();document.removeEventListener("pointerdown",once)},false);
+document.addEventListener("pointerdown",function once(){initAudio();try{if(audioCtx)audioCtx.resume()}catch(e){}document.removeEventListener("pointerdown",once)},false);
+document.addEventListener("touchstart",function once2(){initAudio();try{if(audioCtx)audioCtx.resume()}catch(e){}document.removeEventListener("touchstart",once2)},{passive:true});
+document.addEventListener("keydown",function once3(){initAudio();try{if(audioCtx)audioCtx.resume()}catch(e){}document.removeEventListener("keydown",once3)},false);
   // Ensure start screen is visible
   if(startScreen)startScreen.classList.remove("hidden");
 }catch(err){console.error("boot",err)}
