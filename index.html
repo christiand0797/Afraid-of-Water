@@ -1,4 +1,4 @@
-l changes <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -547,6 +547,7 @@ let weather={intensity:0.2,wind:3,stormName:"DRIZZLE",flashCooldown:0,gust:0,gus
 let shieldActive=false;
 let diving=false,oxygen=100,maxOxygen=100;
 let streak=0,streakTimer=0,comboMult=1,comboFlash=0,bestStreakRun=0;
+let charSquash=1,charSquashV=0,charSquashTarget=1; // persistent squash & stretch on jump/land
 let coyoteTimer=0,jumpBuffer=0,popups=[];
 let ampTimer=0;
 let bestAtStart=0;
@@ -624,11 +625,13 @@ function sfxBubble(){playTone(400+Math.random()*200,"sine",0.05,0.08)}
 const MUSIC_NOTES=[261.6,293.7,329.6,392.0,440.0,523.3,587.3];
 function musicStep(){
   if(!soundOn||!audioCtx)return;
+  // Sparse, gentle arpeggio — leave rests so it breathes instead of droning constantly
+  if(Math.random()<0.4)return; // rest step
   const n=MUSIC_NOTES[Math.floor(Math.random()*MUSIC_NOTES.length)];
-  playTone(n,"triangle",0.35,0.035);
-  setTimeout(()=>playTone(n*1.5,"sine",0.4,0.02),340);
+  playTone(n,"triangle",0.3,0.028);
+  if(Math.random()<0.5)setTimeout(()=>playTone(n*1.5,"sine",0.35,0.015),320);
   // soft bass under the arpeggio for warmth
-  if(Math.random()<0.4)playTone(n/2,"sine",0.5,0.03);
+  if(Math.random()<0.25)playTone(n/2,"sine",0.4,0.022);
 }
 function startMusic(){
   if(!soundOn||musicTimer)return;
@@ -824,6 +827,7 @@ function openPause(){if(state!=="PLAYING")return;paused=true;if(pauseScreen)paus
 function closePause(){paused=false;if(pauseScreen)pauseScreen.classList.add("hidden")}
 function goToMenu(){
   closePause();state="START";loopId++;
+  stopMusic(); // silence the ambient loop when back on the menu
   resetKeys();paused=false;
   [startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen].forEach(s=>{if(s)s.classList.add("hidden")});
   if(ui)ui.classList.add("hidden");if(controls)controls.classList.add("hidden");
@@ -1780,10 +1784,29 @@ function draw(){
   bg.addColorStop(0,currentTheme.bgTop);bg.addColorStop(1,currentTheme.bgBot);
   ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // Atmospheric depth: soft vertical haze on the upper sky
+// Atmospheric depth: soft vertical haze on the upper sky
   const haze=ctx.createLinearGradient(0,0,0,canvas.height*0.5);
   haze.addColorStop(0,"rgba(110,150,220,0.10)");haze.addColorStop(1,"rgba(80,110,180,0)");
   ctx.fillStyle=haze;ctx.fillRect(0,0,canvas.width,canvas.height*0.5);
+
+  // Slow drifting aurora/nebula bands — shifting blues & teals high in the sky
+  const aurA=0.05+weather.intensity*0.05;
+  ctx.save();
+  ctx.globalAlpha=aurA;
+  for(let a=0;a<3;a++){
+    const ay=canvas.height*(0.06+a*0.09)+Math.sin(time*0.004+a*2.1)*14;
+    const ah=34+a*16;
+    const ag=ctx.createLinearGradient(0,ay,0,ay+ah);
+    ag.addColorStop(0,"rgba(60,180,200,0)");
+    ag.addColorStop(0.5,`rgba(${80+a*40},${190+a*30},230,0.9)`);
+    ag.addColorStop(1,"rgba(120,80,200,0)");
+    const ax=((time*0.05*(a%2?1:-1)+a*220)%(canvas.width+400))-200;
+    ctx.fillStyle=ag;
+    ctx.save();ctx.translate(ax,0);ctx.transform(1,0,0.4+Math.sin(time*0.003+a)*0.2,1,0,0);
+    ctx.beginPath();ctx.ellipse(0,ay,140+((a*53)%90),ah*0.5,0,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
 
   // Dawn light breaking through as you climb out of the storm clouds
   const altF=Math.min(1,Math.max(0,score/2400));
@@ -1837,11 +1860,54 @@ function draw(){
   ctx.fillStyle=gl;ctx.fillRect(mx-80,my-80,160,160);
   ctx.fillStyle=`rgba(252,247,222,${moonF})`;
   ctx.beginPath();ctx.arc(mx,my,22,0,Math.PI*2);ctx.fill();
-  // Carve the crescent
+// Carve the crescent
   ctx.fillStyle=currentTheme.bgTop;
   ctx.beginPath();ctx.arc(mx-10,my-6,18,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
+  // Cold blue moonlight tint on the crescent edge (colder than the warm halo)
+  ctx.strokeStyle=`rgba(165,200,255,${moonF*0.5})`;
+  ctx.lineWidth=1.6;
+  ctx.beginPath();ctx.arc(mx,my,22,Math.PI*0.75,Math.PI*1.25);ctx.stroke();
+ctx.fillStyle=`rgba(255,248,214,${moonF*0.35})`;
   ctx.beginPath();ctx.arc(mx,my,22,Math.PI*0.8,Math.PI*1.2);ctx.stroke();
+
+  // Horizon glow — a soft bioluminescent band where the flood meets the skyline.
+  // Brightens with weather intensity and pulses gently, hinting at the rising water.
+  {
+    const hzY=canvas.height*0.62-cameraY*0.03; // aligns with far skyline base
+    const hzA=0.10+weather.intensity*0.16;
+    const hzPulse=1+Math.sin(time*0.02)*0.12;
+    const horizonGlow=ctx.createLinearGradient(0,hzY-70,0,hzY+26);
+    horizonGlow.addColorStop(0,"rgba(120,200,255,0)");
+    horizonGlow.addColorStop(0.55,`rgba(120,200,255,${hzA*hzPulse})`);
+    horizonGlow.addColorStop(1,"rgba(120,200,255,0)");
+    ctx.fillStyle=horizonGlow;ctx.fillRect(0,hzY-70,canvas.width,hzY+26-hzY+70);
+    // faint cyan rim sitting right on the horizon line
+    ctx.fillStyle=`rgba(140,220,255,${0.04+weather.intensity*0.05})`;
+    ctx.fillRect(0,hzY-2,canvas.width,4);
+  }
+
+  // Detailed far skyline silhouette (extra layer of spires + antennae behind clouds)
+  ctx.fillStyle="rgba(6,10,18,0.92)";
+  for(let i=-4;i<=5;i++){
+    const bx=i*150-cameraX*0.12;
+    const baseY=canvas.height*0.62-cameraY*0.03;
+    const hgt=60+((i*37)%70)+Math.sin(i*2.3)*18;
+    ctx.fillRect(bx,baseY-hgt,90,hgt);
+    // little roof antenna knife-edge
+    if(i%2===0){ctx.fillRect(bx+40,baseY-hgt-14,3,14);ctx.fillRect(bx+36,baseY-hgt-14,11,3)}
+  }
+  // Twinkling distant city lights sprinkled along that far skyline base
+  ctx.globalAlpha=1;
+  for(let i=0;i<34;i++){
+    const lx=(((i*53-cameraX*0.12)%canvas.width)+canvas.width)%canvas.width;
+    const lbase=canvas.height*0.62-cameraY*0.03;
+    const ly=lbase-(10+((i*17)%42));
+    const tw=0.35+Math.abs(Math.sin(time*0.02+i*1.9))*0.65;
+    ctx.fillStyle=`rgba(255,${200+((i*40)%55)|0},150,${0.25+tw*0.4})`;
+    ctx.fillRect(lx,ly,2,2);
+    if(i%7===0){ctx.fillStyle=`rgba(255,220,170,${0.12+tw*0.2})`;ctx.fillRect(lx-2,ly-2,6,6)}
+  }
+  ctx.fillStyle="rgba(255,255,255,1)";
 
   // Distant drifting cloud bank (slow parallax) for depth
   ctx.fillStyle="rgba(130,150,210,0.08)";
@@ -2367,6 +2433,35 @@ ctx.fillStyle=body;ctx.fillRect(1,-28,3,15);ctx.fillRect(7,-28,3,15);
   }
   ctx.lineTo(canvas.width,canvas.height);ctx.fill();
 
+  // Layered wave bands beneath the surface — cheaper than a noisy gradient, reads as depth
+  ctx.fillStyle="rgba(255,255,255,0.05)";
+  for(let lay=0;lay<3;lay++){
+    const ly=wsy+14+lay*26+Math.sin(time*0.05+lay*2.1)*5;
+    ctx.beginPath();
+    for(let x=0;x<=canvas.width;x+=16){
+      const yy=ly+Math.sin(time*0.07+(x+cameraX)*0.05+lay)* (3+lay);
+      x===0?ctx.moveTo(x,yy):ctx.lineTo(x,yy);
+    }
+    ctx.lineTo(canvas.width,canvas.height);ctx.lineTo(0,canvas.height);ctx.closePath();ctx.fill();
+  }
+
+// Underwater light rays / caustics shimmering just below the surface
+  ctx.save();
+  ctx.globalAlpha=0.07+weather.intensity*0.05;
+  for(let r=0;r<5;r++){
+    const rx=(((r*173+time*0.8*(r%2?1:-1))%(canvas.width+240)+canvas.width+240)%(canvas.width+240))-120;
+    const rw=26+r*6; // ray width widens toward the deeper rays
+    const sway=Math.sin(time*0.03+r*3)*30;
+    ctx.beginPath();
+    ctx.moveTo(rx-rw,wsy+6);
+    ctx.lineTo(rx,wsy+6);
+    ctx.lineTo(rx+sway,Math.min(canvas.height,wsy+120+r*40));
+    ctx.lineTo(rx-rw+sway,Math.min(canvas.height,wsy+120+r*40));
+    ctx.closePath();ctx.fill();
+  }
+  ctx.restore();
+  ctx.fillStyle="rgba(255,255,255,1)";
+
   // Angry red-foam crest when the flood is surging
   if(surgeTimer>0){
     ctx.strokeStyle=`rgba(231,76,60,${0.5+Math.sin(time*0.5)*0.2})`;ctx.lineWidth=3;
@@ -2387,7 +2482,7 @@ ctx.fillStyle=body;ctx.fillRect(1,-28,3,15);ctx.fillRect(7,-28,3,15);
 ctx.stroke();
   }
 
-  // Water surface glimmers
+// Water surface glimmers
   ctx.fillStyle="rgba(255,255,255,0.5)";
   for(let i=0;i<15;i++){
     const tw=Math.max(0,Math.sin(time*0.05+i*2.6));
@@ -2397,6 +2492,28 @@ ctx.stroke();
     ctx.fillStyle=`rgba(255,240,220,${tw*0.55})`;
     ctx.fillRect(gx-1,gy,2,2);
     ctx.fillRect(gx-3,gy,1,1);
+  }
+  ctx.fillStyle="rgba(255,255,255,0.5)";
+
+  // Animated white foam sparkle along the wave troughs — makes the flood feel alive
+  ctx.save();
+  ctx.strokeStyle="rgba(250,250,255,0.5)";
+  ctx.lineWidth=2;
+  for(let i=0;i<crests.length;i+=2){
+    const cw=Math.max(0,Math.sin(time*0.12+crests[i].x*0.02));
+    const isTrough=crests[i].y>crests[(i+1)%crests.length].y;
+    if(cw>0.55&&isTrough){
+      ctx.globalAlpha=cw*0.5;
+      ctx.beginPath();ctx.moveTo(crests[i].x-5,crests[i].y+2);ctx.lineTo(crests[i].x+5,crests[i].y+2);ctx.stroke();
+    }
+  }
+  ctx.restore();
+  // Loose foam flecks drifting just on the surface
+  ctx.fillStyle="rgba(240,244,255,0.7)";
+  for(let i=0;i<10;i++){
+    const fx=(((i*97+time*0.8*(i%2?1:-1))%(canvas.width+60)+canvas.width+60)%(canvas.width+60))-30;
+    const fy=wsy+Math.sin((fx+cameraX)*0.02)*waveH + Math.sin(time*0.1+i)*2+2;
+    ctx.fillRect(fx,fy,2.2,1.4);
   }
   ctx.fillStyle="rgba(255,255,255,0.5)";
 
@@ -2543,7 +2660,7 @@ if(hasScuba()&&btnDive)btnDive.classList.remove("hidden");
   refreshAchBadge();
   const vt=$("verText");if(vt)vt.innerText=VERSION;
   const ac=$("achCount");if(ac)ac.innerText=achieved.length+"/"+ACHIEVEMENTS.length;
-  document.addEventListener("pointerdown",function once(){startMusic();document.removeEventListener("pointerdown",once)},false);
+document.addEventListener("pointerdown",function once(){initAudio();document.removeEventListener("pointerdown",once)},false);
   // Ensure start screen is visible
   if(startScreen)startScreen.classList.remove("hidden");
 }catch(err){console.error("boot",err)}
