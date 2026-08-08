@@ -389,7 +389,7 @@ const ALL_SKINS=[
 ];
 let leaderboard=(()=>{try{const v=JSON.parse(localStorage.getItem("aow_lb")||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}})();
 let playerName=safeStorage.get("aow_name")||"Anonymous";
-const VERSION="1.8.1";
+const VERSION="1.8.2";
 
 const UPGRADES=[
   {id:"maxLives",name:"Max Lives",emoji:"❤️",desc:"+1 max life",max:5,prices:[500,1000,2000,4000,8000]},
@@ -427,11 +427,11 @@ function applyVolumes(){
 }
 let musicTimer=null;
 const DIFFS={
-  baby:{name:"BABY",waterMul:2.0,hazardMul:0.25,npcForce:6,npcVy:-2,weatherMul:0.5,desc:"Very easy · super slow water — for tiny climbers"},
-  easy:{name:"EASY",waterMul:5.0,hazardMul:0.60,npcForce:11,npcVy:-5,weatherMul:0.75,desc:"Easy · slow water · soft hazards"},
-  normal:{name:"NORMAL",waterMul:10.0,hazardMul:1.0,npcForce:16,npcVy:-9,weatherMul:1.0,desc:"Balanced · steady water · fair hazards"},
-  hard:{name:"HARD",waterMul:16.0,hazardMul:1.5,npcForce:21,npcVy:-13,weatherMul:1.3,desc:"Hard · fast water · meaner NPCs"},
-  insane:{name:"INSANE",waterMul:24.0,hazardMul:2.0,npcForce:28,npcVy:-17,weatherMul:1.6,desc:"Insane · brutal flood · relentless hazards"}
+  baby:{name:"BABY",waterMul:1.5,hazardMul:0.25,npcForce:6,npcVy:-2,weatherMul:0.5,desc:"Very easy · slow water — for tiny climbers"},
+  easy:{name:"EASY",waterMul:3.0,hazardMul:0.60,npcForce:11,npcVy:-5,weatherMul:0.75,desc:"Easy · relaxed water · soft hazards"},
+  normal:{name:"NORMAL",waterMul:6.0,hazardMul:1.0,npcForce:16,npcVy:-9,weatherMul:1.0,desc:"Balanced · steady water · fair hazards"},
+  hard:{name:"HARD",waterMul:9.0,hazardMul:1.5,npcForce:21,npcVy:-13,weatherMul:1.3,desc:"Hard · faster water · meaner NPCs"},
+  insane:{name:"INSANE",waterMul:12.0,hazardMul:2.0,npcForce:28,npcVy:-17,weatherMul:1.6,desc:"Insane · fast flood · relentless hazards"}
 };
 let difficulty=safeStorage.get("aow_diff")||"normal";
 if(!DIFFS[difficulty])difficulty="normal";
@@ -445,7 +445,7 @@ function difficultyRamp(){
 }
 
 // Game version — shown in footer + could gate future migrations
-const GAME_VERSION="1.8.1";
+const GAME_VERSION="1.8.2";
 
 // Achievements system (trophies that persist locally)
 const ACHIEVEMENTS=[
@@ -705,7 +705,7 @@ let masterFilter=null,masterGain=null,masterCompressor=null;
 let audioVoices=0;
 function playTone(f,t="sine",d=0.1,v=0.18){if(!soundOn||!audioCtx)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,now);const g0=Math.max(0.0001,v*(typeof volSfx==="number"?volSfx:1)*(typeof volMaster==="number"?volMaster:1));g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.008);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.02,d));o.connect(g);g.connect(masterFilter||audioCtx.destination);o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};o.start(now);o.stop(now+Math.max(0.02,d)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
 function buzz(pattern){if(!hapticsOn)return;try{if(navigator.vibrate)navigator.vibrate(pattern)}catch(e){}}
-// Jump SFX — pure bounce tones (NO meow). Meows only play when the cat falls / dies.
+// Jump SFX — pure bounce tones (NO meow).
 function sfxJump(){playTone(420,"sine",0.05,0.2);setTimeout(()=>playTone(640,"triangle",0.07,0.14),22)}
 function sfxDouble(){playTone(560,"triangle",0.04,0.14);setTimeout(()=>playTone(820,"sine",0.09,0.11),28)}
 function sfxCollect(){if(playBuf("coin",0.26))return;playTone(1400,"sine",0.04,0.10);setTimeout(()=>playTone(2100,"triangle",0.08,0.08),40)}
@@ -1585,6 +1585,7 @@ function tryDive(){
       oxygenBar.style.display="block";
       cat.vy=2;
       sfxDive();
+      try{sfxSplash()}catch(e){} // whoosh as you enter the flood
       setUnderwaterAudio(true);
 totalDives++;safeStorage.set("aow_dives",totalDives);statDives++;if(totalDives>=10)unlockAchievement("dive_10");
       createSplash(cat.worldX+cat.w/2,water.worldY,12);
@@ -1610,7 +1611,7 @@ function exitDive(){
   setUnderwaterAudio(false);
   createSplash(cat.worldX+cat.w/2,water.worldY,10);
   createBubbles(cat.worldX,water.worldY,6);
-  // no splash SFX — ocean ambient covers surfacing
+  try{sfxSplash()}catch(e){} // splash as you burst back to the surface
 }
 
 
@@ -2361,7 +2362,7 @@ if(c.kind==="jetpack"){
       }
 if(c.kind==="gold"){
         const bonus=15*coinMul;
-coins+=bonus;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",16,9);refreshCoinUI();buzz(20);
+coins+=bonus;sfxCollect();try{sfxMeowHappy()}catch(e){}createParticles(c.worldX,c.worldY,"#f1c40f",16,9);refreshCoinUI();buzz(20);
         totalFish++;safeStorage.set("aow_fish",totalFish);statFish++;if(totalFish>=50)unlockAchievement("collect_50");
         riseText(c.worldX+c.w/2,c.worldY,"GOLD +"+bonus,"#f1c40f");
         comboBanner=70;comboBannerText="🪙 GOLD FISH!";comboBannerColor="#f1c40f";
@@ -2390,8 +2391,8 @@ coins+=bonus;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",16,9);refr
       const prevMult=comboMult;
       comboMult=Math.min(1+Math.floor(streak/4),8);
       if(comboMult>prevMult&&comboMult>=2){comboBanner=80;comboBannerText="COMBO x"+comboMult;comboBannerColor="#f1c40f";buzz(18);createParticles(c.worldX,c.worldY,"#f1c40f",18,9);}
-      score+=340*comboMult;if(score>highestScore)highestScore=score;
-      coins+=(3+comboMult)*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
+score+=340*comboMult;if(score>highestScore)highestScore=score;
+      coins+=(3+comboMult)*coinMul;sfxCollect();if(comboMult>=2)try{sfxMeowHappy()}catch(e){}createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
       totalFish++;safeStorage.set("aow_fish",totalFish);if(totalFish>=50)unlockAchievement("collect_50");
       riseText(c.worldX+c.w/2,c.worldY,"+"+Math.round(340*comboMult));
       if(comboMult>1)riseText(c.worldX+c.w/2+14,c.worldY+14,"x"+comboMult,"#e67e22");

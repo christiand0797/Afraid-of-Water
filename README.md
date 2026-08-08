@@ -75,6 +75,17 @@ regression fails fast with a clear message instead of hanging.
 
 ## Changelog
 
+### 1.8.2
+- 🌊 Rewrote the ocean-bed waves as a seamless brown-noise buffer with a slow
+  LFO, so the ambient water loop is now glitch-free (no clicks/pops on repeat).
+- 💦 Re-introduced splash audio when you dive into and burst back out of the
+  rising flood.
+- 😺 Added a subtle "happy meow" when you snag high-value gold fish or build a
+  2x+ combo, without drowning out the rest of the mix.
+- ⚖️ Rebalanced the difficulty curve — every tier's water rises a little slower
+  (old INSANE pacing is now the NORMAL baseline) so each difficulty feels fair.
+- 🔖 Version bumped to 1.8.2 (footer + `GAME_VERSION` + package.json).
+
 ### 1.8.1
 - 🔖 Version bumped to 1.8.1 (footer + `GAME_VERSION`) to mesh with the
   volume-control feature set shipped in 1.8.0.
