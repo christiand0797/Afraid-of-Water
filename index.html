@@ -390,15 +390,15 @@ let playerName=safeStorage.get("aow_name")||"Anonymous";
 const VERSION="1.8.1";
 
 const UPGRADES=[
-  {id:"maxLives",name:"Max Lives",emoji:"❤️",desc:"+1 max life",max:5,prices:[100,200,400,800,1200]},
-  {id:"jumpPower",name:"Super Jump",emoji:"⬆️",desc:"Stronger jump",max:4,prices:[120,250,450,700]},
-  {id:"speed",name:"Speed Boost",emoji:"💨",desc:"Move faster",max:4,prices:[100,220,400,650]},
-  {id:"magnet",name:"Fish Magnet",emoji:"🧲",desc:"Bigger collect range",max:3,prices:[150,320,550]},
-  {id:"shield",name:"Start Shield",emoji:"🛡️",desc:"Survive first hit",max:1,prices:[300]},
-  {id:"scuba",name:"Scuba Mask",emoji:"🤿",desc:"Dive under water!",max:1,prices:[400]},
-  {id:"oxygen",name:"Oxygen Tank",emoji:"🫧",desc:"+air time underwater",max:3,prices:[200,400,700]},
-  {id:"fins",name:"Swim Fins",emoji:"👟",desc:"Swim faster underwater",max:3,prices:[180,350,600]},
-  {id:"coinBoost",name:"Coin Finder",emoji:"🪙",desc:"More coins from fish",max:3,prices:[150,300,500]}
+  {id:"maxLives",name:"Max Lives",emoji:"❤️",desc:"+1 max life",max:5,prices:[500,1000,2000,4000,8000]},
+  {id:"jumpPower",name:"Super Jump",emoji:"⬆️",desc:"Stronger jump",max:4,prices:[400,800,1500,2500]},
+  {id:"speed",name:"Speed Boost",emoji:"💨",desc:"Move faster",max:4,prices:[300,700,1400,2400]},
+  {id:"magnet",name:"Fish Magnet",emoji:"🧲",desc:"Bigger collect range",max:3,prices:[500,1000,2000]},
+  {id:"shield",name:"Start Shield",emoji:"🛡️",desc:"Survive first hit",max:1,prices:[1000]},
+  {id:"scuba",name:"Scuba Mask",emoji:"🤿",desc:"Dive under water!",max:1,prices:[1500]},
+  {id:"oxygen",name:"Oxygen Tank",emoji:"🫧",desc:"+air time underwater",max:3,prices:[700,1400,2500]},
+  {id:"fins",name:"Swim Fins",emoji:"👟",desc:"Swim faster underwater",max:3,prices:[600,1200,2200]},
+  {id:"coinBoost",name:"Coin Finder",emoji:"🪙",desc:"More coins from fish",max:3,prices:[500,1000,2000]}
 ];
 
 function safeJSON(raw,fallback){try{const v=JSON.parse(raw);return v==null?fallback:v}catch(e){return fallback}}
@@ -1420,8 +1420,8 @@ function renderLevels(){
 function renderStore(){
   const g=$("storeGrid");g.innerHTML="";
   const lifeCard=document.createElement("div");lifeCard.className="card";
-  lifeCard.innerHTML=`<div style="font-size:22px">❤️</div><div>Refill Life</div><div class="price">🪙 40</div>`;
-  const buyLife=e=>{e.preventDefault();if(coins>=40&&lives<maxLives){coins-=40;lives++;save();updateLifeWarn();refreshCoinUI();sfxBuy();if(livesUI)livesUI.innerText=lives}};
+  lifeCard.innerHTML=`<div style="font-size:22px">❤️</div><div>Refill Life</div><div class="price">🪙 150</div>`;
+  const buyLife=e=>{e.preventDefault();if(coins>=150&&lives<maxLives){coins-=150;lives++;save();updateLifeWarn();refreshCoinUI();sfxBuy();if(livesUI)livesUI.innerText=lives}};
   lifeCard.addEventListener("touchend",buyLife);lifeCard.addEventListener("click",buyLife);g.appendChild(lifeCard);
 
   UPGRADES.forEach(u=>{
@@ -1488,7 +1488,9 @@ function createBubbles(wx,wy,c=5){for(let i=0;i<c;i++)particles.push({x:wx+(Math
 
 function jumpRelease(){
   if(state!=="PLAYING"||!cat)return;
-  if(cat&&!cat.grounded&&cat.vy<0)cat.vy=cat.vy*0.45; // short hop on early release
+  // Variable jump height removed — holding the button no longer lets you
+  // jump further/higher. Every jump is a fixed full-height jump.
+  return;
 }
 function jumpCat(){
   if(state!=="PLAYING"||!cat)return;
