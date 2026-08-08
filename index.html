@@ -71,7 +71,7 @@
     <!-- Start Screen -->
     <div id="start-screen" class="screen">
         <h1>Afraid of Water</h1>
-        <p>Climb as high as you can. The water rises instantly and accelerates aggressively the higher you go and the harder the difficulty!</p>
+        <p>Climb as high as you can. The water rises and accelerates aggressively based on your difficulty and height!</p>
         
         <div class="diff-select">
             <button class="diff-btn" onclick="setDifficulty('easy', event)">Easy</button>
@@ -100,7 +100,6 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // Resize canvas to fit container smoothly
     function resize() {
         canvas.width = canvas.parentElement.clientWidth;
         canvas.height = canvas.parentElement.clientHeight;
@@ -108,34 +107,31 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // Game Constants & Variables
-    let gameState = 'START'; // START, PLAYING, GAMEOVER
+    let gameState = 'START'; 
     let difficulty = 'normal';
     
     const difficulties = {
-        easy: { baseSpeed: 1.2, scaling: 0.15, jump: -11, gravity: 0.5 },
-        normal: { baseSpeed: 1.8, scaling: 0.25, jump: -12, gravity: 0.5 },
-        hard: { baseSpeed: 2.5, scaling: 0.40, jump: -12.5, gravity: 0.52 },
-        extreme: { baseSpeed: 3.5, scaling: 0.65, jump: -13, gravity: 0.55 }
+        easy:    { baseSpeed: 1.2, scaling: 0.15, jump: -11.5, gravity: 0.5 },
+        normal:  { baseSpeed: 1.8, scaling: 0.30, jump: -12.0, gravity: 0.5 },
+        hard:    { baseSpeed: 2.6, scaling: 0.50, jump: -12.5, gravity: 0.52 },
+        extreme: { baseSpeed: 3.6, scaling: 0.80, jump: -13.0, gravity: 0.55 }
     };
 
     let scoreHeight = 0;
     let currentLevel = 1;
     let cameraY = 0;
 
-    // Player Object
     let player = {
-        x: canvas.width / 2,
+        x: canvas.width / 2 - 15,
         y: 200,
         width: 30,
         height: 45,
         vx: 0,
         vy: 0,
-        speed: 5,
+        speed: 5.5,
         grounded: false
     };
 
-    // Water Object
     let water = {
         y: 0,
         baseSpeed: 1.5,
@@ -144,8 +140,6 @@
     };
 
     let platforms = [];
-
-    // Input States
     let keys = { left: false, right: false, jump: false };
 
     window.addEventListener('keydown', e => {
@@ -166,9 +160,9 @@
         if (e.code === 'ArrowUp' || e.code === 'Space' || e.code === 'KeyW') keys.jump = false;
     });
 
-    // Mobile Control Bindings
     function bindTouch(id, keyName) {
         const el = document.getElementById(id);
+        if (!el) return;
         el.addEventListener('touchstart', (e) => { 
             e.preventDefault(); 
             keys[keyName] = true; 
@@ -183,55 +177,53 @@
     bindTouch('m-right', 'right');
     bindTouch('m-jump', 'jump');
 
-    function setDifficulty(diff, event) {
+    window.setDifficulty = function(diff, event) {
         difficulty = diff;
         document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('active'));
         if (event && event.target) {
             event.target.classList.add('active');
         }
-    }
+    };
 
-    function startGame() {
+    window.startGame = function() {
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('gameover-screen').classList.add('hidden');
         document.getElementById('hud').style.display = 'flex';
 
-        // Reset state
         gameState = 'PLAYING';
         scoreHeight = 0;
         currentLevel = 1;
         
         player.x = canvas.width / 2 - 15;
-        player.y = canvas.height - 150;
+        player.y = canvas.height - 180;
         player.vx = 0;
         player.vy = 0;
 
-        water.y = canvas.height + 50;
+        water.y = canvas.height + 100;
         water.baseSpeed = difficulties[difficulty].baseSpeed;
 
-        // Generate starting platform
         platforms = [];
-        platforms.push({ x: canvas.width / 2 - 75, y: canvas.height - 80, width: 150, height: 20 });
+        platforms.push({ x: canvas.width / 2 - 90, y: canvas.height - 100, width: 180, height: 20 });
         
-        let genY = canvas.height - 200;
-        while (genY > -2000) {
+        let genY = canvas.height - 220;
+        while (genY > -3000) {
             generatePlatformRow(genY);
-            genY -= 120 + Math.random() * 40;
+            genY -= 110 + Math.random() * 45;
         }
-    }
+    };
 
     function generatePlatformRow(y) {
-        const width = 100 + Math.random() * 60;
+        const width = 90 + Math.random() * 70;
         const x = Math.random() * (canvas.width - width);
         platforms.push({ x, y, width, height: 18 });
     }
 
-    function showStartScreen() {
+    window.showStartScreen = function() {
         document.getElementById('gameover-screen').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
         document.getElementById('hud').style.display = 'none';
         gameState = 'START';
-    }
+    };
 
     function gameOver() {
         gameState = 'GAMEOVER';
@@ -241,45 +233,37 @@
         document.getElementById('gameover-screen').classList.remove('hidden');
     }
 
-    // Main Update Loop
     function update() {
         if (gameState !== 'PLAYING') return;
 
         const diffSettings = difficulties[difficulty];
 
-        // Level & Height Progression
-        scoreHeight = Math.max(scoreHeight, Math.floor((canvas.height - player.y - 150) / 10));
-        currentLevel = Math.floor(scoreHeight / 50) + 1;
+        scoreHeight = Math.max(scoreHeight, Math.floor((canvas.height - player.y - 180) / 10));
+        currentLevel = Math.floor(scoreHeight / 40) + 1;
 
-        // Dynamic Aggressive Water Rise Scaling based on Level & Difficulty
-        let levelMultiplier = 1 + (currentLevel * diffSettings.scaling);
+        // Exponential level water speed scaling
+        let levelMultiplier = 1 + (Math.pow(currentLevel, 1.15) * diffSettings.scaling);
         water.currentSpeed = water.baseSpeed * levelMultiplier;
 
-        // Periodic Surges for added intensity on harder levels
-        water.waveTimer += 0.02;
-        let surge = Math.sin(water.waveTimer) * (currentLevel * 0.4);
+        water.waveTimer += 0.03;
+        let surge = Math.sin(water.waveTimer) * (currentLevel * 0.5);
         water.y -= (water.currentSpeed + Math.max(0, surge));
 
-        // Player Horizontal Movement
         if (keys.left) player.vx = -player.speed;
         else if (keys.right) player.vx = player.speed;
-        else player.vx *= 0.8;
+        else player.vx *= 0.75;
 
         player.x += player.vx;
 
-        // Screen Boundaries
         if (player.x < 0) player.x = 0;
         if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 
-        // Gravity & Vertical Physics
         player.vy += diffSettings.gravity;
         player.y += player.vy;
 
-        // Camera Follows Player upwards smoothly
         let targetCameraY = player.y - canvas.height / 2.5;
-        cameraY += (targetCameraY - cameraY) * 0.1;
+        cameraY += (targetCameraY - cameraY) * 0.12;
 
-        // Platform Collisions
         player.grounded = false;
         if (player.vy > 0) {
             for (let p of platforms) {
@@ -287,7 +271,7 @@
                     player.x + player.width > p.x &&
                     player.x < p.x + p.width &&
                     player.y + player.height >= p.y &&
-                    player.y + player.height - player.vy <= p.y + 8
+                    player.y + player.height - player.vy <= p.y + 10
                 ) {
                     player.y = p.y - player.height;
                     player.vy = 0;
@@ -296,72 +280,61 @@
             }
         }
 
-        // Procedural generation above
         let highestPlatformY = platforms.reduce((min, p) => p.y < min ? p.y : min, canvas.height);
         if (highestPlatformY > cameraY - 400) {
-            generatePlatformRow(highestPlatformY - (120 + Math.random() * 40));
+            generatePlatformRow(highestPlatformY - (110 + Math.random() * 45));
         }
 
-        // Cleanup off-screen platforms below
         platforms = platforms.filter(p => p.y < cameraY + canvas.height + 200);
 
-        // Check Death Condition (Water catches player)
         if (player.y + player.height >= water.y) {
             gameOver();
         }
 
-        // Update HUD Values
         document.getElementById('hud-height').innerText = Math.floor(scoreHeight);
         document.getElementById('hud-level').innerText = currentLevel;
         document.getElementById('hud-water-speed').innerText = water.currentSpeed.toFixed(1);
     }
 
-    // Render Graphics Loop
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         ctx.save();
         ctx.translate(0, -cameraY);
 
-        // Draw Platforms
         for (let p of platforms) {
             ctx.fillStyle = '#334155';
             ctx.fillRect(p.x, p.y, p.width, p.height);
             ctx.fillStyle = '#38bdf8';
-            ctx.fillRect(p.x, p.y, p.width, 4); // Platform accent line
+            ctx.fillRect(p.x, p.y, p.width, 4);
         }
 
-        // Draw Player Character
         ctx.fillStyle = '#f43f5e';
         ctx.fillRect(player.x, player.y, player.width, player.height);
         
-        // Player Eyes
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(player.x + (player.vx >= 0 ? 18 : 6), player.y + 8, 6, 6);
 
         ctx.restore();
 
-        // Draw Rising Water Overlay
         let renderWaterY = water.y - cameraY;
         
-        ctx.fillStyle = 'rgba(2, 132, 199, 0.85)';
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.88)';
         ctx.fillRect(0, renderWaterY, canvas.width, canvas.height * 2);
 
-        // Water Surface Wave Effect
         ctx.fillStyle = '#38bdf8';
         ctx.beginPath();
         ctx.moveTo(0, renderWaterY);
         for (let i = 0; i < canvas.width; i += 20) {
-            let waveHeight = Math.sin(Date.now() * 0.005 + i * 0.05) * 6;
+            let waveHeight = Math.sin(Date.now() * 0.006 + i * 0.05) * 8;
             ctx.lineTo(i, renderWaterY + waveHeight);
         }
         ctx.lineTo(canvas.width, renderWaterY);
-        ctx.lineTo(canvas.width, renderWaterY + 20);
-        ctx.lineTo(0, renderWaterY + 20);
+        ctx.lineTo(canvas.width, renderWaterY + 25);
+        ctx.lineTo(0, renderWaterY + 25);
         ctx.fill();
     }
 
-    // Engine Tick Loop
     function loop() {
         update();
         draw();
