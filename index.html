@@ -227,14 +227,18 @@ body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
 </div>
 <div id="deathOverlay" aria-hidden="true"><div class="mist"></div><div class="reaper"><div class="hood"></div><div class="cloak"></div><div class="face"></div><div class="eye l"></div><div class="eye r"></div><div class="scythe"><div class="pole"></div><div class="blade"></div></div></div><div class="ghost">👻</div></div>
 <div id="pauseScreen" class="screen hidden">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:26px">PAUSED</div>
-<div class="small">The water waits for no one.</div>
-<button class="menu-btn teal" id="resumeBtn">▶ RESUME</button>
-<button class="menu-btn" id="shakeToggle">🔃 Shake: ON</button>
-<button class="menu-btn" id="hapticToggle">📳 Vibration: ON</button>
-<button class="menu-btn" id="quitBtn">☰ QUIT TO MENU</button>
-</div>
+      <div class="screen-scroll">
+        <div class="main-title" style="font-size:26px">PAUSED</div>
+        <div class="small">The water waits for no one.</div>
+        <button class="menu-btn teal" id="resumeBtn">▶ RESUME</button>
+        <button class="menu-btn" id="pauseMuteBtn">🔊 Sound: ON</button>
+        <div class="vol-row"><span class="vol-label"><b>MASTER</b><br>🎚 all audio</span><input id="volMasterSlider" type="range" min="0" max="100" value="100"><span class="vol-val" id="volMasterVal">100%</span></div>
+        <div class="vol-row"><span class="vol-label"><b>SFX</b><br>🔔 effects</span><input id="volSfxSlider" type="range" min="0" max="100" value="100"><span class="vol-val" id="volSfxVal">100%</span></div>
+        <div class="vol-row"><span class="vol-label"><b>MUSIC</b><br>🎵 melody</span><input id="volMusicSlider" type="range" min="0" max="100" value="85"><span class="vol-val" id="volMusicVal">85%</span></div>
+        <button class="menu-btn" id="shakeToggle">🔃 Shake: ON</button>
+        <button class="menu-btn" id="hapticToggle">📳 Vibration: ON</button>
+        <button class="menu-btn" id="quitBtn">☰ QUIT TO MENU</button>
+      </div>
 </div>
 <div id="helpScreen" class="screen hidden">
 <div class="screen-scroll">
@@ -282,6 +286,7 @@ const phaseAnnouncer=$("phaseAnnouncer"),controls=$("controls"),skinBar=$("skinB
 const oxygenBar=$("oxygenBar"),oxygenFill=$("oxygenFill"),btnDive=$("btnDive");
 const pauseBtn=$("pauseBtn"),muteBtn=$("muteBtn"),resumeBtn=$("resumeBtn"),quitBtn=$("quitBtn");
 const pauseScreen=$("pauseScreen"),helpScreen=$("helpScreen");
+const shakeToggle=$("shakeToggle"),hapticToggle=$("hapticToggle"),pauseMuteBtn=$("pauseMuteBtn");
 
 const safeStorage={
   get(k){try{return localStorage.getItem(k)}catch(e){return null}},
@@ -382,7 +387,7 @@ const ALL_SKINS=[
 ];
 let leaderboard=(()=>{try{const v=JSON.parse(localStorage.getItem("aow_lb")||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}})();
 let playerName=safeStorage.get("aow_name")||"Anonymous";
-const VERSION="2.0.0-launch";
+const VERSION="1.8.0";
 
 const UPGRADES=[
   {id:"maxLives",name:"Max Lives",emoji:"❤️",desc:"+1 max life",max:5,prices:[100,200,400,800,1200]},
@@ -573,6 +578,7 @@ function save(){
   safeStorage.set("aow_upgrades",JSON.stringify(ownedUpgrades));try{applyOwnedUpgrades()}catch(e){}safeStorage.set("aow_theme",selectedTheme);
   safeStorage.set("aow_diff",difficulty);
   safeStorage.set("aow_sound",soundOn?"1":"0");
+  safeStorage.set("aow_volM",volMaster);safeStorage.set("aow_volS",volSfx);safeStorage.set("aow_volMusic",volMusic);
 }
 function refreshCoinUI(){["menuCoins","storeCoins","skinCoins","coinsUI"].forEach(id=>{const e=$(id);if(e)e.innerText=coins})}
 function getUpgradeLevel(id){return ownedUpgrades[id]||0}
@@ -1322,10 +1328,21 @@ tap($("continueBtn"),()=>{
   continueFromCheckpoint();
 });
 // Pause / resume / quit
-function openPause(){if(state!=="PLAYING")return;paused=true;if(pauseScreen)pauseScreen.classList.remove("hidden")}
+function updatePauseState(){
+  if(shakeToggle)shakeToggle.textContent="🔃 Shake: "+(shakeOn?"ON":"OFF");
+  if(hapticToggle)hapticToggle.textContent="📳 Vibration: "+(hapticsOn?"ON":"OFF");
+  if(pauseMuteBtn)pauseMuteBtn.textContent="🔊 Sound: "+(soundOn?"ON":"OFF");
+  // Sync volume sliders to current persisted values
+  const vm=$("volMasterSlider"),vs=$("volSfxSlider"),vmv=$("volMasterVal"),vsv=$("volSfxVal"),vmuv=$("volMusicSlider"),vmv2=$("volMusicVal");
+  if(vm)vm.value=Math.round(volMaster*100);if(vmv)vmv.innerText=Math.round(volMaster*100)+"%";
+  if(vs)vs.value=Math.round(volSfx*100);if(vsv)vsv.innerText=Math.round(volSfx*100)+"%";
+  if(vmuv)vmuv.value=Math.round(volMusic*100);if(vmv2)vmv2.innerText=Math.round(volMusic*100)+"%";
+}
+function openPause(){if(state!=="PLAYING")return;paused=true;updatePauseState();if(pauseScreen)pauseScreen.classList.remove("hidden")}
 function closePause(){paused=false;if(pauseScreen)pauseScreen.classList.add("hidden")}
 function goToMenu(){
   closePause();state="START";loopId++;
+  try{saveStats()}catch(e){} // persist lifetime stats even when quitting mid-run
   stopMusic();stopWaves();killRain();try{setLaserHum(false)}catch(e){} // silence ambient when back on the menu
   resetKeys();paused=false;
   [startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen].forEach(s=>{if(s)s.classList.add("hidden")});
@@ -1339,6 +1356,27 @@ function goToMenu(){
 }
 tap($("pauseBtn"),openPause);
 tap($("resumeBtn"),closePause);
+tap($("muteBtn"),toggleSound);
+tap($("pauseMuteBtn"),toggleSound);
+// Wire the PAUSE-screen volume sliders (Master / SFX / Music) to the existing
+// volume vars + live audio graph, and persist each change to localStorage.
+function wireVolSlider(id,applyFn){
+  const el=$(id);if(!el)return;
+  el.addEventListener("input",()=>{
+    const val=Math.max(0,Math.min(100,parseInt(el.value,10)||0))/100;
+    applyFn(val);
+  });
+}
+wireVolSlider("volMasterSlider",(val)=>{volMaster=val;safeStorage.set("aow_volM",val);const v=$("volMasterVal");if(v)v.innerText=Math.round(val*100)+"%";try{applyVolumes()}catch(e){}});
+wireVolSlider("volSfxSlider",(val)=>{volSfx=val;safeStorage.set("aow_volS",val);const v=$("volSfxVal");if(v)v.innerText=Math.round(val*100)+"%";try{applyVolumes()}catch(e){}});
+wireVolSlider("volMusicSlider",(val)=>{volMusic=val;safeStorage.set("aow_volMusic",val);const v=$("volMusicVal");if(v)v.innerText=Math.round(val*100)+"%";try{applyVolumes()}catch(e){}});
+// Auto-pause when the tab/app loses focus so the flood never drowns an idle player.
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden&&state==="PLAYING"&&!paused)openPause();
+});
+window.addEventListener("blur",()=>{
+  if(state==="PLAYING"&&!paused)openPause();
+});
 tap($("shakeToggle"),()=>{shakeOn=!shakeOn;safeStorage.set("aow_shake",shakeOn?"1":"0");const el=$("shakeToggle");if(el)el.textContent="🔃 Shake: "+(shakeOn?"ON":"OFF")});
 tap($("hapticToggle"),()=>{hapticsOn=!hapticsOn;safeStorage.set("aow_haptic",hapticsOn?"1":"0");const el=$("hapticToggle");if(el)el.textContent="📳 Vibration: "+(hapticsOn?"ON":"OFF")});
 tap($("quitBtn"),()=>{goToMenu()});

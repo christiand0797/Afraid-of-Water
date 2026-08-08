@@ -75,6 +75,17 @@ regression fails fast with a clear message instead of hanging.
 
 ## Changelog
 
+### 1.8.0
+- 🔊 Added in-game MASTER / SFX / MUSIC volume sliders to the PAUSE screen,
+  wired live to the audio graph and persisted to localStorage.
+- ⏸️ The game now auto-pauses the moment the tab/app loses focus
+  (`visibilitychange` + window `blur`), so the flood never drowns an idle player.
+- 🗂️ Lifetime stats are now saved when you quit to the main menu too (not just
+  on game over), so your long-term record is always current.
+- 🔁 The pause screen refreshes its toggles (Shake / Vibration / Sound + slider
+  positions) every time you open it, so they always reflect your current settings.
+- 🔇 Added a Sound on/off toggle directly inside the pause menu.
+
 ### 1.7.2
 - Fixed an infinite retry loop between the leaderboard renderer and the
   fetch call backing it — it used to recurse forever whenever the global
