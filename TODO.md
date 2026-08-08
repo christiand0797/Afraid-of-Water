@@ -1,16 +1,16 @@
-# TODO — Enhancements v1.8.0
+# TODO — Sound & Audio Polish (v1.8.2)
 
 ## Objective
-Add in-game quality-of-life + volume controls, auto-pause on tab blur, and stat persistence on menu quit, then push to GitHub.
+Reintroduce glitch-free ambient audio improvements, re-enable splash + happy-meow
+SFX, bump the version, finish the pending font-preload optimization, and ship.
 
 ## Steps
-- [x] Add in-game volume sliders (Master / SFX / Music) to the PAUSE screen
-- [x] Wire volume sliders to existing volume vars + persist via localStorage
-- [x] Refresh pause-screen state (shake/haptic/mute labels) each time the pause menu opens
-- [x] Auto-pause when the tab/app loses focus (visibilitychange)
-- [x] Save lifetime stats when quitting to the main menu (goToMenu)
-- [x] Add sound-mute button + "Back to Game" affordance inside pause
-- [x] Bump version to 1.8.1, update README changelog + TODO_enhancements.md
-- [x] Run `npm test` — passed with no top-level errors
-- [x] Push to GitHub on `main` (commit ea77c9e)
-
+- [ ] Rewrite `startWaves()` — glitch-free ocean bed using seamless brown-noise buffer + slow LFO
+- [ ] Re-enable splash audio (dive/surface) — short filtered noise burst via `sfxSplash()`
+- [ ] Add subtle "happy meow" on high-value fish/combo pickups via `sfxMeowHappy()`
+- [ ] Bump version to 1.8.2 (GAME_VERSION + VERSION + footer + package.json)
+- [ ] Update README changelog
+- [ ] Create completed `sound_todo.md`
+- [ ] Commit the pending font-preload optimization in index.html
+- [ ] Run `npm test` to verify
+- [ ] Commit and push to GitHub on `main`

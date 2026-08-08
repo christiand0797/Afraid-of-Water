@@ -7,8 +7,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#010408">
 <title>Afraid of Water</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Creepster&family=Press+Start+2P&display=swap" media="print" onload="this.media='all'">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Creepster&family=Press+Start+2P&display=swap');
 *{box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
 html,body{margin:0;padding:0;overflow:hidden;width:100%;height:100%;background:#010408;color:#fff;font-family:'Press Start 2P',system-ui,sans-serif;position:fixed;overscroll-behavior:none;-webkit-text-size-adjust:100%}
 canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-index:1;touch-action:none}
@@ -425,11 +427,11 @@ function applyVolumes(){
 }
 let musicTimer=null;
 const DIFFS={
-  baby:{name:"BABY",waterMul:0.35,hazardMul:0.25,npcForce:6,npcVy:-2,weatherMul:0.5,desc:"Very easy · super slow water — for tiny climbers"},
-  easy:{name:"EASY",waterMul:0.60,hazardMul:0.60,npcForce:11,npcVy:-5,weatherMul:0.75,desc:"Easy · slow water · soft hazards"},
-  normal:{name:"NORMAL",waterMul:1.0,hazardMul:1.0,npcForce:16,npcVy:-9,weatherMul:1.0,desc:"Balanced · steady water · fair hazards"},
-  hard:{name:"HARD",waterMul:1.65,hazardMul:1.5,npcForce:21,npcVy:-13,weatherMul:1.3,desc:"Hard · fast water · meaner NPCs"},
-  insane:{name:"INSANE",waterMul:2.5,hazardMul:2.0,npcForce:28,npcVy:-17,weatherMul:1.6,desc:"Insane · brutal flood · relentless hazards"}
+  baby:{name:"BABY",waterMul:1.40,hazardMul:0.25,npcForce:6,npcVy:-2,weatherMul:0.5,desc:"Very easy · super slow water — for tiny climbers"},
+  easy:{name:"EASY",waterMul:2.40,hazardMul:0.60,npcForce:11,npcVy:-5,weatherMul:0.75,desc:"Easy · slow water · soft hazards"},
+  normal:{name:"NORMAL",waterMul:4.0,hazardMul:1.0,npcForce:16,npcVy:-9,weatherMul:1.0,desc:"Balanced · steady water · fair hazards"},
+  hard:{name:"HARD",waterMul:6.60,hazardMul:1.5,npcForce:21,npcVy:-13,weatherMul:1.3,desc:"Hard · fast water · meaner NPCs"},
+  insane:{name:"INSANE",waterMul:10.0,hazardMul:2.0,npcForce:28,npcVy:-17,weatherMul:1.6,desc:"Insane · brutal flood · relentless hazards"}
 };
 let difficulty=safeStorage.get("aow_diff")||"normal";
 if(!DIFFS[difficulty])difficulty="normal";
@@ -909,27 +911,83 @@ function killRain(){
 // pickMeow() rotates through the real cat meows that are bundled. Only meow3.ogg
 // ships right now, so all three slots point at it to guarantee a real meow on jumps.
 function pickMeow(){const ms=["meow1","meow2","meow3"];const avail=ms.filter(k=>soundBufs[k]);return (avail.length?avail:ms)[Math.floor(Math.random()*(avail.length||ms.length))]}
-// Splash removed — ocean waves ambient covers water. Keep stub so old calls are silent.
-function sfxSplash(){/* intentionally silent — waves ambient handles water */ }
+// Water splash — a short filtered noise "plish" with a quick downward sweep.
+// Subtle so it never reintroduces the old static/glitch. Uses the real splash.ogg
+// buffer when loaded, otherwise falls back to a quiet synth noise burst.
+function sfxSplash(){
+  if(playBuf("splash",0.5))return;
+  // short band-passed noise plish, pitched down quickly
+  playNoise(0.22,"bandpass",900,1.2,0.22,180);
+}
 function sfxThunder(){if(playBuf("thunder",0.75))return;playTone(52,"triangle",1.2,0.14);setTimeout(()=>playTone(40,"sine",1.5,0.1),80)}
 // Meow ONLY when the cat falls / is washed away
 function sfxMeow(){if(playBuf(pickMeow(),0.65))return;playSlide(540,880,0.08,0.17);setTimeout(()=>playSlide(880,500,0.14,0.16),80)}
 function sfxYowl(){if(playBuf(pickMeow(),0.75))return;playSlide(720,480,0.22,0.2);setTimeout(()=>playSlide(500,130,0.16,0.14),110)}
-function sfxMeowHappy(){/* reserved — not used on jumps */}
+// Happy meow — a bright, quick meow. Used for win/collect celebratory moments.
+// Tries a bundled real meow first, else a short rising-falling chirp.
+function sfxMeowHappy(){if(playBuf(pickMeow(),0.6))return;playSlide(620,980,0.07,0.15);setTimeout(()=>playSlide(980,760,0.09,0.13),70)}
 function sfxFall(){sfxYowl()}
 function sfxLand(){sfxImpact()}
-// Ocean swell — smooth brown-noise bed (no white-noise loop = no glitch/static)
-let waveSrc=null,waveGain=null,waveFilter=null,waveTimer=null,waveLfo=null;
+// Ocean swell — smooth brown-noise bed (no white-noise loop = no glitch/static).
+// Brown noise is filtered low & slow (low rumble) then gently pushed by an LFO
+// so waves breathe naturally. Brown loop is seam-crossfaded in getBrownBuf(),
+// so looping never clicks or crackles like the old white-noise loop did.
+let waveSrc=null,waveGain=null,waveFilter=null,waveTimer=null,waveLfo=null,waveLfoGain=null;
 function startWaves(){
-  // DISABLED — synthetic ocean was causing continuous glitch/static.
-  // Real rain.ogg + thunder.ogg cover storm ambient instead.
-  return;
+  if(!soundOn||!audioCtx)return;
+  if(waveSrc||!masterFilter)return; // already running / no graph yet
+  const buf=getBrownBuf();if(!buf)return;
+  try{
+    const now=audioCtx.currentTime;
+    waveSrc=audioCtx.createBufferSource();
+    waveSrc.buffer=buf;
+    waveSrc.loop=true;
+    waveSrc.loopStart=0;
+    waveSrc.loopEnd=buf.duration;
+    // Low rumble bed
+    waveFilter=audioCtx.createBiquadFilter();
+    waveFilter.type="lowpass";
+    waveFilter.frequency.value=140;
+    waveFilter.Q.value=0.4;
+    // Gain folds in gently (ramped, not slammed) to avoid clicks
+    waveGain=audioCtx.createGain();
+    waveGain.gain.setValueAtTime(0.0001,now);
+    waveGain.gain.exponentialRampToValueAtTime(0.5,now+2); // 2s swell-in
+    // LFO breathes the filter cutoff so the rumble swells like surf
+    waveLfo=audioCtx.createOscillator();
+    waveLfo.type="sine";
+    waveLfo.frequency.value=0.09; // ~11s wave cycle — slow, calm
+    waveLfoGain=audioCtx.createGain();
+    waveLfoGain.gain.value=70;
+    waveLfo.connect(waveLfoGain);
+    waveLfoGain.connect(waveFilter.frequency);
+    // Second quick "lap" accent via gain wobble
+    const gLfo=audioCtx.createOscillator();
+    gLfo.type="sine";gLfo.frequency.value=0.18;
+    const gLfoG=audioCtx.createGain();gLfoG.gain.value=0.08;
+    gLfo.connect(gLfoG);gLfoG.connect(waveGain.gain);
+    waveSrc.connect(waveFilter);
+    waveFilter.connect(waveGain);
+    waveGain.connect(masterFilter);
+    waveSrc.start(now);
+    waveLfo.start(now);
+    gLfo.start(now);
+    waveTimer=gLfo; // keep ref so stopWaves can silence cleanly
+  }catch(e){
+    try{if(waveSrc){waveSrc.stop();waveSrc=null}}catch(e2){}
+  }
 }
 function stopWaves(){
-  try{if(waveTimer){clearInterval(waveTimer);waveTimer=null}}catch(e){}
-  try{if(waveGain)waveGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.2)}catch(e){}
-  try{if(waveSrc){waveSrc.stop();waveSrc=null}}catch(e){waveSrc=null}
-  waveGain=null;waveFilter=null;
+  const t=audioCtx?audioCtx.currentTime:0;
+  try{if(waveGain&&audioCtx)waveGain.gain.setTargetAtTime(0.0001,t,0.18)}catch(e){}
+  try{if(waveLfo){waveLfo.stop();waveLfo=null}}catch(e){waveLfo=null}
+  try{if(waveLfoGain){waveLfoGain.disconnect();waveLfoGain=null}}catch(e){waveLfoGain=null}
+  try{if(waveTimer&&waveTimer.stop){waveTimer.stop();waveTimer=null}}catch(e){waveTimer=null}
+  if(waveSrc&&audioCtx){
+    try{waveSrc.stop(t+0.5)}catch(e){}
+  }
+  try{waveSrc=null}catch(e){}
+  waveFilter=null;waveGain=null;
 }
 function sfxPower(){playTone(300,"sine",0.12,0.2);setTimeout(()=>playTone(1500,"triangle",0.2,0.16),60)}
 function sfxSurge(){playTone(90,"triangle",0.35,0.16);setTimeout(()=>playTone(140,"sine",0.4,0.12),80);setTimeout(()=>playTone(60,"sine",0.5,0.1),160)}
