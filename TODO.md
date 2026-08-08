@@ -12,5 +12,5 @@ Add in-game quality-of-life + volume controls, auto-pause on tab blur, and stat 
 - [x] Add sound-mute button + "Back to Game" affordance inside pause
 - [x] Bump version to 1.8.1, update README changelog + TODO_enhancements.md
 - [x] Run `npm test` — passed with no top-level errors
-- [ ] Push to GitHub on `main`
+- [x] Push to GitHub on `main` (commit ea77c9e)
 
