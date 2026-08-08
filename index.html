@@ -1,1842 +1,374 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#010408">
-<title>Afraid of Water</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Creepster&family=Press+Start+2P&display=swap');
-*{box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-html,body{margin:0;padding:0;overflow:hidden;width:100%;height:100%;background:#010408;color:#fff;font-family:'Press Start 2P',system-ui,sans-serif;position:fixed;overscroll-behavior:none;-webkit-text-size-adjust:100%}
-canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-index:1;touch-action:none}
-#ui{position:absolute;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;display:flex;justify-content:space-between;align-items:flex-start;font-size:10px;text-shadow:2px 2px 0 #000;pointer-events:none;z-index:10;line-height:1.5}
-#phaseAnnouncer{font-family:'Creepster',cursive;color:#e74c3c;font-size:20px;text-align:center;opacity:0;transition:opacity .3s;text-shadow:0 0 12px #000;max-width:42%}
-.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;background:rgba(2,4,8,.97);z-index:30;text-align:center;padding:0;overflow:hidden}
-.screen-scroll{width:100%;flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:16px 14px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(24px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center}
-.screen-scroll::-webkit-scrollbar{width:6px}
-.screen-scroll::-webkit-scrollbar-thumb{background:#e67e22;border-radius:4px}
-.scroll-hint{font-size:8px;color:#7f8c8d;margin:4px 0 8px;opacity:.8}
-.main-title{font-family:'Creepster',cursive;font-size:clamp(34px,11vw,56px);color:#b2babb;margin:0 0 4px;text-shadow:0 0 18px #e74c3c,4px 4px 0 #000;line-height:1;letter-spacing:1px}
-.rule-bold{font-family:'Creepster',cursive;font-size:clamp(22px,7vw,36px);color:#e74c3c;text-shadow:3px 3px 0 #000;margin:6px 0}
-.hidden{display:none!important}
-.menu-btn{background:#e67e22;border:3px solid #d35400;color:#fff;font-family:'Press Start 2P',system-ui,sans-serif;font-size:11px;padding:14px 18px;margin:6px;border-radius:12px;box-shadow:0 5px 0 #a04000;min-width:170px;min-height:50px;cursor:pointer;-webkit-appearance:none;appearance:none;touch-action:manipulation;flex-shrink:0}
-.diff-row{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px 0;max-width:340px}
-.diff-btn{font-family:'Press Start 2P',system-ui,sans-serif;font-size:9px;padding:10px 12px;border-radius:10px;border:3px solid #555;background:#1a2330;color:#bbb;min-width:72px;cursor:pointer;touch-action:manipulation}
-.diff-btn.selected{border-color:#f1c40f;color:#fff;background:#2c3e50;box-shadow:0 0 10px rgba(241,196,15,.4)}
-.diff-btn[data-d="easy"].selected{border-color:#27ae60;color:#2ecc71}
-.diff-btn[data-d="baby"].selected{border-color:#f7c6d0;color:#ffa3bd}
-.diff-btn[data-d="hard"].selected{border-color:#e67e22;color:#e67e22}
-.diff-btn[data-d="insane"].selected{border-color:#e74c3c;color:#e74c3c}
-.menu-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #a04000}
-.menu-btn.ad{background:#27ae60;border-color:#1e8449;box-shadow:0 5px 0 #145a32}
-.menu-btn.skin{background:#8e44ad;border-color:#6c3483;box-shadow:0 5px 0 #4a235a}
-.menu-btn.blue{background:#2980b9;border-color:#1a5276;box-shadow:0 5px 0 #154360}
-.menu-btn.teal{background:#16a085;border-color:#0e6655;box-shadow:0 5px 0 #0b5345}
-#controls{position:absolute;bottom:max(10px,env(safe-area-inset-bottom));left:0;width:100%;height:118px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 12px;z-index:20;pointer-events:none}
-.control-group{display:flex;gap:10px;pointer-events:auto}
-.btn{width:72px;height:72px;background:rgba(12,18,28,.88);border:3px solid rgba(255,255,255,.45);border-radius:50%;display:flex;justify-content:center;align-items:center;font-size:26px;color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.55);pointer-events:auto}
-.btn.pressed{transform:translateY(3px) scale(.93);background:rgba(255,255,255,.28);border-color:#fff}
-#btnJump{width:84px;height:84px;font-size:32px;background:rgba(230,126,34,.55);border-color:rgba(241,196,15,.55)}
-#btnJump.pressed{background:rgba(241,196,15,.5)}
-#btnDive{width:64px;height:64px;font-size:22px;background:rgba(22,160,133,.55);border-color:rgba(26,188,156,.6);margin-bottom:8px}
-#btnDive.pressed{background:rgba(26,188,156,.5)}
-#skinBar{position:absolute;bottom:calc(125px + env(safe-area-inset-bottom,0px));left:0;width:100%;display:flex;justify-content:center;gap:6px;z-index:12;pointer-events:none}
-.skin-icon{width:34px;height:34px;border-radius:8px;border:2px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;font-size:20px;background:rgba(0,0,0,.55)}
-.skin-icon.active{border-color:#f1c40f;box-shadow:0 0 10px #f1c40f}
-#weatherLabel{position:absolute;top:max(40px,calc(env(safe-area-inset-top)+28px));left:50%;transform:translateX(-50%);font-size:9px;color:#85c1e9;text-shadow:1px 1px 0 #000;opacity:.7;pointer-events:none;z-index:9}
-#oxygenBar{position:absolute;top:max(58px,calc(env(safe-area-inset-top)+48px));left:50%;transform:translateX(-50%);width:120px;height:10px;background:rgba(0,0,0,.5);border:2px solid #1abc9c;border-radius:6px;overflow:hidden;z-index:11;display:none}
-#oxygenFill{height:100%;width:100%;background:linear-gradient(90deg,#1abc9c,#3498db);transition:width .1s}
-.grid{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:360px;margin:10px 0}
-.card{background:rgba(18,28,42,.92);border:3px solid #34495e;border-radius:11px;padding:10px;min-width:92px;text-align:center;font-size:10px}
-.card.selected{border-color:#f1c40f}
-.card .price{color:#f1c40f;margin-top:4px;font-size:9px}
-.coins{color:#f1c40f;font-size:12px;margin:6px 0}
-.small{font-size:9px;color:#95a5a6;line-height:1.5;max-width:300px;margin:8px 0}
-.hud-btn{width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,.4);background:rgba(12,18,28,.85);font-size:18px;color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:auto;z-index:26;-webkit-appearance:none;appearance:none;touch-action:manipulation;font-family:'Press Start 2P',system-ui,sans-serif}
-.hud-btn:active{transform:translateY(2px) scale(.93);background:rgba(255,255,255,.25)}
-#hudBtns{position:absolute;top:max(52px,calc(env(safe-area-inset-top)+46px));right:12px;display:flex;flex-direction:column;gap:8px;z-index:26;pointer-events:none}
-.help-item{margin:10px 0;text-align:left;font-size:9px;line-height:1.7;color:#dfe4e6}
-.help-item b{color:#f1c40f}
-#dangerWarn{position:absolute;left:0;right:0;bottom:0;height:44%;pointer-events:none;z-index:8;opacity:0;transition:opacity .3s;background:linear-gradient(0deg,rgba(231,76,60,.55),rgba(231,76,60,0))}
-#comboHud{position:absolute;top:max(12px,calc(env(safe-area-inset-top)+8px));left:50%;transform:translateX(-50%);font-family:'Creepster',cursive;color:#f1c40f;font-size:26px;text-shadow:0 0 14px #e67e22,2px 2px 0 #000;pointer-events:none;z-index:12}
-@keyframes confettiFall{0%{transform:translateY(0) rotate(0)}100%{transform:translateY(110vh) rotate(680deg)}}
-@keyframes lastLifePulse{0%,100%{box-shadow:inset 0 0 0 0 rgba(231,76,60,0)}50%{box-shadow:inset 0 0 0 6px rgba(231,76,60,.55)}}
-body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
-#deathOverlay{position:fixed;inset:0;z-index:60;pointer-events:none;opacity:0;transition:opacity .35s;background:radial-gradient(ellipse at 50% 55%,rgba(20,0,0,.15) 20%,rgba(0,0,0,.75) 100%)}
-#deathOverlay.show{opacity:1}
-#deathOverlay .mist{position:absolute;left:0;right:0;bottom:0;height:65%;background:linear-gradient(0deg,rgba(40,50,70,.7),rgba(80,20,40,.15),transparent);filter:blur(8px)}
-#deathOverlay .reaper{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:140px;height:200px;opacity:0;animation:reaperDrop .95s cubic-bezier(.16,1,.3,1) forwards;filter:drop-shadow(0 12px 28px rgba(0,0,0,.9))}
-#deathOverlay .reaper.hover{animation:reaperHover 2.4s ease-in-out infinite}
-#deathOverlay .cloak{position:absolute;left:18px;top:70px;width:104px;height:130px;background:radial-gradient(ellipse at 50% 8%,#2a3544 0%,#0a0c10 55%,#000 100%);border-radius:48% 48% 40% 40%/22% 22% 100% 100%;box-shadow:inset 0 20px 40px rgba(0,0,0,.5),0 14px 30px rgba(0,0,0,.8)}
-#deathOverlay .cloak::before{content:"";position:absolute;left:8px;right:8px;bottom:0;height:50px;background:linear-gradient(180deg,transparent,#000);border-radius:0 0 40% 40%;opacity:.7}
-#deathOverlay .hood{position:absolute;left:28px;top:18px;width:84px;height:78px;background:radial-gradient(ellipse at 50% 30%,#2c3a48 0%,#0c1016 70%,#000 100%);border-radius:50% 50% 44% 44%/72% 72% 30% 30%;box-shadow:0 8px 20px rgba(0,0,0,.7);overflow:hidden}
-#deathOverlay .hood::after{content:"";position:absolute;left:12px;right:12px;bottom:-8px;height:36px;background:#05070a;border-radius:50%}
-#deathOverlay .face{position:absolute;left:48px;top:42px;width:44px;height:52px;background:linear-gradient(180deg,#e8ecef 0%,#c5ced4 40%,#9aa5ad 100%);border-radius:42% 42% 38% 38%/50% 50% 42% 42%;box-shadow:inset 0 -6px 10px rgba(0,0,0,.25)}
-#deathOverlay .eye{position:absolute;width:10px;height:12px;background:radial-gradient(circle at 40% 35%,#3a1010 0%,#000 70%);border-radius:50%;top:54px;box-shadow:0 0 8px rgba(180,20,20,.4)}
-#deathOverlay .eye.l{left:54px}#deathOverlay .eye.r{left:76px}
-#deathOverlay .face::before{content:"";position:absolute;left:50%;top:28px;transform:translateX(-50%);width:8px;height:12px;background:#6a7278;border-radius:40% 40% 50% 50%;opacity:.85}
-#deathOverlay .face::after{content:"";position:absolute;left:8px;right:8px;bottom:8px;height:10px;border-bottom:2px solid #6a7278;border-radius:0 0 50% 50%;opacity:.6;background:repeating-linear-gradient(90deg,transparent,transparent 3px,#5a6268 3px,#5a6268 4px)}
-#deathOverlay .scythe{position:absolute;left:108px;top:20px;width:70px;height:100px;transform-origin:20% 80%;animation:scytheBob 2.2s ease-in-out infinite}
-#deathOverlay .scythe .pole{position:absolute;left:48px;top:0;width:5px;height:120px;background:linear-gradient(180deg,#a1887f,#5d4037 40%,#3e2723);transform:rotate(-22deg);border-radius:3px;box-shadow:1px 0 0 rgba(255,255,255,.1)}
-#deathOverlay .scythe .blade{position:absolute;left:8px;top:-6px;width:58px;height:48px;border:5px solid #cfd8dc;border-left:none;border-bottom:none;border-radius:60% 50% 0 30%;transform:rotate(28deg);box-shadow:0 0 12px rgba(200,220,240,.35),inset -2px 2px 0 rgba(255,255,255,.4);background:linear-gradient(135deg,rgba(255,255,255,.15),transparent 50%)}
-#deathOverlay .ghost{position:absolute;left:50%;top:50%;width:28px;height:32px;opacity:0;animation:ghostRise 1.9s ease-out .55s forwards;text-align:center;font-size:26px;filter:brightness(1.5) drop-shadow(0 0 14px #7ec8e3)}
-@keyframes reaperDrop{0%{transform:translate(-50%,-240%) scale(.75);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
-@keyframes reaperHover{0%,100%{transform:translate(-50%,-52%)}50%{transform:translate(-50%,-45%)}}
-@keyframes scytheBob{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(12deg)}}
-@keyframes ghostRise{0%{transform:translate(-50%,0) scale(.55);opacity:0}30%{opacity:1}100%{transform:translate(-50%,-80px) scale(1.6);opacity:0}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Afraid of Water</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body { background: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #game-container { position: relative; width: 100vw; height: 100vh; max-width: 800px; max-height: 900px; background: #1e293b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); overflow: hidden; display: flex; flex-direction: column; }
+        canvas { display: block; width: 100%; height: 100%; background: linear-gradient(to bottom, #090d16, #1a2842); }
+        
+        /* UI Overlay Elements */
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+        .hud-top { display: flex; justify-content: space-between; align-items: flex-start; font-size: 1.25rem; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .hud-stats { background: rgba(15, 23, 42, 0.75); padding: 10px 18px; border-radius: 12px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.1); display: flex; gap: 20px; }
+        
+        /* Screens */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(10px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; padding: 20px; text-align: center; }
+        .screen.hidden { display: none; }
+        h1 { font-size: 3rem; margin-bottom: 10px; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase; letter-spacing: 2px; }
+        p { color: #94a3b8; font-size: 1.1rem; margin-bottom: 25px; max-width: 450px; line-height: 1.5; }
+        
+        /* Buttons & Inputs */
+        .btn { pointer-events: auto; cursor: pointer; background: linear-gradient(135deg, #0284c7, #2563eb); color: white; border: none; padding: 14px 32px; font-size: 1.1rem; font-weight: bold; border-radius: 12px; transition: all 0.2s ease; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4); text-transform: uppercase; letter-spacing: 1px; margin: 8px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6); filter: brightness(1.1); }
+        .btn:active { transform: translateY(1px); }
+        .btn-secondary { background: linear-gradient(135deg, #475569, #334155); box-shadow: 0 4px 14px rgba(71, 85, 105, 0.4); }
+        
+        .diff-select { display: flex; gap: 10px; margin-bottom: 20px; pointer-events: auto; }
+        .diff-btn { background: #334155; border: 2px solid transparent; padding: 10px 20px; border-radius: 8px; color: #cbd5e1; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+        .diff-btn.active { border-color: #38bdf8; background: #0369a1; color: white; }
+
+        /* Mobile Controls */
+        .mobile-controls { position: absolute; bottom: 20px; left: 0; width: 100%; display: none; justify-content: space-between; padding: 0 20px; pointer-events: none; z-index: 5; }
+        .mobile-group { display: flex; gap: 15px; pointer-events: auto; }
+        .m-btn { width: 70px; height: 70px; background: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%; color: white; font-size: 1.5rem; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+        
+        @media (max-width: 800px) { .mobile-controls { display: flex; } }
+    </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
-<div id="ui" class="hidden">
-<div>ALT <span id="score" style="color:#5dade2">0m</span><br>♥ <span id="livesUI" style="color:#e74c3c">3</span> 🪙 <span id="coinsUI" style="color:#f1c40f">0</span></div>
-<div id="phaseAnnouncer">MANHATTAN</div>
-<div style="text-align:right">ZONE <span id="levelUI" style="color:#e74c3c">1</span><br>HI <span id="highScoreUI">0</span></div>
-</div>
-<div id="weatherLabel" class="hidden">DRIZZLE</div>
-<div id="oxygenBar"><div id="oxygenFill"></div></div>
-<div id="comboHud" class="hidden">COMBO ×<span id="comboVal">1</span><span id="comboTimerWrap" style="display:block;margin-top:2px"><span id="comboTimerBar" style="display:block;height:3px;width:100%;background:#e67e22;border-radius:2px;transition:width .1s linear"></span></span></div>
-<div id="timeStopHud" class="hidden" style="position:absolute;top:max(96px,calc(env(safe-area-inset-top)+16px));left:50%;transform:translateX(-50%);font-family:'Creepster',cursive;color:#00dfe0;font-size:16px;text-shadow:0 0 12px #00dfe0,2px 2px 0 #000;pointer-events:none;z-index:12">❄ TIME STOP</div>
-<div id="comboBanner" class="hidden" style="position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);font-family:'Creepster',cursive;color:#f1c40f;font-size:42px;text-shadow:0 0 24px #e67e22,3px 3px 0 #000;pointer-events:none;z-index:30;white-space:nowrap"></div>
-<div id="skinBar" class="hidden"></div>
-<div id="dangerWarn"></div>
-<div id="floodMeter" style="position:absolute;top:50%;left:6px;transform:translateY(-50%);width:5px;height:46%;background:rgba(20,30,44,.6);border:1px solid rgba(255,255,255,.15);border-radius:3px;z-index:11;pointer-events:none;overflow:hidden"><div id="floodFill" style="position:absolute;left:0;right:0;bottom:0;height:0%;background:linear-gradient(180deg,#f39c12,#e74c3c);transition:height .15s linear"></div></div>
-<div id="hudBtns" class="hidden">
-<button class="hud-btn" id="muteBtn" title="Sound">🔊</button>
-<button class="hud-btn" id="pauseBtn" title="Pause">⏸️</button>
-</div>
-<div id="toast" class="hidden" style="position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(20,30,44,.95);border:2px solid #f1c40f;color:#fff;font-size:10px;padding:10px 16px;border-radius:10px;z-index:60;text-align:center;max-width:86%;box-shadow:0 4px 20px rgba(0,0,0,.6);pointer-events:none"></div>
 
-<div id="startScreen" class="screen">
-<div class="screen-scroll">
-<div class="main-title">AFRAID OF WATER</div>
-<div class="rule-bold">DON'T GET WET</div>
-<div class="coins">🪙 <span id="menuCoins">0</span></div>
-<div class="small">Climb. Dive. Survive the flood.</div>
-<div class="small" style="margin-top:8px;color:#85c1e9">DIFFICULTY</div>
-<div class="diff-row" id="diffRow">
-<button class="diff-btn" data-d="baby">BABY</button>
-<button class="diff-btn" data-d="easy">EASY</button>
-<button class="diff-btn selected" data-d="normal">NORMAL</button>
-<button class="diff-btn" data-d="hard">HARD</button>
-<button class="diff-btn" data-d="insane">INSANE</button>
-</div>
-<div class="small" id="diffDesc">Water rises at normal speed</div>
-<button class="menu-btn" id="startBtn">▶ PLAY</button>
-<button class="menu-btn blue" id="levelsBtn">🗺️ LEVELS</button>
-<button class="menu-btn skin" id="storeBtn">🛒 STORE</button>
-<button class="menu-btn" id="skinsBtn">🎨 CHARACTERS</button>
-<button class="menu-btn gold" id="lbBtn" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 LEADERBOARD</button>
-<button class="menu-btn" id="achBtn" style="position:relative">🎖️ ACHIEVEMENTS <span id="menuAchBadge" class="hidden" style="position:absolute;top:-6px;right:-6px;background:#e74c3c;color:#fff;font-size:8px;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;line-height:1">!</span></button>
-<button class="menu-btn" id="statsBtn" style="background:#16a085;border-color:#0e6655;box-shadow:0 5px 0 #0b5345">📊 STATS</button>
-<button class="menu-btn" id="helpBtn">❓ HOW TO PLAY</button>
-<div style="margin-top:14px;font-size:8px;color:#555">AFRAID OF WATER</div>
-<div style="font-size:8px;color:#555;margin-top:2px">🏆 <span id="achCount">0/9</span> trophies · v<span id="verText">1.4.0</span></div>
-</div>
-</div>
-<div id="lbScreen" class="screen hidden">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:24px">🏆 LEADERBOARD</div>
-<div class="small">Climb against the world 🌍 and your device 📱</div>
-<div style="display:flex;gap:6px;margin:8px 0">
-<button class="diff-btn selected" id="lbTabGlobal" style="min-width:92px">🌍 GLOBAL</button>
-<button class="diff-btn" id="lbTabLocal" style="min-width:92px">📱 LOCAL</button>
-</div>
-<div id="lbNameWrap" style="margin:4px 0 8px">
-<input id="lbName" type="text" maxlength="16" placeholder="Your name (global)" style="padding:8px 10px;border-radius:8px;border:2px solid #34495e;background:#141c28;color:#fff;font-family:'Press Start 2P',sans-serif;font-size:9px;width:200px;text-align:center;outline:none">
-</div>
-<div id="lbStatus" class="small" style="color:#f1c40f;margin:2px 0">Loading…</div>
-<div id="lbList" style="margin:10px 0;min-height:120px;font-size:11px"></div>
-<button class="menu-btn" id="backLb">← BACK</button>
-</div>
-</div>
-<div id="achScreen" class="screen hidden">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:24px">🎖️ ACHIEVEMENTS</div>
-<div class="small">Earn trophies by climbing, diving and collecting fish.</div>
-<div id="achList" style="margin:12px 0;min-height:120px;font-size:10px;width:100%;max-width:340px;text-align:left"></div>
-<button class="menu-btn" id="resetProgBtn" style="background:#c0392b;border-color:#922b21;box-shadow:0 5px 0 #641e16">🗑️ RESET PROGRESS</button>
-<button class="menu-btn" id="backAch">← BACK</button>
-</div>
-</div>
-<div id="statsScreen" class="screen hidden">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:24px">📊 LIFETIME STATS</div>
-<div class="small">Your long-term climb record — every run counts.</div>
-<div id="statsList" style="margin:12px 0;min-height:120px;font-size:10px;width:100%;max-width:320px;text-align:left"></div>
-<button class="menu-btn" id="backStats">← BACK</button>
-</div>
-</div>
-<div id="levelsScreen" class="screen hidden">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:24px">SELECT LEVEL</div>
-<div class="scroll-hint">↕ scroll for more</div>
-<div class="grid" id="levelGrid"></div>
-<button class="menu-btn" id="backLevels">← BACK</button>
-</div>
-</div>
-<div id="storeScreen" class="screen hidden">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:24px">STORE</div>
-<div class="coins">🪙 <span id="storeCoins">0</span></div>
-<div class="scroll-hint">↕ scroll for all upgrades</div>
-<div class="grid" id="storeGrid"></div>
-<button class="menu-btn ad" id="watchAdCoins">📺 AD = +50 COINS</button>
-<button class="menu-btn" id="backStore">← BACK</button>
-</div>
-</div>
-<div id="skinsScreen" class="screen hidden">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:24px">CHARACTERS</div>
-<div class="coins">🪙 <span id="skinCoins">0</span></div>
-<div class="scroll-hint">↕ scroll for all skins</div>
-<div class="grid" id="skinList"></div>
-<button class="menu-btn ad" id="unlockSkinAdBtn">📺 AD = RANDOM SKIN</button>
-<button class="menu-btn" id="backFromSkins">← BACK</button>
-</div>
-</div>
-<div id="gameOverScreen" class="screen hidden">
-<div class="screen-scroll">
-<h1 style="font-family:'Creepster',cursive;color:#cd6155;font-size:36px;margin:0 0 6px;text-shadow:3px 3px 0 #000">WASHED AWAY</h1>
-<p style="font-size:18px;margin:0 0 4px">MAX <span id="finalScore" style="color:#5dade2">0m</span></p>
-<p style="font-size:12px;margin:0 0 4px;color:#aaa">+ <span id="earnedCoins">0</span> coins · Rank <span id="rankText">—</span></p>
-<p style="font-size:12px;margin:0 0 10px;color:#aaa">Lives: <span id="livesLeft">0</span> · Best streak: <span id="bestStreakUI" style="color:#f1c40f">0</span></p>
-<button class="menu-btn teal" id="continueBtn">♥ CONTINUE (−1 life)</button>
-<button class="menu-btn" id="shareBtn" style="background:#16a085;border-color:#117964;box-shadow:0 5px 0 #0e5e4a">📋 SHARE</button>
-<button class="menu-btn" id="restartBtn">▶ TRY AGAIN (free)</button>
-<button class="menu-btn ad" id="extraLifeAdBtn">📺 WATCH AD → +1 LIFE</button>
-<button class="menu-btn gold" id="goLbFromOver" style="background:#b7950b;border-color:#9a7d0a;box-shadow:0 5px 0 #7d6608">🏆 BOARD</button>
-<button class="menu-btn skin" id="goStoreFromOver">🛒 STORE</button>
-<button class="menu-btn" id="goMenuFromOver">☰ MENU</button>
-</div>
-</div>
-<div id="deathOverlay" aria-hidden="true"><div class="mist"></div><div class="reaper"><div class="hood"></div><div class="cloak"></div><div class="face"></div><div class="eye l"></div><div class="eye r"></div><div class="scythe"><div class="pole"></div><div class="blade"></div></div></div><div class="ghost">👻</div></div>
-<div id="pauseScreen" class="screen hidden">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:26px">PAUSED</div>
-<div class="small">The water waits for no one.</div>
-<button class="menu-btn teal" id="resumeBtn">▶ RESUME</button>
-<button class="menu-btn" id="shakeToggle">🔃 Shake: ON</button>
-<button class="menu-btn" id="hapticToggle">📳 Vibration: ON</button>
-<button class="menu-btn" id="quitBtn">☰ QUIT TO MENU</button>
-</div>
-</div>
-<div id="helpScreen" class="screen hidden">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:20px">HOW TO PLAY</div>
-<div class="help-item"><b>Climb!</b> The flood rises. Jump from ledge to ledge to stay above the water.</div>
-<div class="help-item"><b>Controls</b> — ← → move · ▲ double-jump · 🤿 dive (with Scuba). On touch, swipe up to jump and swipe down to dive.</div>
-<div class="help-item"><b>Dodge</b> angry broom neighbors, dive-bombing birds, sharks, falling bricks and tentacles.</div>
-<div class="help-item"><b>Collect</b> 🐟 fish along the way for coins. Spend coins in the STORE on upgrades, lives and characters.</div>
-<div class="help-item"><b>Pause</b> — Press <b>P</b> or <b>ESC</b> to pause anytime.</div>
-<button class="menu-btn" id="backHelp">← BACK</button>
-</div>
-</div>
-<div id="adOverlay" class="screen hidden" style="z-index:50;background:rgba(0,0,0,.92)">
-<div class="screen-scroll">
-<div class="main-title" style="font-size:22px">📺 AD BREAK</div>
-<p class="small" id="adMessage" style="margin:16px 0;line-height:1.6">Watching rewarded ad…</p>
-<div id="adProgress" style="width:200px;height:10px;background:#222;border-radius:6px;overflow:hidden;margin:12px 0">
-<div id="adProgressFill" style="height:100%;width:0%;background:linear-gradient(90deg,#27ae60,#2ecc71);transition:width .2s"></div>
-</div>
-<p class="small" id="adTimer">3…</p>
-</div>
-</div>
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
 
-<div id="controls" class="hidden">
-<div class="control-group">
-<div class="btn" id="btnLeft">◀</div>
-<div class="btn" id="btnRight">▶</div>
-</div>
-<div style="display:flex;flex-direction:column;align-items:center;pointer-events:auto">
-<div class="btn" id="btnDive" title="Dive">🤿</div>
-<div class="btn" id="btnJump">▲</div>
-</div>
+    <!-- HUD Overlay -->
+    <div class="ui-layer" id="hud" style="display: none;">
+        <div class="hud-top">
+            <div class="hud-stats">
+                <div>HEIGHT: <span id="hud-height">0</span>m</div>
+                <div>LEVEL: <span id="hud-level">1</span></div>
+            </div>
+            <div class="hud-stats" style="color: #38bdf8;">
+                <div>WATER SPEED: <span id="hud-water-speed">1.0</span>x</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div class="mobile-controls" id="mobile-controls">
+        <div class="mobile-group">
+            <button class="m-btn" id="m-left">◀</button>
+            <button class="m-btn" id="m-right">▶</button>
+        </div>
+        <div class="mobile-group">
+            <button class="m-btn" id="m-jump">▲</button>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen">
+        <h1>Afraid of Water</h1>
+        <p>Climb as high as you can. The water rises instantly and accelerates aggressively the higher you go and the harder the difficulty!</p>
+        
+        <div class="diff-select">
+            <button class="diff-btn" onclick="setDifficulty('easy', event)">Easy</button>
+            <button class="diff-btn active" onclick="setDifficulty('normal', event)">Normal</button>
+            <button class="diff-btn" onclick="setDifficulty('hard', event)">Hard</button>
+            <button class="diff-btn" onclick="setDifficulty('extreme', event)">Extreme</button>
+        </div>
+
+        <button class="btn" onclick="startGame()">Start Climbing</button>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameover-screen" class="screen hidden">
+        <h1>Drowned</h1>
+        <p>The water caught up to you.</p>
+        <div class="hud-stats" style="margin-bottom: 25px; flex-direction: column; gap: 5px;">
+            <div>Final Height: <span id="final-height">0</span>m</div>
+            <div>Reached Level: <span id="final-level">1</span></div>
+        </div>
+        <button class="btn" onclick="startGame()">Try Again</button>
+        <button class="btn btn-secondary" onclick="showStartScreen()">Main Menu</button>
+    </div>
 </div>
 
 <script>
-(function(){
-"use strict";
-const canvas=document.getElementById("gameCanvas");
-const ctx=canvas.getContext("2d",{alpha:false});
-const $=id=>document.getElementById(id);
-const ui=$("ui"),startScreen=$("startScreen"),gameOverScreen=$("gameOverScreen");
-const levelsScreen=$("levelsScreen"),storeScreen=$("storeScreen"),skinsScreen=$("skinsScreen"),achScreen=$("achScreen"),statsScreen=$("statsScreen");
-const scoreEl=$("score"),levelEl=$("levelUI"),highScoreUI=$("highScoreUI"),livesUI=$("livesUI"),coinsUI=$("coinsUI");
-const phaseAnnouncer=$("phaseAnnouncer"),controls=$("controls"),skinBar=$("skinBar"),weatherLabel=$("weatherLabel");
-const oxygenBar=$("oxygenBar"),oxygenFill=$("oxygenFill"),btnDive=$("btnDive");
-const pauseBtn=$("pauseBtn"),muteBtn=$("muteBtn"),resumeBtn=$("resumeBtn"),quitBtn=$("quitBtn");
-const pauseScreen=$("pauseScreen"),helpScreen=$("helpScreen");
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-const safeStorage={
-  get(k){try{return localStorage.getItem(k)}catch(e){return null}},
-  set(k,v){try{localStorage.setItem(k,v)}catch(e){}}
-};
-
-let toastTimer=null;
-function toast(msg){
-  const el=$("toast");
-  if(!el)return;
-  el.textContent=msg;
-  el.classList.remove("hidden");
-  el.style.opacity="1";
-  if(toastTimer)clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>{
-    el.classList.add("hidden");
-  },2600);
-}
-
-function updateLifeWarn(){try{document.body.classList.toggle("lastLife",lives<=1)}catch(e){}}
-
-function confettiBurst(){
-  try{
-    const colors=["#f1c40f","#e74c3c","#5dade2","#2ecc71","#9b59b6","#e67e22"];
-    for(let i=0;i<24;i++){
-      const s=document.createElement("div");
-      s.style.cssText="position:fixed;top:"+(-10+Math.random()*20)+"vh;left:"+(Math.random()*100)+"vw;width:"+(4+Math.random()*7)+"px;height:"+(6+Math.random()*9)+"px;background:"+colors[Math.floor(Math.random()*colors.length)]+";z-index:9999;border-radius:2px;opacity:0.95;animation:confettiFall "+(1.6+Math.random()*1.2)+"s ease-in forwards;animation-delay:"+(Math.random()*0.5)+"s";
-      document.body.appendChild(s);
-      setTimeout(()=>s.remove(),3200);
+    // Resize canvas to fit container smoothly
+    function resize() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
     }
-  }catch(e){}
-}
+    window.addEventListener('resize', resize);
+    resize();
 
-const THEMES=[
-  {id:"nyc",name:"NYC Flood",emoji:"🏙️",unlock:0,
-    bgTop:"#0b1522",bgBot:"#1a2a3a",water:"rgba(20,110,120,.94)",waterMid:"rgba(12,50,70,.97)",
-    building:"#1a2838",building2:"#243040",accent:"#f1c40f",rain:"#8ecae6",
-    hazard:"shark",ads:["TAXI","SUBWAY","PIZZA","BAGELS","DELI","METRO"],
-    signs:["CAFE","24H","OPEN","NYC","ATM"],billboards:["STAY DRY","MTA ALERT","FLOOD ZONE"],
-    landmark:"🗽",feel:"yellow cabs · brick · pizza"},
-  {id:"tokyo",name:"Tokyo Storm",emoji:"🗼",unlock:180,
-    bgTop:"#12081e",bgBot:"#2a1538",water:"rgba(100,40,160,.92)",waterMid:"rgba(50,15,80,.96)",
-    building:"#1e1530",building2:"#2a1f40",accent:"#ff2d95",rain:"#e0b0ff",
-    hazard:"eel",ads:["ラーメン","寿司","夜","東京","カラオケ","神社"],
-    signs:["居酒屋","OPEN","温泉","東京","ネオン"],billboards:["台風警報","夜の街","サバイブ"],
-    landmark:"🗼",feel:"kanji neon · ramen · purple rain"},
-  {id:"venice",name:"Venice Sunk",emoji:"🛶",unlock:450,
-    bgTop:"#0a1c18",bgBot:"#143028",water:"rgba(30,150,160,.9)",waterMid:"rgba(10,70,80,.95)",
-    building:"#2a4a40",building2:"#3d5c50",accent:"#e8d5a3",rain:"#a8dadc",
-    hazard:"jellyfish",ads:["GELATO","CANAL","VENEZIA","GONDOLA","ARTE","CAFFE"],
-    signs:["CAFFE","GELATO","PONTE","OPEN","ARTE"],billboards:["ACQUA ALTA","VENEZIA","GONDOLA"],
-    landmark:"🛶",feel:"canals · gelato · stucco"},
-  {id:"arctic",name:"Arctic Melt",emoji:"🧊",unlock:900,
-    bgTop:"#0e1a28",bgBot:"#1e3048",water:"rgba(140,200,230,.88)",waterMid:"rgba(50,100,140,.95)",
-    building:"#2a3a4a",building2:"#3a4e5e",accent:"#a0e8ff",rain:"#d0e8ff",
-    hazard:"orca",ads:["ICE","NORTH","COLD","AURORA","MELT","FROST"],
-    signs:["BASE","COLD","ICE","LAB","NORTH"],billboards:["ICE THIN","MELT WARN","AURORA"],
-    landmark:"❄️",feel:"snow · aurora · ice labs"},
-  {id:"volcano",name:"Lava Isle",emoji:"🌋",unlock:1800,
-    bgTop:"#1a0606",bgBot:"#3a1010",water:"rgba(220,70,20,.92)",waterMid:"rgba(120,30,10,.96)",
-    building:"#2a1810",building2:"#3d2218",accent:"#ff6b00",rain:"#ffaa66",
-    hazard:"lavafish",ads:["HOT","LAVA","DANGER","ERUPT","FIRE","ASH"],
-    signs:["HOT","EXIT","FIRE","LAB","DANGER"],billboards:["ERUPTION","EVACUATE","LAVA FLOW"],
-    landmark:"🌋",feel:"ash · magma · heat"},
-  {id:"neon",name:"Neon Skyline",emoji:"🌆",unlock:2600,
-    bgTop:"#0a0820",bgBot:"#1a1040",water:"rgba(0,180,255,.88)",waterMid:"rgba(20,40,100,.95)",
-    building:"#12102a",building2:"#1e1840",accent:"#00ffc8",rain:"#7ef9ff",
-    hazard:"shark",ads:["CYBER","GRID","NEON","HACK","2077","SYNC"],
-    signs:["CLUB","HACK","NET","OPEN","GRID"],billboards:["JACK IN","NEON RAIN","SECTOR 7"],
-    landmark:"💡",feel:"holo signs · cyan grid"},
-  {id:"space",name:"Orbital Ruin",emoji:"🛸",unlock:3200,
-    bgTop:"#020208",bgBot:"#0a0a18",water:"rgba(80,20,140,.9)",waterMid:"rgba(30,10,60,.96)",
-    building:"#10101a",building2:"#1a1a2e",accent:"#b388ff",rain:"#c9a0ff",
-    hazard:"voidling",ads:["ORBIT","VOID","STAR","DOCK","ZERO-G","AIR"],
-    signs:["AIR","DOCK","HULL","OPEN","BAY"],billboards:["O2 LOW","HULL BREACH","DOCK 4"],
-    landmark:"🛸",feel:"stars · metal · zero-g"}
-];
+    // Game Constants & Variables
+    let gameState = 'START'; // START, PLAYING, GAMEOVER
+    let difficulty = 'normal';
+    
+    const difficulties = {
+        easy: { baseSpeed: 1.2, scaling: 0.15, jump: -11, gravity: 0.5 },
+        normal: { baseSpeed: 1.8, scaling: 0.25, jump: -12, gravity: 0.5 },
+        hard: { baseSpeed: 2.5, scaling: 0.40, jump: -12.5, gravity: 0.52 },
+        extreme: { baseSpeed: 3.5, scaling: 0.65, jump: -13, gravity: 0.55 }
+    };
 
-const ALL_SKINS=[
-  {id:"orange",name:"Orange Cat",body:"#e07a2f",dark:"#c45f1a",price:0,style:"cat"},
-  {id:"black",name:"Black Cat",body:"#2c3e50",dark:"#1a252f",price:80,style:"cat"},
-  {id:"white",name:"White Cat",body:"#ecf0f1",dark:"#bdc3c7",price:80,style:"cat"},
-  {id:"tabby",name:"Tabby",body:"#d4a017",dark:"#9a7d0a",price:100,style:"cat"},
-  {id:"dog",name:"Street Dog",body:"#c4a574",dark:"#8b6914",price:150,style:"dog"},
-  {id:"fox",name:"City Fox",body:"#e67e22",dark:"#a04000",price:180,style:"fox"},
-  {id:"rabbit",name:"Flood Bunny",body:"#f5c6c6",dark:"#d98880",price:180,style:"rabbit"},
-  {id:"tuxedo",name:"Tuxedo Cat",body:"#3a3f47",dark:"#1c1f24",price:220,style:"cat"},
-  {id:"robot",name:"Roof Robot",body:"#7fb3d5",dark:"#2e6da4",price:260,style:"cat"},
-  {id:"bear",name:"Careful Bear",body:"#8d6e63",dark:"#5d4037",price:300,style:"bear"},
-  {id:"ninja",name:"Roof Ninja",body:"#2c3e50",dark:"#11151a",price:340,style:"ninja"},
-  {id:"panda",name:"Red Panda",body:"#c0392b",dark:"#7b2a18",price:380,style:"cat"},
-  {id:"owl",name:"Night Owl",body:"#7d3c98",dark:"#4a235a",price:420,style:"cat"},
-  {id:"ghost",name:"Ghost Cat",body:"#dcdde1",dark:"#aab0b8",price:460,style:"cat"},
-  {id:"penguin",name:"Ice Penguin",body:"#2c3e50",dark:"#1a1f29",price:500,style:"cat"}
-];
-let leaderboard=(()=>{try{const v=JSON.parse(localStorage.getItem("aow_lb")||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}})();
-let playerName=safeStorage.get("aow_name")||"Anonymous";
-const VERSION="2.0.0-launch";
+    let scoreHeight = 0;
+    let currentLevel = 1;
+    let cameraY = 0;
 
-const UPGRADES=[
-  {id:"maxLives",name:"Max Lives",emoji:"❤️",desc:"+1 max life",max:5,prices:[100,200,400,800,1200]},
-  {id:"jumpPower",name:"Super Jump",emoji:"⬆️",desc:"Stronger jump",max:4,prices:[120,250,450,700]},
-  {id:"speed",name:"Speed Boost",emoji:"💨",desc:"Move faster",max:4,prices:[100,220,400,650]},
-  {id:"magnet",name:"Fish Magnet",emoji:"🧲",desc:"Bigger collect range",max:3,prices:[150,320,550]},
-  {id:"shield",name:"Start Shield",emoji:"🛡️",desc:"Survive first hit",max:1,prices:[300]},
-  {id:"scuba",name:"Scuba Mask",emoji:"🤿",desc:"Dive under water!",max:1,prices:[400]},
-  {id:"oxygen",name:"Oxygen Tank",emoji:"🫧",desc:"+air time underwater",max:3,prices:[200,400,700]},
-  {id:"fins",name:"Swim Fins",emoji:"👟",desc:"Swim faster underwater",max:3,prices:[180,350,600]},
-  {id:"coinBoost",name:"Coin Finder",emoji:"🪙",desc:"More coins from fish",max:3,prices:[150,300,500]}
-];
+    // Player Object
+    let player = {
+        x: canvas.width / 2,
+        y: 200,
+        width: 30,
+        height: 45,
+        vx: 0,
+        vy: 0,
+        speed: 5,
+        grounded: false
+    };
 
-function safeJSON(raw,fallback){try{const v=JSON.parse(raw);return v==null?fallback:v}catch(e){return fallback}}
-let coins=parseInt(safeStorage.get("aow_coins")||"0",10)||0;
-let lives=parseInt(safeStorage.get("aow_lives")||"3",10)||3;
-let maxLives=parseInt(safeStorage.get("aow_maxLives")||"3",10)||3;
-let highestScore=parseInt(safeStorage.get("afraidWaterHS")||"0",10)||0;
-let currentSkinId=safeStorage.get("aow_skin")||"orange";
-let unlockedSkins=safeJSON(safeStorage.get("aow_unlocked"),["orange"]);
-if(!Array.isArray(unlockedSkins)||!unlockedSkins.length)unlockedSkins=["orange"];
-let ownedUpgrades=safeJSON(safeStorage.get("aow_upgrades"),{});
-if(typeof ownedUpgrades!=="object"||ownedUpgrades===null)ownedUpgrades={};
-let selectedTheme=safeStorage.get("aow_theme")||"nyc";
-let currentTheme=THEMES.find(t=>t.id===selectedTheme)||THEMES[0];
-let soundOn=safeStorage.get("aow_sound")!=="0";
-let volMaster=parseFloat(safeStorage.get("aow_volM")||"1")||1;
-let volSfx=parseFloat(safeStorage.get("aow_volS")||"1")||1;
-let volMusic=parseFloat(safeStorage.get("aow_volMusic")||"0.85")||0.85;
-function applyVolumes(){
-  try{
-    if(masterGain&&audioCtx)masterGain.gain.setTargetAtTime(Math.max(0.0001,volMaster*(soundOn?1:0)),audioCtx.currentTime,0.05);
-    if(musicBus&&audioCtx)musicBus.gain.setTargetAtTime(Math.max(0.0001,0.42*volMusic*volMaster),audioCtx.currentTime,0.05);
-  }catch(e){}
-}
-let musicTimer=null;
-const DIFFS={
-  baby:{name:"BABY",waterMul:0.35,hazardMul:0.25,npcForce:6,npcVy:-2,weatherMul:0.5,desc:"Very easy · super slow water — for tiny climbers"},
-  easy:{name:"EASY",waterMul:0.60,hazardMul:0.60,npcForce:11,npcVy:-5,weatherMul:0.75,desc:"Easy · slow water · soft hazards"},
-  normal:{name:"NORMAL",waterMul:1.0,hazardMul:1.0,npcForce:16,npcVy:-9,weatherMul:1.0,desc:"Balanced · steady water · fair hazards"},
-  hard:{name:"HARD",waterMul:1.65,hazardMul:1.5,npcForce:21,npcVy:-13,weatherMul:1.3,desc:"Hard · fast water · meaner NPCs"},
-  insane:{name:"INSANE",waterMul:2.5,hazardMul:2.0,npcForce:28,npcVy:-17,weatherMul:1.6,desc:"Insane · brutal flood · relentless hazards"}
-};
-let difficulty=safeStorage.get("aow_diff")||"normal";
-if(!DIFFS[difficulty])difficulty="normal";
-let currentDiff=DIFFS[difficulty];
+    // Water Object
+    let water = {
+        y: 0,
+        baseSpeed: 1.5,
+        currentSpeed: 1.5,
+        waveTimer: 0
+    };
 
-function difficultyRamp(){
-  return 0.5+0.5*Math.min(1,Math.max(0,score-60)/1600);
-}
+    let platforms = [];
 
-const ACHIEVEMENTS=[
-  {id:"first_climb",emoji:"🐾",name:"First Climb",desc:"Reach 50m in a run"},
-  {id:"reach_300",emoji:"🌆",name:"Rooftop Runner",desc:"Reach 300m in a run"},
-  {id:"reach_500",emoji:"🏙️",name:"Sky Scraper",desc:"Reach 500m in a run"},
-  {id:"dive_10",emoji:"🤿",name:"Deep Diver",desc:"Take 10 dives total"},
-  {id:"collect_50",emoji:"🐟",name:"Fish Friends",desc:"Collect 50 fish total"},
-  {id:"unlock_3",emoji:"🎨",name:"Fashionista",desc:"Unlock 3 character skins"},
-  {id:"buy_3",emoji:"🛒",name:"Big Spender",desc:"Buy 3 store upgrades"},
-  {id:"spend_500",emoji:"🪙",name:"Coin Hoarder",desc:"Own 500 coins at once"},
-  {id:"survive_hard",emoji:"💀",name:"Flood Survivor",desc:"Reach 400m on HARD/INSANE difficulty"},
-  {id:"reach_1000",emoji:"🗼",name:"Skyline King",desc:"Reach 1000m in a run"},
-  {id:"reach_2000",emoji:"🛸",name:"Altitude Legend",desc:"Reach 2000m in a run"},
-  {id:"collect_100",emoji:"🐟",name:"Fish Whisperer",desc:"Collect 100 fish total"},
-  {id:"spend_2000",emoji:"💰",name:"Coin Tycoon",desc:"Own 2000 coins at once"},
-  {id:"survive_insane",emoji:"🔥",name:"Flood Destroyer",desc:"Reach 400m on INSANE difficulty"},
-  {id:"use_jetpack",emoji:"🚀",name:"Rocket Cat",desc:"Use a Jetpack power-up"},
-  {id:"use_cape",emoji:"🦸",name:"Super Feline",desc:"Use a Super Cape power-up"},
-  {id:"use_armor",emoji:"🛡️",name:"Iron Claws",desc:"Use a Force Field power-up"}
-];
-let achieved=safeJSON(safeStorage.get("aow_achievements"),[]);
-if(!Array.isArray(achieved))achieved=[];
-let seenAchievements=safeJSON(safeStorage.get("aow_seenAch"),[]);
-if(!Array.isArray(seenAchievements))seenAchievements=[];
-let totalDives=parseInt(safeStorage.get("aow_dives")||"0",10)||0;
-let totalFish=parseInt(safeStorage.get("aow_fish")||"0",10)||0;
-let milestoneShown=parseInt(safeStorage.get("aow_milestone")||"0",10)||0;
-let milestoneBanner={text:"",t:0};
-let statDistance=parseInt(safeStorage.get("aow_statD")||"0",10)||0;
-let statCoins=parseInt(safeStorage.get("aow_statCoins")||"0",10)||0;
-let statRuns=parseInt(safeStorage.get("aow_statRuns")||"0",10)||0;
-let statDives=parseInt(safeStorage.get("aow_statDives")||"0",10)||0;
-let statFish=parseInt(safeStorage.get("aow_statFish")||"0",10)||0;
-let statPowerups=parseInt(safeStorage.get("aow_statPow")||"0",10)||0;
-let statBestStreak=parseInt(safeStorage.get("aow_statBestStreak")||"0",10)||0;
+    // Input States
+    let keys = { left: false, right: false, jump: false };
 
-function saveStats(){
-  safeStorage.set("aow_statD",statDistance);
-  safeStorage.set("aow_statCoins",statCoins);
-  safeStorage.set("aow_statRuns",statRuns);
-  safeStorage.set("aow_statDives",statDives);
-  safeStorage.set("aow_statFish",statFish);
-  safeStorage.set("aow_statPow",statPowerups);
-  safeStorage.set("aow_statBestStreak",statBestStreak);
-}
-function renderStats(){
-  const list=$("statsList");if(!list)return;
-  const rows=[
-    ["📏","Total Distance",statDistance+"m"],
-    ["🪙","Coins Earned",String(statCoins)],
-    ["▶️","Runs Played",String(statRuns)],
-    ["🤿","Dives Taken",String(statDives)],
-    ["🐟","Fish Collected",String(statFish)],
-    ["🚀","Power-ups Used",String(statPowerups)],
-    ["🔥","Best Streak",String(statBestStreak)]
-  ];
-  list.innerHTML=rows.map(r=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 6px;border-bottom:1px solid rgba(255,255,255,0.07);width:100%;max-width:300px"><span style="font-size:10px;color:#dfe4e6"><span style="margin-right:6px">'+r[0]+"</span>"+r[1]+'</span><span style="color:#f1c40f;font-size:11px">'+r[2]+"</span></div>").join("");
-}
-
-function unlockAchievement(id){
-  if(achieved.includes(id))return false;
-  achieved.push(id);
-  const a=ACHIEVEMENTS.find(x=>x.id===id);
-  if(a)toast(a.emoji+" "+a.name+" unlocked!");
-  save();refreshAchBadge();
-  try{sfxBuy()}catch(e){}
-  return true;
-}
-function refreshAchBadge(){
-  const unread=ACHIEVEMENTS.filter(a=>achieved.includes(a.id)&&!seenAchievements.includes(a.id)).length;
-  const badge=$("achBadge");
-  if(badge)badge.classList.toggle("hidden",unread===0);
-  const menuBadge=$("menuAchBadge");
-  if(menuBadge)menuBadge.classList.toggle("hidden",unread===0);
-}
-function markAchievementsSeen(){
-  seenAchievements=achieved.slice();
-  safeStorage.set("aow_seenAch",JSON.stringify(seenAchievements));
-  refreshAchBadge();
-}
-
-function renderAchievements(){
-  const list=$("achList");if(!list)return;
-  list.innerHTML="";
-  const unlocked=ACHIEVEMENTS.filter(a=>achieved.includes(a.id)).length;
-  const ac=$("achCount");if(ac)ac.innerText=unlocked+"/"+ACHIEVEMENTS.length;
-  ACHIEVEMENTS.forEach(a=>{
-    const isDone=achieved.includes(a.id);
-    const isNew=isDone&&!seenAchievements.includes(a.id);
-    const row=document.createElement("div");
-    row.style.cssText="display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.06);opacity:"+(isDone?"1":"0.45");
-    row.innerHTML=`<span style="font-size:20px">${a.emoji}</span><div style="flex:1"><div style="color:${isDone?"#f1c40f":"#95a5a6"}">${a.name} ${isNew?"<span style='color:#2ecc71'>(NEW)</span>":""}</div><div style="font-size:8px;color:#95a5a6">${a.desc}</div></div><span style="color:${isDone?"#2ecc71":"#555"}">${isDone?"✓":"🔒"}</span>`;
-    list.appendChild(row);
-  });
-  const rp=$("resetProgBtn");
-  if(rp)rp.addEventListener("click",function reset(e){if(e){e.preventDefault();e.stopPropagation()}if(confirm("Reset ALL progress (coins, skins, upgrades, trophies, leaderboard)? This cannot be undone.")){try{["aow_coins","aow_lives","aow_maxLives","afraidWaterHS","aow_skin","aow_unlocked","aow_upgrades","aow_theme","aow_diff","aow_achievements","aow_seenAch","aow_dives","aow_fish","aow_lb","aow_name"].forEach(k=>localStorage.removeItem(k))}catch(e){}location.reload()}});
-}
-function openAchievements(){
-  renderAchievements();
-  show(achScreen);
-  markAchievementsSeen();
-  refreshAchBadge();
-}
-function tickAwards(){
-  if(highestScore>=50)unlockAchievement("first_climb");
-  if(highestScore>=300)unlockAchievement("reach_300");
-  if(highestScore>=500)unlockAchievement("reach_500");
-  if(coins>=500)unlockAchievement("spend_500");
-  if(unlockedSkins.length>=3)unlockAchievement("unlock_3");
-  let own=0;for(const k in ownedUpgrades)own+=ownedUpgrades[k];if(own>=3)unlockAchievement("buy_3");
-  if((difficulty==="hard"||difficulty==="insane")&&highestScore>=400)unlockAchievement("survive_hard");
-}
-
-function grantDailyBonus(){
-  const today=new Date().toDateString();
-  const last=safeStorage.get("aow_lastBonus");
-  if(last!==today){
-    coins+=50;
-    safeStorage.set("aow_lastBonus",today);
-    save();
-    toast("🎁 Welcome back! +50 coins");
-  }
-}
-
-function save(){
-  safeStorage.set("aow_coins",coins);safeStorage.set("aow_lives",lives);
-  safeStorage.set("aow_maxLives",maxLives);safeStorage.set("afraidWaterHS",highestScore);
-  safeStorage.set("aow_skin",currentSkinId);safeStorage.set("aow_unlocked",JSON.stringify(unlockedSkins));
-  safeStorage.set("aow_upgrades",JSON.stringify(ownedUpgrades));try{applyOwnedUpgrades()}catch(e){}safeStorage.set("aow_theme",selectedTheme);
-  safeStorage.set("aow_diff",difficulty);
-  safeStorage.set("aow_sound",soundOn?"1":"0");
-}
-function refreshCoinUI(){["menuCoins","storeCoins","skinCoins","coinsUI"].forEach(id=>{const e=$(id);if(e)e.innerText=coins})}
-function getUpgradeLevel(id){return ownedUpgrades[id]||0}
-function hasScuba(){return getUpgradeLevel("scuba")>0}
-function applyOwnedUpgrades(){
-  maxLives=3+getUpgradeLevel("maxLives");
-  if(lives>maxLives)lives=maxLives;
-  if(cat){
-    cat.speed=7.0*(1+getUpgradeLevel("speed")*0.1);
-    cat.jumpPower=(cat.jumpPower||12)*(1);
-  }
-  save();
-}
-
-window.AdMobBridge=window.AdMobBridge||{};
-window.AdMobBridge.onRewardedExtraLife=function(){lives=Math.min(lives+1,maxLives);if(livesUI)livesUI.innerText=lives;save();const ll=$("livesLeft");if(ll)ll.innerText=lives;refreshCoinUI()};
-window.AdMobBridge.onRewardedSkin=function(){const locked=ALL_SKINS.filter(s=>!unlockedSkins.includes(s.id));if(!locked.length){alert("All skins unlocked!");return}const p=locked[Math.floor(Math.random()*locked.length)];unlockedSkins.push(p.id);currentSkinId=p.id;save();try{renderSkins();updateSkinBar()}catch(e){}refreshCoinUI()};
-window.AdMobBridge.onRewardedCoins=function(){coins+=50;save();refreshCoinUI()};
-
-let adBusy=false;
-function playRewardedAd(kind){
-  if(adBusy)return;
-  adBusy=true;
-  if(typeof window.AdMobBridge.showRewarded==="function"){
-    try{
-      window.AdMobBridge.showRewarded(kind,function(ok){
-        adBusy=false;
-        if(ok){
-          if(kind==="life")window.AdMobBridge.onRewardedExtraLife();
-          else if(kind==="skin")window.AdMobBridge.onRewardedSkin();
-          else window.AdMobBridge.onRewardedCoins();
+    window.addEventListener('keydown', e => {
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+        if (e.code === 'ArrowUp' || e.code === 'Space' || e.code === 'KeyW') {
+            if (!keys.jump && player.grounded) {
+                player.vy = difficulties[difficulty].jump;
+                player.grounded = false;
+            }
+            keys.jump = true;
         }
-      });
-      return;
-    }catch(e){console.warn(e)}
-  }
-  const overlay=$("adOverlay"),msg=$("adMessage"),fill=$("adProgressFill"),timer=$("adTimer");
-  const labels={life:"+1 Life",skin:"Random Skin",coins:"+50 Coins"};
-  if(msg)msg.textContent="Rewarded ad for "+(labels[kind]||"reward")+"\n(Simulator — real ads on the app store build)";
-  if(fill)fill.style.width="0%";
-  if(overlay){overlay.classList.remove("hidden");overlay.style.display=""}
-  let t=3;
-  if(timer)timer.textContent=t+"…";
-  const tick=setInterval(()=>{
-    t--;
-    if(fill)fill.style.width=((3-t)/3*100)+"%";
-    if(timer)timer.textContent=t>0?(t+"…"):"Reward!";
-    if(t<=0){
-      clearInterval(tick);
-      if(fill)fill.style.width="100%";
-      setTimeout(()=>{
-        if(overlay){overlay.classList.add("hidden")}
-        adBusy=false;
-        if(kind==="life")window.AdMobBridge.onRewardedExtraLife();
-        else if(kind==="skin")window.AdMobBridge.onRewardedSkin();
-        else window.AdMobBridge.onRewardedCoins();
-        sfxBuy();
-      },400);
-    }
-  },1000);
-}
-function watchAdLife(){playRewardedAd("life")}
-function watchAdSkin(){playRewardedAd("skin")}
-function watchAdCoins(){playRewardedAd("coins")}
+    });
 
-let state="START",score=0,time=0,level=1,cameraX=0,cameraY=0,lightningFlash=0,shakeAmount=0;
-let shakeOn=safeStorage.get("aow_shake")!=="0";
-let hapticsOn=safeStorage.get("aow_haptic")!=="0";
-let paused=false;let dangerWarn=0;
-let waterDelay=0;
-let milestone=0;
-let loopId=0;
-let checkpoint=null;
-let invulnTimer=0;
-let cat,water,platforms=[],rain=[],sharks=[],tentacles=[],debris=[],particles=[],collectibles=[],fog=[],seaCreatures=[],birds=[],windowNPCs=[];
-let fallingBricks=[],hangingSigns=[],pigeons=[],steamVents=[],acBlows=[],securityLasers=[],satDishes=[],chimneys=[];
-let drifts=[],floaters=[],craneHooks=[],newspaperSwarm=[];
-const keys={left:false,right:false,up:false,dive:false};
-const generatedSectors={},windowRegistry={};
-function windowSignature(id){
-  let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;
-  return 1+(h%4);
-}
-let weather={intensity:0.2,wind:3,stormName:"DRIZZLE",flashCooldown:0,gust:0,gustTimer:0};
-let shieldActive=false;
-let jetpackTimer=0,capeTimer=0,armorTimer=0;
-let attackDogs=[],laserTurrets=[];
-let diving=false,oxygen=100,maxOxygen=100;
-let streak=0,streakTimer=0,comboMult=1,comboFlash=0,bestStreakRun=0;
-let charSquash=1,charSquashV=0,charSquashTarget=1;
-let coyoteTimer=0,jumpBuffer=0,popups=[];
-let ampTimer=0;
-let bestAtStart=0;
-let comboBanner=0,comboBannerText="";
-let comboBannerColor="#f1c40f";
-let surgeTimer=0,surgeNext=0,surgeSplash=0;
-let nextBountyTarget=500;
-let audioCtx;
+    window.addEventListener('keyup', e => {
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+        if (e.code === 'ArrowUp' || e.code === 'Space' || e.code === 'KeyW') keys.jump = false;
+    });
 
-function initAudio(){try{if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-      masterCompressor=audioCtx.createDynamicsCompressor();
-      masterCompressor.threshold.value=-18;
-      masterCompressor.knee.value=24;
-      masterCompressor.ratio.value=6;
-      masterCompressor.attack.value=0.004;
-      masterCompressor.release.value=0.22;
-      masterFilter=audioCtx.createBiquadFilter();masterFilter.type="lowpass";masterFilter.frequency.value=16000;
-      masterGain=audioCtx.createGain();masterGain.gain.value=1;
-      masterFilter.connect(masterGain);masterGain.connect(masterCompressor);masterCompressor.connect(audioCtx.destination);
-      try{applyVolumes()}catch(e){}
-      loadSounds();
-    }if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
-function setUnderwaterAudio(on){if(!audioCtx||!masterFilter)return;const t=audioCtx.currentTime;try{masterFilter.frequency.setTargetAtTime(on?600:15000,t,0.12);masterGain.gain.setTargetAtTime(on?0.5:1,t,0.12)}catch(e){}}
-let masterFilter=null,masterGain=null,masterCompressor=null;
-let audioVoices=0;
-function playTone(f,t="sine",d=0.1,v=0.18){if(!soundOn||!audioCtx)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=t;o.frequency.setValueAtTime(f,now);const g0=Math.max(0.0001,v*(typeof volSfx==="number"?volSfx:1)*(typeof volMaster==="number"?volMaster:1));g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.008);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.02,d));o.connect(g);g.connect(masterFilter||audioCtx.destination);o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};o.start(now);o.stop(now+Math.max(0.02,d)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
-function buzz(pattern){if(!hapticsOn)return;try{if(navigator.vibrate)navigator.vibrate(pattern)}catch(e){}}
-function sfxJump(){playTone(420,"sine",0.05,0.2);setTimeout(()=>playTone(640,"triangle",0.07,0.14),22)}
-function sfxDouble(){playTone(560,"triangle",0.04,0.14);setTimeout(()=>playTone(820,"sine",0.09,0.11),28)}
-function sfxCollect(){if(playBuf("coin",0.5))return;playTone(1400,"sine",0.04,0.14);setTimeout(()=>playTone(2100,"triangle",0.08,0.11),40)}
-function sfxImpact(){playTone(90,"triangle",0.12,0.14);playTone(55,"sine",0.15,0.08)}
-function sfxLaserArm(){playTone(1200,"sine",0.04,0.06);playTone(1800,"sine",0.08,0.05)}
-function sfxLaserOff(){playTone(600,"sine",0.05,0.04)}
-function sfxLaserZap(){
-  playTone(1400,"sine",0.05,0.14);
-  playTone(220,"triangle",0.12,0.12);
-  playTone(90,"sine",0.18,0.1);
-}
-function setLaserHum(on){}
-
-function playSlide(f0,f1,d,v){if(!soundOn||!audioCtx)return;if(audioVoices>24)return;try{audioVoices++;const now=audioCtx.currentTime;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type="triangle";o.frequency.setValueAtTime(f0,now);o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),now+d);const g0=Math.max(0.0001,v);g.gain.setValueAtTime(0.00001,now);g.gain.exponentialRampToValueAtTime(g0,now+0.004);g.gain.exponentialRampToValueAtTime(0.0003,now+Math.max(0.05,d));o.connect(g);g.connect(masterFilter||audioCtx.destination);o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};o.start(now);o.stop(now+Math.max(0.05,d)+0.05)}catch(e){audioVoices=Math.max(0,audioVoices-1)}}
-let noiseBuf=null,brownBuf=null;
-function getNoiseBuf(){
-  if(!audioCtx)return null;if(noiseBuf)return noiseBuf;
-  const len=Math.max(48000,Math.floor(audioCtx.sampleRate*1.2));
-  noiseBuf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
-  const d=noiseBuf.getChannelData(0);
-  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
-  const fade=Math.min(512,len/8);
-  for(let i=0;i<fade;i++){d[i]*=i/fade;d[len-1-i]*=i/fade}
-  return noiseBuf;
-}
-function getBrownBuf(){
-  if(!audioCtx)return null;if(brownBuf)return brownBuf;
-  const len=Math.floor(audioCtx.sampleRate*6);
-  brownBuf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
-  const d=brownBuf.getChannelData(0);
-  let last=0;
-  for(let i=0;i<len;i++){
-    const white=Math.random()*2-1;
-    last=(last+0.02*white)/1.02;
-    d[i]=last*3.5;
-  }
-  const fade=Math.floor(audioCtx.sampleRate*0.15);
-  for(let i=0;i<fade;i++){
-    const t=i/fade;
-    d[i]=d[i]*t+d[len-fade+i]*(1-t);
-  }
-  return brownBuf;
-}
-function playNoise(dur,type,freq,q,vol,sweepTo){
-  if(!soundOn||!audioCtx)return;
-  const buf=getNoiseBuf();if(!buf)return;
-  if(audioVoices>20)return;
-  try{
-    audioVoices++;
-    const now=audioCtx.currentTime;
-    const src=audioCtx.createBufferSource();
-    src.buffer=buf;src.loop=false;
-    const f=audioCtx.createBiquadFilter();
-    f.type=type||"lowpass";
-    f.frequency.setValueAtTime(freq||900,now);
-    if(sweepTo)f.frequency.exponentialRampToValueAtTime(Math.max(40,sweepTo),now+Math.max(0.05,dur));
-    f.Q.value=q||0.7;
-    const g=audioCtx.createGain();
-    const g0=Math.max(0.0001,vol||0.15);
-    const d=Math.max(0.05,dur);
-    g.gain.setValueAtTime(0.00001,now);
-    g.gain.exponentialRampToValueAtTime(g0,now+0.015);
-    g.gain.exponentialRampToValueAtTime(0.0003,now+d);
-    src.connect(f);f.connect(g);g.connect(masterFilter||audioCtx.destination);
-    src.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};
-    src.start(now);src.stop(now+d+0.05);
-  }catch(e){audioVoices=Math.max(0,audioVoices-1)}
-}
-
-const SOUNDS={
-  meow1:["assets/sounds/meow1.ogg"],
-  meow2:["assets/sounds/meow2.ogg"],
-  thunder:["assets/sounds/thunder.ogg"],
-  rain:["assets/sounds/rain.ogg"],
-  coin:["assets/sounds/coin.ogg"]
-};
-const SOUNDS_DEFER={
-  meow3:["assets/sounds/meow3.ogg"],
-  splash:["assets/sounds/splash.ogg"],
-  music:["assets/sounds/music.ogg"]
-};
-const soundBufs={};
-function loadSoundBuf(key){
-  return new Promise(async res=>{
-    try{
-      if(!audioCtx){res(false);return}
-      const url=SOUNDS[key][0];
-      let arr=null;
-      try{
-        const r=await fetch(url,{cache:"force-cache"});
-        if(r.ok)arr=await r.arrayBuffer();
-      }catch(e){}
-      if(!arr){
-        arr=await new Promise((resolve,reject)=>{
-          const xhr=new XMLHttpRequest();
-          xhr.open("GET",url,true);xhr.responseType="arraybuffer";
-          xhr.onload=()=>resolve(xhr.response);
-          xhr.onerror=()=>resolve(null);
-          xhr.send();
+    // Mobile Control Bindings
+    function bindTouch(id, keyName) {
+        const el = document.getElementById(id);
+        el.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); 
+            keys[keyName] = true; 
+            if(keyName === 'jump' && player.grounded) { 
+                player.vy = difficulties[difficulty].jump; 
+                player.grounded = false; 
+            } 
         });
-      }
-      if(!arr){res(false);return}
-      const buf=await audioCtx.decodeAudioData(arr.slice?arr.slice(0):arr);
-      soundBufs[key]=buf;res(true);
-    }catch(e){res(false)}
-  });
-}
-function loadSounds(){
-  const p=Promise.all(Object.keys(SOUNDS).map(k=>loadSoundBuf(k)));
-  p.then(results=>{
-    console.log("[audio] core",results.filter(Boolean).length);
-    if(state==="PLAYING"&&soundOn){
-      try{setRainGain(weather.intensity||0.3)}catch(e){}
-      try{startMusic()}catch(e){}
+        el.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
     }
-    setTimeout(()=>{
-      Object.keys(SOUNDS_DEFER||{}).forEach(k=>{
-        SOUNDS[k]=SOUNDS_DEFER[k];
-        loadSoundBuf(k);
-      });
-    },2500);
-  }).catch(()=>{});
-  return p;
-}
-function playBuf(key,vol){
-  if(!soundOn||!audioCtx)return false;
-  if(audioCtx.state==="suspended")try{audioCtx.resume()}catch(e){}
-  const buf=soundBufs[key];
-  if(!buf)return false;
-  try{
-    const src=audioCtx.createBufferSource();
-    src.buffer=buf;
-    const g=audioCtx.createGain();
-    const g0=Math.max(0.0001,(vol==null?0.55:vol)*volSfx*volMaster);
-    const now=audioCtx.currentTime;
-    const dur=Math.max(0.05,buf.duration||0.3);
-    const release=Math.min(0.12,dur*0.2);
-    g.gain.setValueAtTime(0.00001,now);
-    g.gain.exponentialRampToValueAtTime(g0,now+0.01);
-    g.gain.setValueAtTime(g0,now+Math.max(0.02,dur-release));
-    g.gain.exponentialRampToValueAtTime(0.0001,now+dur);
-    src.connect(g);g.connect(masterFilter||audioCtx.destination);
-    src.start(now);src.stop(now+dur+0.05);
-    return true;
-  }catch(e){return false}
-}
+    bindTouch('m-left', 'left');
+    bindTouch('m-right', 'right');
+    bindTouch('m-jump', 'jump');
 
-let rainSrc=null,rainGain=null,rainFilter=null,rainUsingReal=false;
-function ensureRainSource(){
-  if(!audioCtx||!soundOn)return false;
-  const real=soundBufs&&soundBufs["rain"];
-  if(rainSrc&&!rainUsingReal&&real){
-    try{rainSrc.stop()}catch(e){}
-    rainSrc=null;rainFilter=null;
-  }
-  if(rainSrc)return true;
-  try{
-    rainGain=rainGain||audioCtx.createGain();
-    rainGain.gain.value=0;
-    if(real){
-      rainSrc=audioCtx.createBufferSource();rainSrc.buffer=real;rainSrc.loop=true;
-      rainSrc.connect(rainGain);rainUsingReal=true;
-    }else{
-      return false;
-    }
-    rainGain.connect(masterFilter||audioCtx.destination);
-    rainSrc.start();
-    return true;
-  }catch(e){rainSrc=null;return false}
-}
-function setRainGain(peak){
-  if(!audioCtx||!soundOn||!masterGain)return;
-  try{
-    if(peak>0.012){
-      if(!ensureRainSource())return;
-      const target=rainUsingReal
-        ? Math.min(0.55,0.12+peak*0.45)
-        : Math.min(0.16,0.04+peak*0.14);
-      rainGain.gain.setTargetAtTime(target,audioCtx.currentTime,0.35);
-    }else if(rainGain){rainGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.18)}
-  }catch(e){}
-}
-function killRain(){
-  try{if(rainGain)rainGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.12)}catch(e){}
-  try{if(rainSrc){rainSrc.stop();rainSrc=null}}catch(e){rainSrc=null}
-  rainUsingReal=false;
-}
-let waveSrc=null,waveGain=null,waveFilter=null,waveTimer=null,waveLfo=null;
-function startWaves(){return;}
-function stopWaves(){
-  try{if(waveTimer){clearInterval(waveTimer);waveTimer=null}}catch(e){}
-  try{if(waveGain)waveGain.gain.setTargetAtTime(0,audioCtx.currentTime,0.2)}catch(e){}
-  try{if(waveSrc){waveSrc.stop();waveSrc=null}}catch(e){waveSrc=null}
-  waveGain=null;waveFilter=null;
-}
-function sfxPower(){playTone(300,"sine",0.12,0.2);setTimeout(()=>playTone(1500,"triangle",0.2,0.16),60)}
-function sfxSurge(){playTone(90,"triangle",0.35,0.16);setTimeout(()=>playTone(140,"sine",0.4,0.12),80);setTimeout(()=>playTone(60,"sine",0.5,0.1),160)}
-function sfxReaper(){playTone(240,"triangle",0.5,0.18);setTimeout(()=>playTone(190,"triangle",0.5,0.18),220);setTimeout(()=>playTone(140,"triangle",0.7,0.18),460);setTimeout(()=>playTone(90,"triangle",1,0.16),720)}
-let deathOverlayEl=null;
-function reaperCollect(done){
-  if(!deathOverlayEl)deathOverlayEl=document.getElementById("deathOverlay");
-  if(!deathOverlayEl){if(done)done();return}
-  const rep=deathOverlayEl.querySelector(".reaper");
-  if(rep){rep.classList.remove("hover");rep.style.animation="none";void rep.offsetWidth;rep.style.animation="";}
-  deathOverlayEl.classList.add("show");
-  sfxReaper();
-  setTimeout(()=>{if(rep)rep.classList.add("hover")},950);
-  setTimeout(()=>{
-    deathOverlayEl.classList.remove("show");
-    setTimeout(()=>{if(done)done()},320);
-  },1950);
-}
-function sfxBuy(){if(playBuf("coin",0.6))return;playTone(800,"sine",0.08,0.2);setTimeout(()=>playTone(1200,"sine",0.12,0.15),50)}
-function sfxDive(){playTone(200,"sine",0.15,0.2);setTimeout(()=>playTone(120,"sine",0.2,0.15),80)}
-function sfxBubble(){playTone(400+Math.random()*200,"sine",0.05,0.08)}
-
-let musicSrc=null,musicGain=null,musicBus=null;
-let musicBeat=0,musicBar=0,musicPhrase=0;
-let musicSeed=1,melCursor=0,melPhrase=[],modeIdx=0,mood=0,musicBPM=96;
-function currentBPM(){
-  const sc=typeof score==="number"?score:0;
-  let bpm=80+Math.min(60, sc/40);
-  const m=MOODS[mood]||MOODS[0];
-  bpm=bpm*(m.bpmMul||1);
-  return Math.max(80, Math.min(140, Math.round(bpm)));
-}
-function beatMs(){return Math.round(60000/currentBPM())}
-
-const MODES=[
-  [146.83,164.81,174.61,196.00,220.00,233.08,261.63,293.66],
-  [146.83,155.56,174.61,196.00,220.00,233.08,261.63,293.66],
-  [164.81,185.00,196.00,220.00,246.94,261.63,293.66,329.63],
-  [130.81,146.83,155.56,174.61,196.00,207.65,233.08,261.63],
-  [174.61,196.00,207.65,233.08,261.63,293.66,311.13,349.23]
-];
-const MOODS=[
-  {dens:0.3, bpmMul:0.92},
-  {dens:0.4, bpmMul:1.0},
-  {dens:0.55,bpmMul:1.15},
-  {dens:0.45,bpmMul:1.05},
-  {dens:0.35,bpmMul:0.95},
-  {dens:0.65,bpmMul:1.25}
-];
-
-function mrand(){musicSeed=(musicSeed*1664525+1013904223)>>>0;return (musicSeed&0xffff)/0xffff}
-function playMusicNote(freq,dur,vol){
-  if(!soundOn||!audioCtx||!musicBus)return;
-  if(audioVoices>8)return;
-  try{
-    audioVoices++;
-    const now=audioCtx.currentTime;
-    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-    o.type="sine";
-    o.frequency.setValueAtTime(Math.max(50,freq),now);
-    const v=Math.max(0.0001,(vol||0.04)*(typeof volMusic==="number"?volMusic:0.85)*(typeof volMaster==="number"?volMaster:1));
-    g.gain.setValueAtTime(0.00001,now);
-    g.gain.exponentialRampToValueAtTime(v,now+0.05);
-    g.gain.exponentialRampToValueAtTime(0.0002,now+Math.max(0.15,dur));
-    o.connect(g);g.connect(musicBus);
-    o.onended=()=>{audioVoices=Math.max(0,audioVoices-1)};
-    o.start(now);o.stop(now+Math.max(0.15,dur)+0.08);
-  }catch(e){audioVoices=Math.max(0,audioVoices-1)}
-}
-function genMelody(){
-  const scale=MODES[modeIdx%MODES.length];
-  const len=6+Math.floor(mrand()*6);
-  const out=[];let deg=2;
-  for(let i=0;i<len;i++){
-    const r=mrand();
-    if(r<0.5)deg+=mrand()<0.5?1:-1;
-    else if(r<0.75)deg+=mrand()<0.5?2:-2;
-    else deg=Math.floor(mrand()*scale.length);
-    deg=Math.max(0,Math.min(scale.length-1,deg));
-    out.push(mrand()<0.2?-1:deg);
-  }
-  return out;
-}
-function newPhrase(){
-  musicSeed=(Date.now()^(musicPhrase*9973)^(typeof score==="number"?score:0))>>>0;
-  modeIdx=(modeIdx+1)%MODES.length;
-  const sc=typeof score==="number"?score:0;
-  mood=sc>2000?5:sc>1200?2:sc>600?3:sc>250?1:0;
-  melPhrase=genMelody();melCursor=0;musicPhrase++;
-}
-function musicStep(){
-  if(!soundOn||!audioCtx||state!=="PLAYING")return;
-  const m=MOODS[mood]||MOODS[0];
-  const scale=MODES[modeIdx%MODES.length];
-  if(!melPhrase.length)newPhrase();
-  musicBPM=currentBPM();
-  const ms=beatMs();
-  const beat=musicBeat%8;
-  if(beat===0||beat===4){
-    playMusicNote(scale[0]*0.5, ms*2.2/1000, 0.16);
-    playMusicNote(scale[0], ms*1.4/1000, 0.08);
-  }
-  if((beat===2||beat===6)&&musicBPM>=110&&mrand()<0.5){
-    playMusicNote(scale[0]*0.5, ms*0.6/1000, 0.05);
-  }
-  if(mrand()<Math.max(0.35, m.dens)){
-    const deg=melPhrase[melCursor%melPhrase.length];
-    melCursor++;
-    if(deg>=0){
-      playMusicNote(scale[deg%scale.length]*2, ms*(0.7+mrand()*0.5)/1000, 0.13);
-    }
-  }
-  musicBeat++;
-  if(musicBeat%8===0)musicBar++;
-  if(musicBar>0&&musicBar%4===0&&musicBeat%8===0)newPhrase();
-}
-function startMusic(){
-  if(!soundOn)return;
-  if(musicTimer){try{clearTimeout(musicTimer)}catch(e){}musicTimer=null}
-  initAudio();
-  if(!audioCtx)return;
-  try{if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}
-  try{
-    if(!musicBus){
-      musicBus=audioCtx.createGain();
-      const mf=audioCtx.createBiquadFilter();
-      mf.type="lowpass";mf.frequency.value=3600;
-      musicBus.connect(mf);mf.connect(masterFilter||audioCtx.destination);
-    }
-    const g=1.0*(typeof volMusic==="number"?volMusic:1)*(typeof volMaster==="number"?volMaster:1);
-    musicBus.gain.cancelScheduledValues(audioCtx.currentTime);
-    musicBus.gain.setValueAtTime(Math.max(0.4, Math.min(1.2,g)), audioCtx.currentTime);
-  }catch(e){console.warn("musicBus",e)}
-  musicBeat=0;musicBar=0;musicPhrase=0;melPhrase=[];
-  newPhrase();
-  try{if(musicSrc){musicSrc.stop();musicSrc=null}}catch(e){musicSrc=null}
-  const tick=()=>{
-    if(!soundOn||state!=="PLAYING"){musicTimer=null;return}
-    try{musicStep()}catch(e){}
-    musicTimer=setTimeout(tick, Math.max(428, Math.min(750, beatMs())));
-  };
-  tick();
-}
-function stopMusic(){
-  if(musicTimer){try{clearTimeout(musicTimer)}catch(e){}musicTimer=null}
-  try{if(musicSrc){musicSrc.stop();musicSrc=null}}catch(e){musicSrc=null}
-  if(musicGain){try{musicGain.disconnect()}catch(e){}musicGain=null}
-  musicBeat=0;melPhrase=[];
-}
-
-function updateMuteBtn(){if(muteBtn)muteBtn.innerText=soundOn?"🔊":"🔇"}
-function toggleSound(){
-  soundOn=!soundOn;save();
-  if(soundOn){try{initAudio();if(audioCtx)audioCtx.resume()}catch(e){}if(state==="PLAYING")startMusic()}
-  else{stopMusic();try{setLaserHum(false)}catch(e){}try{killRain()}catch(e){}}
-  try{applyVolumes()}catch(e){}
-  updateMuteBtn();buzz(soundOn?20:60);
-}
-
-function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}
-window.addEventListener("resize",resize);resize();
-
-function bindTouch(btn,key,isJump){
-  if(!btn)return;
-  const press=e=>{e.preventDefault();e.stopPropagation();keys[key]=true;btn.classList.add("pressed");if(isJump)jumpCat();if(key==="dive")tryDive()};
-  const rel=e=>{e.preventDefault();e.stopPropagation();keys[key]=false;btn.classList.remove("pressed");if(isJump)jumpRelease()};
-  btn.addEventListener("touchstart",press,{passive:false});
-  btn.addEventListener("touchend",rel,{passive:false});
-  btn.addEventListener("touchcancel",rel,{passive:false});
-  btn.addEventListener("mousedown",press);btn.addEventListener("mouseup",rel);btn.addEventListener("mouseleave",rel);
-}
-bindTouch($("btnLeft"),"left",false);
-bindTouch($("btnRight"),"right",false);
-bindTouch($("btnJump"),"up",true);
-bindTouch($("btnDive"),"dive",false);
-document.addEventListener("touchmove",e=>{
-  if(state==="PLAYING")e.preventDefault();
-},{passive:false});
-
-let touchStartX=0,touchStartY=0;
-canvas.addEventListener("touchstart",e=>{if(state!=="PLAYING")return;const t=e.changedTouches[0];touchStartX=t.clientX;touchStartY=t.clientY},{passive:true});
-canvas.addEventListener("touchend",e=>{
-  if(state!=="PLAYING")return;
-  const t=e.changedTouches[0],dx=t.clientX-touchStartX,dy=t.clientY-touchStartY;
-  if(Math.abs(dy)>55&&dy<0)jumpCat();
-  else if(Math.abs(dy)>55&&dy>0&&hasScuba())tryDive();
-  else if(Math.abs(dx)>40){if(dx>0){keys.right=true;setTimeout(()=>keys.right=false,160)}else{keys.left=true;setTimeout(()=>keys.left=false,160)}}
-},{passive:true});
-
-window.addEventListener("keydown",e=>{
-  if(e.code==="ArrowLeft"||e.code==="KeyA")keys.left=true;
-  if(e.code==="ArrowRight"||e.code==="KeyD")keys.right=true;
-  if(e.code==="ArrowUp"||e.code==="KeyW"||e.code==="Space"){keys.up=true;e.preventDefault();jumpCat()}
-  if(e.code==="ArrowDown"||e.code==="KeyS"){keys.dive=true;tryDive()}
-});
-window.addEventListener("keyup",e=>{
-  if(e.code==="ArrowLeft"||e.code==="KeyA")keys.left=false;
-  if(e.code==="ArrowRight"||e.code==="KeyD")keys.right=false;
-  if(e.code==="ArrowUp"||e.code==="KeyW"||e.code==="Space"){keys.up=false;jumpRelease()}
-  if(e.code==="ArrowDown"||e.code==="KeyS")keys.dive=false;
-});
-
-function tap(el,fn){
-  if(!el)return;
-  let locked=false;
-  const run=e=>{if(locked)return;locked=true;if(e){e.preventDefault();e.stopPropagation()}try{fn()}catch(err){console.error(err)}try{playTone(660,"sine",0.03,0.04)}catch(e){}setTimeout(()=>{locked=false},350)};
-  el.addEventListener("touchend",run,{passive:false});
-  el.addEventListener("click",run);
-  el.style.cursor="pointer";
-}
-const lbScreen=$("lbScreen");
-function show(screen){[startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen,achScreen,statsScreen].forEach(s=>s&&s.classList.add("hidden"));screen.classList.remove("hidden");refreshCoinUI()}
-
-let globalScores=[];let globalTab=true;let globalOnline=false;
-let lastName=safeStorage.get("aow_name")||"";
-function apiURL(){return (window.AOW_API||location.origin||"").replace(/\/$/,"")}
-function loadCachedGlobal(){
-  try{
-    const v=JSON.parse(localStorage.getItem("aow_global_cache")||"[]");
-    if(Array.isArray(v)&&v.length)globalScores=v;
-  }catch(e){}
-}
-function saveCachedGlobal(){
-  try{localStorage.setItem("aow_global_cache",JSON.stringify(globalScores.slice(0,50)))}catch(e){}
-}
-loadCachedGlobal();
-function mergeGlobalEntry(name,score){
-  name=(name||"Anonymous").slice(0,16);
-  score=Math.floor(Number(score)||0);
-  if(score<=0)return;
-  const i=globalScores.findIndex(e=>e.name===name);
-  if(i>=0){if(score>globalScores[i].score)globalScores[i]={name,score,date:Date.now()}}
-  else globalScores.push({name,score,date:Date.now()});
-  globalScores.sort((a,b)=>b.score-a.score);
-  globalScores=globalScores.slice(0,50);
-  saveCachedGlobal();
-}
-async function fetchGlobalBoard(){
-  try{
-    const r=await fetch(apiURL()+"/api/leaderboard",{cache:"no-store"});
-    if(r.ok){
-      const j=await r.json();
-      const entries=(j.entries||j||[]).map(e=>({name:e.name||"?",score:Math.floor(e.score||0),date:e.date||0}));
-      if(entries.length){
-        globalScores=entries.sort((a,b)=>b.score-a.score).slice(0,50);
-        saveCachedGlobal();globalOnline=true;return true;
-      }
-    }
-  }catch(e){}
-  loadCachedGlobal();
-  try{
-    leaderboard.forEach(e=>mergeGlobalEntry(e.name||"You",e.score));
-  }catch(e){}
-  globalOnline=false;
-  return globalScores.length>0;
-}
-async function submitGlobalScore(sc){
-  const name=(safeStorage.get("aow_name")||"").trim()||"Anonymous";
-  mergeGlobalEntry(name,sc);
-  try{
-    const r=await fetch(apiURL()+"/api/score",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({name,score:Math.floor(sc)})
-    });
-    if(r.ok){
-      const j=await r.json().catch(()=>({}));
-      globalOnline=true;
-      await fetchGlobalBoard();
-      const rank=globalScores.findIndex(e=>e.name===name&&e.score>=sc)+1;
-      return j.rank||rank||null;
-    }
-  }catch(e){}
-  const rank=globalScores.findIndex(e=>e.name===name)+1;
-  return rank>0?rank:null;
-}
-function renderLB(){
-  const list=$("lbList");if(!list)return;
-  const status=$("lbStatus");
-  list.innerHTML="";
-  if(globalTab){
-    if(status)status.textContent=globalOnline
-      ?(globalScores.length+" global climbers 🌍")
-      :(globalScores.length?globalScores.length+" scores · offline cache 🌐":"Connecting…");
-    if(!globalScores.length){
-      list.innerHTML='<div class="small">No scores yet — finish a run to post!</div>';
-    }else{
-      globalScores.slice(0,20).forEach((e,i)=>{
-        const row=document.createElement("div");
-        row.style.cssText="margin:5px 0;display:flex;justify-content:space-between;max-width:300px;width:100%";
-        const my=(safeStorage.get("aow_name")||"").trim();
-        const isMe=my&&e.name===my;
-        const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":("#"+(i+1));
-        row.innerHTML='<span style="color:'+(isMe?"#5dade2":"#f1c40f")+'">'+medal+'</span><span style="color:'+(isMe?"#5dade2":"#dfe4e6")+'">'+String(e.name).replace(/[<>]/g,"")+'</span><span>'+e.score+"m</span>";
-        list.appendChild(row);
-      });
-    }
-    fetchGlobalBoard().then(()=>{if(globalTab){const st=$("lbStatus");if(st)st.textContent=globalOnline?(globalScores.length+" global climbers 🌍"):(globalScores.length+" scores · offline cache 🌐");}});
-  }else{
-    if(status)status.textContent=leaderboard.length?leaderboard.length+" local climbers 📱":"No local scores yet";
-    if(!leaderboard.length){list.innerHTML='<div class="small">No local scores yet — climb high!</div>';return}
-    leaderboard.slice(0,15).forEach((e,i)=>{
-      const row=document.createElement("div");
-      row.style.cssText="margin:5px 0;display:flex;justify-content:space-between;max-width:300px;width:100%";
-      const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":("#"+(i+1));
-      row.innerHTML='<span style="color:#f1c40f">'+medal+"</span><span>"+String(e.name||"You").replace(/[<>]/g,"")+"</span><span>"+e.score+"m</span>";
-      list.appendChild(row);
-    });
-  }
-}
-function submitScore(sc){
-  sc=Math.floor(Number(sc)||0);
-  const name=(safeStorage.get("aow_name")||"").trim()||"You";
-  leaderboard.push({name,score:sc,date:Date.now()});
-  leaderboard.sort((a,b)=>b.score-a.score);
-  leaderboard=leaderboard.slice(0,15);
-  try{localStorage.setItem("aow_lb",JSON.stringify(leaderboard))}catch(e){}
-  const localRank=leaderboard.findIndex(e=>e.score===sc&&e.name===name)+1;
-  submitGlobalScore(sc).then(rank=>{
-    const rt=$("rankText");
-    if(rt)rt.innerText=rank!=null?("#"+rank):(localRank>0?("#"+localRank+" local"):"—");
-  });
-  return localRank>0?localRank:"—";
-}
-const lbTabGlobal=$("lbTabGlobal"),lbTabLocal=$("lbTabLocal"),lbName=$("lbName");
-if(lbName){lbName.value=lastName;lbName.addEventListener("input",()=>{safeStorage.set("aow_name",lbName.value.slice(0,16))});}
-function setLbTab(g){
-  globalTab=g;
-  if(lbTabGlobal)lbTabGlobal.classList.toggle("selected",g);
-  if(lbTabLocal)lbTabLocal.classList.toggle("selected",!g);
-  renderLB();
-}
-if(lbTabGlobal)lbTabGlobal.addEventListener("click",()=>setLbTab(true));
-if(lbTabLocal)lbTabLocal.addEventListener("click",()=>setLbTab(false));
-fetchGlobalBoard().then(()=>{if(globalTab&&!lbScreen.classList.contains("hidden"))renderLB()});
-
-(function initDiff(){
-  const row=$("diffRow"),desc=$("diffDesc");
-  if(!row)return;
-  row.querySelectorAll(".diff-btn").forEach(btn=>{
-    if(btn.getAttribute("data-d")===difficulty)btn.classList.add("selected");
-    else btn.classList.remove("selected");
-    const pick=e=>{
-      e.preventDefault();e.stopPropagation();
-      difficulty=btn.getAttribute("data-d")||"normal";
-      currentDiff=DIFFS[difficulty];
-      row.querySelectorAll(".diff-btn").forEach(b=>b.classList.remove("selected"));
-      btn.classList.add("selected");
-      if(desc)desc.textContent=currentDiff.desc;
-      save();
-    };
-    btn.addEventListener("touchend",pick,{passive:false});
-    btn.addEventListener("click",pick);
-  });
-  if(desc)desc.textContent=currentDiff.desc;
-})();
-tap($("startBtn"),()=>{state="START";startGame()});
-tap($("levelsBtn"),()=>{show(levelsScreen);renderLevels()});
-tap($("storeBtn"),()=>{show(storeScreen);renderStore()});
-tap($("skinsBtn"),()=>{show(skinsScreen);renderSkins()});
-tap($("lbBtn"),()=>{show(lbScreen);renderLB()});
-tap($("backLb"),()=>show(startScreen));
-tap($("backLevels"),()=>show(startScreen));
-tap($("backStore"),()=>show(startScreen));
-tap($("backFromSkins"),()=>show(startScreen));
-tap($("restartBtn"),()=>{
-  state="OVER";
-  loopId++;
-  resetKeys();
-  checkpoint=null;
-  startGame(false);
-});
-tap($("continueBtn"),()=>{
-  continueFromCheckpoint();
-});
-function openPause(){if(state!=="PLAYING")return;paused=true;if(pauseScreen)pauseScreen.classList.remove("hidden")}
-function closePause(){paused=false;if(pauseScreen)pauseScreen.classList.add("hidden")}
-function goToMenu(){
-  closePause();state="START";loopId++;
-  stopMusic();stopWaves();killRain();try{setLaserHum(false)}catch(e){}
-  resetKeys();paused=false;
-  [startScreen,levelsScreen,storeScreen,skinsScreen,lbScreen,gameOverScreen,pauseScreen,helpScreen].forEach(s=>{if(s)s.classList.add("hidden")});
-  if(ui)ui.classList.add("hidden");if(controls)controls.classList.add("hidden");
-  if(skinBar)skinBar.classList.add("hidden");if(weatherLabel)weatherLabel.classList.add("hidden");
-  if(oxygenBar)oxygenBar.style.display="none";
-  show(startScreen);
-  refreshCoinUI();
-}
-tap($("pauseBtn"),openPause);
-tap($("resumeBtn"),closePause);
-tap($("quitBtn"),goToMenu);
-tap($("muteBtn"),toggleSound);
-tap($("achBtn"),openAchievements);
-tap($("backAch"),()=>show(startScreen));
-tap($("statsBtn"),()=>{renderStats();show(statsScreen)});
-tap($("backStats"),()=>show(startScreen));
-tap($("helpBtn"),()=>show(helpScreen));
-tap($("backHelp"),()=>show(startScreen));
-tap($("watchAdCoins"),watchAdCoins);
-tap($("unlockSkinAdBtn"),watchAdSkin);
-tap($("extraLifeAdBtn"),watchAdLife);
-tap($("goLbFromOver"),()=>{show(lbScreen);renderLB()});
-tap($("goStoreFromOver"),()=>{show(storeScreen);renderStore()});
-tap($("goMenuFromOver"),goToMenu);
-
-const shakeToggle=$("shakeToggle"),hapticToggle=$("hapticToggle");
-function updateToggles(){
-  if(shakeToggle)shakeToggle.innerText="🔃 Shake: "+(shakeOn?"ON":"OFF");
-  if(hapticToggle)hapticToggle.innerText="📳 Vibration: "+(hapticsOn?"ON":"OFF");
-}
-updateToggles();
-tap(shakeToggle,()=>{shakeOn=!shakeOn;safeStorage.set("aow_shake",shakeOn?"1":"0");updateToggles()});
-tap(hapticToggle,()=>{hapticsOn=!hapticsOn;safeStorage.set("aow_haptic",hapticsOn?"1":"0");updateToggles()});
-
-function renderLevels(){
-  const grid=$("levelGrid");if(!grid)return;
-  grid.innerHTML="";
-  THEMES.forEach(t=>{
-    const unlocked=highestScore>=t.unlock;
-    const card=document.createElement("div");
-    card.className="card"+(selectedTheme===t.id?" selected":"");
-    card.style.opacity=unlocked?"1":"0.5";
-    card.innerHTML=`<div style="font-size:24px">${t.emoji}</div><div style="margin:4px 0;font-size:9px">${t.name}</div><div class="price">${unlocked?(selectedTheme===t.id?"ACTIVE":"SELECT"):(t.unlock+"m required")}</div>`;
-    if(unlocked){
-      tap(card,()=>{
-        selectedTheme=t.id;currentTheme=t;save();
-        renderLevels();
-      });
-    }
-    grid.appendChild(card);
-  });
-}
-
-function renderStore(){
-  const grid=$("storeGrid");if(!grid)return;
-  grid.innerHTML="";
-  UPGRADES.forEach(u=>{
-    const lvl=getUpgradeLevel(u.id);
-    const isMax=lvl>=u.max;
-    const price=isMax?0:u.prices[lvl];
-    const card=document.createElement("div");
-    card.className="card";
-    card.innerHTML=`<div style="font-size:20px">${u.emoji}</div><div style="margin:4px 0;font-size:9px">${u.name}</div><div style="font-size:8px;color:#95a5a6">${u.desc}</div><div class="price">${isMax?"MAX LVL":(price+" 🪙")}</div><div style="font-size:8px;color:#f1c40f;margin-top:2px">Lv ${lvl}/${u.max}</div>`;
-    if(!isMax){
-      tap(card,()=>{
-        if(coins>=price){
-          coins-=price;
-          ownedUpgrades[u.id]=lvl+1;
-          save();refreshCoinUI();renderStore();
-          sfxBuy();toast(u.name+" upgraded!");
-        }else{
-          toast("Need "+(price-coins)+" more 🪙");
+    function setDifficulty(diff, event) {
+        difficulty = diff;
+        document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('active'));
+        if (event && event.target) {
+            event.target.classList.add('active');
         }
-      });
     }
-    grid.appendChild(card);
-  });
-  refreshCoinUI();
-}
 
-function renderSkins(){
-  const list=$("skinList");if(!list)return;
-  list.innerHTML="";
-  ALL_SKINS.forEach(s=>{
-    const unlocked=unlockedSkins.includes(s.id);
-    const active=currentSkinId===s.id;
-    const card=document.createElement("div");
-    card.className="card"+(active?" selected":"");
-    card.style.opacity=unlocked?"1":"0.6";
-    card.innerHTML=`<div style="width:28px;height:28px;margin:0 auto 4px;border-radius:6px;background:${s.body};border:2px solid ${s.dark}"></div><div style="font-size:9px">${s.name}</div><div class="price">${unlocked?(active?"ACTIVE":"SELECT"):(s.price+" 🪙")}</div>`;
-    tap(card,()=>{
-      if(unlocked){
-        currentSkinId=s.id;save();renderSkins();updateSkinBar();
-      }else if(coins>=s.price){
-        coins-=s.price;
-        unlockedSkins.push(s.id);
-        currentSkinId=s.id;
-        save();renderSkins();updateSkinBar();refreshCoinUI();
-        sfxBuy();toast("Unlocked "+s.name+"!");
-      }else{
-        toast("Need "+(s.price-coins)+" more 🪙");
-      }
-    });
-    list.appendChild(card);
-  });
-  refreshCoinUI();
-}
+    function startGame() {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('gameover-screen').classList.add('hidden');
+        document.getElementById('hud').style.display = 'flex';
 
-function updateSkinBar(){
-  if(!skinBar)return;
-  skinBar.innerHTML="";
-  unlockedSkins.forEach(id=>{
-    const s=ALL_SKINS.find(x=>x.id===id);if(!s)return;
-    const icon=document.createElement("div");
-    icon.className="skin-icon"+(currentSkinId===id?" active":"");
-    icon.style.background=s.body;
-    tap(icon,()=>{currentSkinId=id;save();updateSkinBar()});
-    skinBar.appendChild(icon);
-  });
-}
+        // Reset state
+        gameState = 'PLAYING';
+        scoreHeight = 0;
+        currentLevel = 1;
+        
+        player.x = canvas.width / 2 - 15;
+        player.y = canvas.height - 150;
+        player.vx = 0;
+        player.vy = 0;
 
-function resetKeys(){
-  keys.left=false;keys.right=false;keys.up=false;keys.dive=false;
-}
+        water.y = canvas.height + 50;
+        water.baseSpeed = difficulties[difficulty].baseSpeed;
 
-function startGame(useCheckpoint=false){
-  initAudio();
-  if(useCheckpoint&&checkpoint){
-    state="PLAYING";
-    score=checkpoint.score;
-    level=checkpoint.level;
-    cat=checkpoint.cat;
-    water=checkpoint.water;
-    platforms=checkpoint.platforms.map(p=>({...p}));
-    collectibles=checkpoint.collectibles.map(c=>({...c}));
-    sharks=checkpoint.sharks.map(s=>({...s}));
-    debris=checkpoint.debris.map(d=>({...d}));
-    checkpoint=null;
-  }else{
-    state="PLAYING";
-    score=0;time=0;level=1;cameraX=0;cameraY=0;
-    waterDelay=90;
-    milestone=0;milestoneBanner={text:"",t:0};
-    invulnTimer=0;
-    shieldActive=getUpgradeLevel("shield")>0;
-    jetpackTimer=0;capeTimer=0;armorTimer=0;
-    diving=false;oxygen=maxOxygen;
-    streak=0;streakTimer=0;comboMult=1;bestStreakRun=0;
-    popups=[];
-    particles=[];rain=[];fog=[];sharks=[];tentacles=[];debris=[];collectibles=[];
-    platforms=[];seaCreatures=[];birds=[];windowNPCs=[];
-    fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];acBlows=[];
-    securityLasers=[];satDishes=[];chimneys=[];drifts=[];floaters=[];craneHooks=[];newspaperSwarm=[];
-
-    const skin=ALL_SKINS.find(s=>s.id===currentSkinId)||ALL_SKINS[0];
-    cat={
-      x:canvas.width/2-16,y:canvas.height-140,w:32,h:32,vx:0,vy:0,
-      speed:7.0*(1+getUpgradeLevel("speed")*0.1),
-      jumpPower:-(12+getUpgradeLevel("jumpPower")*1.4),
-      facing:1,grounded:false,jumps:2,skin
-    };
-    water={y:canvas.height+60,speed:1.15*currentDiff.waterMul};
-    generateInitialWorld();
-  }
-  if(startScreen)startScreen.classList.add("hidden");
-  if(gameOverScreen)gameOverScreen.classList.add("hidden");
-  if(pauseScreen)pauseScreen.classList.add("hidden");
-  if(helpScreen)helpScreen.classList.add("hidden");
-  if(ui)ui.classList.remove("hidden");
-  if(controls)controls.classList.remove("hidden");
-  if(skinBar)skinBar.classList.remove("hidden");
-  if(weatherLabel)weatherLabel.classList.remove("hidden");
-  if($("hudBtns"))$("hudBtns").classList.remove("hidden");
-  if(oxygenBar)oxygenBar.style.display=hasScuba()?"block":"none";
-  if(btnDive)btnDive.classList.toggle("hidden",!hasScuba());
-  updateLifeWarn();
-  if(soundOn){startMusic();setRainGain(weather.intensity)}
-}
-
-function continueFromCheckpoint(){
-  if(checkpoint&&lives>1){
-    lives--;save();updateLifeWarn();
-    startGame(true);
-  }else if(lives<=1){
-    toast("No lives left — watch ad or try again!");
-  }
-}
-
-function generateInitialWorld(){
-  platforms.push({x:canvas.width/2-90,y:canvas.height-80,w:180,h:22,type:"concrete",windowId:null});
-  platforms.push({x:canvas.width/2-110,y:canvas.height-180,w:100,h:20,type:"concrete",windowId:null});
-  platforms.push({x:canvas.width/2+20,y:canvas.height-270,w:110,h:20,type:"concrete",windowId:null});
-  for(let i=0;i<18;i++){
-    spawnPlatformRow(-320-i*110);
-  }
-}
-
-function spawnPlatformRow(y){
-  const w=80+Math.random()*90;
-  const x=40+Math.random()*(canvas.width-80-w);
-  const types=["concrete","wood","neon","ice","metal"];
-  const type=types[Math.floor(Math.random()*types.length)];
-  const windowId="w_"+Math.round(x)+"_"+Math.round(y);
-  platforms.push({x,y,w,h:20,type,windowId});
-  if(Math.random()<0.45){
-    collectibles.push({x:x+w/2-10,y:y-28,w:20,h:20,type:"fish",collected:false});
-  }
-  if(Math.random()<0.18&&score>120){
-    const pows=["jetpack","cape","armor","timestop","shield"];
-    const pt=pows[Math.floor(Math.random()*pows.length)];
-    collectibles.push({x:x+w/2-12,y:y-32,w:24,h:24,type:pt,collected:false});
-  }
-  if(Math.random()<0.25&&score>80){
-    sharks.push({x:x+Math.random()*w,y:y-40,vx:(Math.random()<0.5?1:-1)*(1.2+Math.random()*1.5),baseY:y-40,range:40});
-  }
-}
-
-function jumpCat(){
-  if(!cat)return;
-  if(coyoteTimer>0||cat.grounded){
-    cat.vy=cat.jumpPower;
-    cat.grounded=false;
-    coyoteTimer=0;
-    charSquashTarget=1.35;charSquashV=0.18;
-    sfxJump();
-    sfxMeow();
-    buzz(18);
-  }else if(cat.jumps>1){
-    cat.vy=cat.jumpPower*0.92;
-    cat.jumps--;
-    charSquashTarget=1.4;charSquashV=0.2;
-    sfxDouble();
-    buzz(30);
-    for(let i=0;i<8;i++){
-      particles.push({x:cat.x+16,y:cat.y+16,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,life:1,color:"#f1c40f"});
+        // Generate starting platform
+        platforms = [];
+        platforms.push({ x: canvas.width / 2 - 75, y: canvas.height - 80, width: 150, height: 20 });
+        
+        let genY = canvas.height - 200;
+        while (genY > -2000) {
+            generatePlatformRow(genY);
+            genY -= 120 + Math.random() * 40;
+        }
     }
-  }
-}
-function jumpRelease(){
-  if(cat&&cat.vy<0)cat.vy*=0.55;
-}
-function tryDive(){
-  if(!hasScuba())return;
-  diving=!diving;
-  if(diving){
-    sfxDive();
-    totalDives++;statDives++;saveStats();
-    if(totalDives>=10)unlockAchievement("dive_10");
-    toast("🤿 Scuba dive active!");
-  }else{
-    sfxBubble();
-  }
-}
 
-function update(dt){
-  if(state!=="PLAYING"||paused)return;
-  time+=dt;
-
-  if(waterDelay>0){
-    waterDelay--;
-  }else{
-    const ramp=difficultyRamp();
-    water.speed=(1.15+Math.min(2.8,score*0.0018))*currentDiff.waterMul*ramp;
-    water.y-=water.speed;
-  }
-
-  // Weather evolution
-  weather.gustTimer-=dt;
-  if(weather.gustTimer<=0){
-    weather.gust=(Math.random()-0.5)*4*(currentDiff.weatherMul||1);
-    weather.gustTimer=4+Math.random()*6;
-  }
-  weather.flashCooldown-=dt;
-  if(weather.flashCooldown<=0&&Math.random()<0.004){
-    lightningFlash=0.8;
-    weather.flashCooldown=12+Math.random()*20;
-    try{sfxThunder()}catch(e){}
-    shakeAmount=12;
-  }
-  if(lightningFlash>0)lightningFlash-=dt*2.5;
-
-  // Squish & stretch spring physics
-  charSquash+=(charSquashTarget-charSquash)*0.25;
-  charSquashTarget+=(1-charSquashTarget)*0.15;
-
-  // Horizontal movement
-  let moveDir=0;
-  if(keys.left)moveDir=-1;
-  if(keys.right)moveDir=1;
-  cat.vx=moveDir*cat.speed+weather.gust*0.5;
-  if(moveDir!==0)cat.facing=moveDir;
-  cat.x+=cat.vx;
-
-  if(cat.x<0)cat.x=0;
-  if(cat.x>canvas.width-cat.w)cat.x=canvas.width-cat.w;
-
-  // Underwater mechanics
-  const isSubmerged=cat.y+cat.h/2>water.y;
-  setUnderwaterAudio(isSubmerged);
-  if(isSubmerged&&hasScuba()){
-    diving=true;
-    const oxygenDrain=(0.18/(1+getUpgradeLevel("oxygen")*0.35));
-    oxygen=Math.max(0,oxygen-oxygenDrain);
-    if(oxygen<=0){
-      triggerDeath("Drowned underwater!");
-      return;
+    function generatePlatformRow(y) {
+        const width = 100 + Math.random() * 60;
+        const x = Math.random() * (canvas.width - width);
+        platforms.push({ x, y, width, height: 18 });
     }
-  }else{
-    oxygen=Math.min(maxOxygen,oxygen+0.35);
-  }
-  if(oxygenBar)oxygenBar.style.display=(hasScuba()&&isSubmerged)?"block":"none";
-  if(oxygenFill)oxygenFill.style.width=(oxygen/maxOxygen*100)+"%";
 
-  // Vertical movement & gravity
-  const gravity=diving?0.25:0.58;
-  cat.vy+=gravity;
-  cat.y+=cat.vy;
-
-  if(coyoteTimer>0)coyoteTimer--;
-
-  // Platform collisions
-  cat.grounded=false;
-  platforms.forEach(p=>{
-    if(cat.vy>0&&
-       cat.x+cat.w-4>p.x&&
-       cat.x+4<p.x+p.w&&
-       cat.y+cat.h>=p.y&&
-       cat.y+cat.h-cat.vy<=p.y+8){
-      cat.y=p.y-cat.h;
-      cat.vy=0;
-      cat.grounded=true;
-      cat.jumps=2;
-      coyoteTimer=6;
+    function showStartScreen() {
+        document.getElementById('gameover-screen').classList.add('hidden');
+        document.getElementById('start-screen').classList.remove('hidden');
+        document.getElementById('hud').style.display = 'none';
+        gameState = 'START';
     }
-  });
 
-  // Camera scroll following cat upwards
-  const targetCamY=cat.y-canvas.height*0.45;
-  cameraY+=(targetCamY-cameraY)*0.12;
-
-  score=Math.max(score,Math.floor((canvas.height-140-cat.y)/10));
-  statDistance=Math.max(statDistance,score);
-  saveStats();
-  if(score>highestScore){
-    highestScore=score;
-    if(highScoreUI)highScoreUI.innerText=highestScore;
-  }
-  if(scoreEl)scoreEl.innerText=score+"m";
-  if(levelEl)levelEl.innerText=level;
-
-  // Generate upper world as player climbs
-  const topPlatform=platforms[platforms.length-1];
-  if(!topPlatform||topPlatform.y>cameraY-100){
-    spawnPlatformRow(topPlatform?topPlatform.y-110:cameraY-100);
-  }
-
-  // Collectibles collection
-  const magRange=35+getUpgradeLevel("magnet")*25;
-  collectibles.forEach(c=>{
-    if(c.collected)return;
-    const dx=(cat.x+cat.w/2)-(c.x+c.w/2);
-    const dy=(cat.y+cat.h/2)-(c.y+c.h/2);
-    const dist=Math.hypot(dx,dy);
-    if(dist<magRange){
-      c.collected=true;
-      if(c.type==="fish"){
-        const coinGain=1+getUpgradeLevel("coinBoost");
-        coins+=coinGain;statCoins+=coinGain;totalFish++;statFish++;saveStats();
-        refreshCoinUI();sfxCollect();
-        if(totalFish>=50)unlockAchievement("collect_50");
-        if(totalFish>=100)unlockAchievement("collect_100");
-        if(coins>=2000)unlockAchievement("spend_2000");
-        popups.push({x:c.x,y:c.y,text:"+"+coinGain+"🪙",color:"#f1c40f",life:1});
-      }else if(c.type==="jetpack"){
-        jetpackTimer=350;sfxPower();statPowerups++;saveStats();unlockAchievement("use_jetpack");
-        toast("🚀 Jetpack activated!");
-      }else if(c.type==="cape"){
-        capeTimer=400;sfxPower();statPowerups++;saveStats();unlockAchievement("use_cape");
-        toast("🦸 Super Cape activated!");
-      }else if(c.type==="armor"){
-        armorTimer=500;sfxPower();statPowerups++;saveStats();unlockAchievement("use_armor");
-        toast("🛡️ Iron Claws activated!");
-      }else if(c.type==="timestop"){
-        ampTimer=300;sfxPower();statPowerups++;saveStats();
-        toast("❄️ Time Stop activated!");
-      }else if(c.type==="shield"){
-        shieldActive=true;sfxPower();
-        toast("🛡️ Start Shield active!");
-      }
+    function gameOver() {
+        gameState = 'GAMEOVER';
+        document.getElementById('hud').style.display = 'none';
+        document.getElementById('final-height').innerText = Math.floor(scoreHeight);
+        document.getElementById('final-level').innerText = currentLevel;
+        document.getElementById('gameover-screen').classList.remove('hidden');
     }
-  });
 
-  // Check water flood death
-  if(cat.y+cat.h>=water.y){
-    if(shieldActive){
-      shieldActive=false;
-      cat.vy=-14;
-      sfxImpact();
-      toast("🛡️ Shield absorbed flood!");
-    }else{
-      triggerDeath("Washed away by the flood!");
-      return;
+    // Main Update Loop
+    function update() {
+        if (gameState !== 'PLAYING') return;
+
+        const diffSettings = difficulties[difficulty];
+
+        // Level & Height Progression
+        scoreHeight = Math.max(scoreHeight, Math.floor((canvas.height - player.y - 150) / 10));
+        currentLevel = Math.floor(scoreHeight / 50) + 1;
+
+        // Dynamic Aggressive Water Rise Scaling based on Level & Difficulty
+        let levelMultiplier = 1 + (currentLevel * diffSettings.scaling);
+        water.currentSpeed = water.baseSpeed * levelMultiplier;
+
+        // Periodic Surges for added intensity on harder levels
+        water.waveTimer += 0.02;
+        let surge = Math.sin(water.waveTimer) * (currentLevel * 0.4);
+        water.y -= (water.currentSpeed + Math.max(0, surge));
+
+        // Player Horizontal Movement
+        if (keys.left) player.vx = -player.speed;
+        else if (keys.right) player.vx = player.speed;
+        else player.vx *= 0.8;
+
+        player.x += player.vx;
+
+        // Screen Boundaries
+        if (player.x < 0) player.x = 0;
+        if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+        // Gravity & Vertical Physics
+        player.vy += diffSettings.gravity;
+        player.y += player.vy;
+
+        // Camera Follows Player upwards smoothly
+        let targetCameraY = player.y - canvas.height / 2.5;
+        cameraY += (targetCameraY - cameraY) * 0.1;
+
+        // Platform Collisions
+        player.grounded = false;
+        if (player.vy > 0) {
+            for (let p of platforms) {
+                if (
+                    player.x + player.width > p.x &&
+                    player.x < p.x + p.width &&
+                    player.y + player.height >= p.y &&
+                    player.y + player.height - player.vy <= p.y + 8
+                ) {
+                    player.y = p.y - player.height;
+                    player.vy = 0;
+                    player.grounded = true;
+                }
+            }
+        }
+
+        // Procedural generation above
+        let highestPlatformY = platforms.reduce((min, p) => p.y < min ? p.y : min, canvas.height);
+        if (highestPlatformY > cameraY - 400) {
+            generatePlatformRow(highestPlatformY - (120 + Math.random() * 40));
+        }
+
+        // Cleanup off-screen platforms below
+        platforms = platforms.filter(p => p.y < cameraY + canvas.height + 200);
+
+        // Check Death Condition (Water catches player)
+        if (player.y + player.height >= water.y) {
+            gameOver();
+        }
+
+        // Update HUD Values
+        document.getElementById('hud-height').innerText = Math.floor(scoreHeight);
+        document.getElementById('hud-level').innerText = currentLevel;
+        document.getElementById('hud-water-speed').innerText = water.currentSpeed.toFixed(1);
     }
-  }
 
-  // Danger warning overlay when water is close below
-  const distToWater=water.y-(cat.y+cat.h);
-  const warnEl=$("dangerWarn");
-  if(warnEl){
-    if(distToWater<160&&distToWater>0){
-      warnEl.style.opacity=(1-distToWater/160)*0.75;
-    }else{
-      warnEl.style.opacity="0";
+    // Render Graphics Loop
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(0, -cameraY);
+
+        // Draw Platforms
+        for (let p of platforms) {
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(p.x, p.y, p.width, p.height);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(p.x, p.y, p.width, 4); // Platform accent line
+        }
+
+        // Draw Player Character
+        ctx.fillStyle = '#f43f5e';
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+        
+        // Player Eyes
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(player.x + (player.vx >= 0 ? 18 : 6), player.y + 8, 6, 6);
+
+        ctx.restore();
+
+        // Draw Rising Water Overlay
+        let renderWaterY = water.y - cameraY;
+        
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.85)';
+        ctx.fillRect(0, renderWaterY, canvas.width, canvas.height * 2);
+
+        // Water Surface Wave Effect
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.moveTo(0, renderWaterY);
+        for (let i = 0; i < canvas.width; i += 20) {
+            let waveHeight = Math.sin(Date.now() * 0.005 + i * 0.05) * 6;
+            ctx.lineTo(i, renderWaterY + waveHeight);
+        }
+        ctx.lineTo(canvas.width, renderWaterY);
+        ctx.lineTo(canvas.width, renderWaterY + 20);
+        ctx.lineTo(0, renderWaterY + 20);
+        ctx.fill();
     }
-  }
 
-  // Cleanup old platforms & collectibles below screen
-  if(platforms.length>40)platforms.shift();
-  if(collectibles.length>40)collectibles.shift();
-
-  tickAwards();
-}
-
-function triggerDeath(reason){
-  state="OVER";
-  stopMusic();stopWaves();killRain();try{setLaserHum(false)}catch(e){}
-  sfxMeow();
-  statRuns++;saveStats();
-  const earnedCoins=Math.floor(score/8);
-  coins+=earnedCoins;statCoins+=earnedCoins;saveStats();
-  refreshCoinUI();
-  submitScore(score);
-
-  const fs=$("finalScore");if(fs)fs.innerText=score+"m";
-  const ec=$("earnedCoins");if(ec)ec.innerText=earnedCoins;
-  const ll=$("livesLeft");if(ll)ll.innerText=lives;
-  const bs=$("bestStreakUI");if(bs)bs.innerText=bestStreakRun;
-  const cb=$("continueBtn");if(cb)cb.style.display=lives>1?"block":"none";
-
-  reaperCollect(()=>{
-    if(gameOverScreen)gameOverScreen.classList.remove("hidden");
-    if(ui)ui.classList.add("hidden");
-    if(controls)controls.classList.add("hidden");
-    if(skinBar)skinBar.classList.add("hidden");
-    if(weatherLabel)weatherLabel.classList.add("hidden");
-    if($("hudBtns"))$("hudBtns").classList.add("hidden");
-    if(oxygenBar)oxygenBar.style.display="none";
-    if(score>=300)confettiBurst();
-  });
-}
-
-function drawCat(c){
-  ctx.save();
-  ctx.translate(c.x+c.w/2,c.y+c.h/2);
-  ctx.scale(c.facing,charSquash);
-
-  const skin=c.skin||ALL_SKINS[0];
-  ctx.fillStyle=skin.body;
-  ctx.strokeStyle=skin.dark;
-  ctx.lineWidth=2;
-
-  // Body
-  ctx.beginPath();
-  ctx.roundRect(-14,-14,28,26,[12]);
-  ctx.fill();ctx.stroke();
-
-  // Ears
-  ctx.beginPath();
-  ctx.moveTo(-12,-12);ctx.lineTo(-16,-24);ctx.lineTo(-6,-14);
-  ctx.moveTo(6,-14);ctx.lineTo(16,-24);ctx.lineTo(12,-12);
-  ctx.fillStyle=skin.dark;
-  ctx.fill();ctx.stroke();
-
-  // Eyes
-  ctx.fillStyle="#fff";
-  ctx.fillRect(-8,-6,5,6);
-  ctx.fillRect(3,-6,5,6);
-  ctx.fillStyle="#111";
-  ctx.fillRect(-6,-4,2,3);
-  ctx.fillRect(5,-4,2,3);
-
-  // Whiskers / nose
-  ctx.fillStyle="#111";
-  ctx.fillRect(-1,-1,2,2);
-
-  ctx.restore();
-}
-
-function drawWorld(){
-  // Sky gradient background
-  const grad=ctx.createLinearGradient(0,0,0,canvas.height);
-  grad.addColorStop(0,currentTheme.bgTop);
-  grad.addColorStop(1,currentTheme.bgBot);
-  ctx.fillStyle=grad;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  ctx.save();
-  ctx.translate(0,-cameraY);
-
-  // Platforms
-  platforms.forEach(p=>{
-    ctx.fillStyle=currentTheme.building;
-    ctx.fillRect(p.x,p.y,p.w,p.h);
-    ctx.strokeStyle=currentTheme.accent;
-    ctx.lineWidth=2;
-    ctx.strokeRect(p.x,p.y,p.w,p.h);
-
-    // Lit windows
-    const cols=Math.floor(p.w/24);
-    for(let i=0;i<cols;i++){
-      const wx=p.x+8+i*22;
-      const wy=p.y+4;
-      const wId=p.windowId+"_"+i;
-      const variant=windowSignature(wId);
-      ctx.fillStyle=(variant===1)?"#f1c40f":(variant===2)?"#5dade2":(variant===3)?"#e74c3c":"#2ecc71";
-      ctx.fillRect(wx,wy,10,12);
+    // Engine Tick Loop
+    function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
     }
-  });
 
-  // Collectibles
-  collectibles.forEach(c=>{
-    if(c.collected)return;
-    if(c.type==="fish"){
-      ctx.font="18px sans-serif";
-      ctx.fillText("🐟",c.x,c.y+18);
-    }else if(c.type==="jetpack"){
-      ctx.font="18px sans-serif";
-      ctx.fillText("🚀",c.x,c.y+18);
-    }else if(c.type==="cape"){
-      ctx.font="18px sans-serif";
-      ctx.fillText("🦸",c.x,c.y+18);
-    }else if(c.type==="armor"){
-      ctx.font="18px sans-serif";
-      ctx.fillText("🛡️",c.x,c.y+18);
-    }else if(c.type==="timestop"){
-      ctx.font="18px sans-serif";
-      ctx.fillText("❄️",c.x,c.y+18);
-    }else if(c.type==="shield"){
-      ctx.font="18px sans-serif";
-      ctx.fillText("🛡️",c.x,c.y+18);
-    }
-  });
-
-  // Sharks / hazards
-  sharks.forEach(s=>{
-    s.x+=s.vx;
-    if(Math.abs(s.x-s.baseY)>s.range)s.vx*=-1;
-    ctx.font="20px sans-serif";
-    ctx.fillText("🦈",s.x,s.y);
-  });
-
-  if(cat)drawCat(cat);
-
-  ctx.restore();
-
-  // Water level fill
-  ctx.fillStyle=currentTheme.water;
-  ctx.fillRect(0,water.y-cameraY,canvas.width,canvas.height*2);
-  ctx.fillStyle=currentTheme.waterMid;
-  ctx.fillRect(0,water.y-cameraY,canvas.width,12);
-
-  // Lightning flash overlay
-  if(lightningFlash>0){
-    ctx.fillStyle="rgba(255,255,255,"+lightningFlash+")";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-  }
-}
-
-function loop(){
-  loopId++;
-  const curLoop=loopId;
-  let lastTime=performance.now();
-
-  function frame(now){
-    if(curLoop!==loopId)return;
-    const dt=Math.min(0.1,(now-lastTime)/1000);
-    lastTime=now;
-
-    update(dt);
-    drawWorld();
-
-    if(state==="PLAYING"){
-      requestAnimationFrame(frame);
-    }
-  }
-  requestAnimationFrame(frame);
-}
-
-// Initial setup on load
-refreshCoinUI();
-updateSkinBar();
-renderLevels();
-renderStore();
-renderSkins();
-grantDailyBonus();
-
-})();
+    loop();
 </script>
 </body>
 </html>
