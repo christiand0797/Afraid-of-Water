@@ -427,11 +427,11 @@ function applyVolumes(){
 }
 let musicTimer=null;
 const DIFFS={
-  baby:{name:"BABY",waterMul:1.40,hazardMul:0.25,npcForce:6,npcVy:-2,weatherMul:0.5,desc:"Very easy · super slow water — for tiny climbers"},
-  easy:{name:"EASY",waterMul:2.40,hazardMul:0.60,npcForce:11,npcVy:-5,weatherMul:0.75,desc:"Easy · slow water · soft hazards"},
-  normal:{name:"NORMAL",waterMul:4.0,hazardMul:1.0,npcForce:16,npcVy:-9,weatherMul:1.0,desc:"Balanced · steady water · fair hazards"},
-  hard:{name:"HARD",waterMul:6.60,hazardMul:1.5,npcForce:21,npcVy:-13,weatherMul:1.3,desc:"Hard · fast water · meaner NPCs"},
-  insane:{name:"INSANE",waterMul:10.0,hazardMul:2.0,npcForce:28,npcVy:-17,weatherMul:1.6,desc:"Insane · brutal flood · relentless hazards"}
+  baby:{name:"BABY",waterMul:2.0,hazardMul:0.25,npcForce:6,npcVy:-2,weatherMul:0.5,desc:"Very easy · super slow water — for tiny climbers"},
+  easy:{name:"EASY",waterMul:5.0,hazardMul:0.60,npcForce:11,npcVy:-5,weatherMul:0.75,desc:"Easy · slow water · soft hazards"},
+  normal:{name:"NORMAL",waterMul:10.0,hazardMul:1.0,npcForce:16,npcVy:-9,weatherMul:1.0,desc:"Balanced · steady water · fair hazards"},
+  hard:{name:"HARD",waterMul:16.0,hazardMul:1.5,npcForce:21,npcVy:-13,weatherMul:1.3,desc:"Hard · fast water · meaner NPCs"},
+  insane:{name:"INSANE",waterMul:24.0,hazardMul:2.0,npcForce:28,npcVy:-17,weatherMul:1.6,desc:"Insane · brutal flood · relentless hazards"}
 };
 let difficulty=safeStorage.get("aow_diff")||"normal";
 if(!DIFFS[difficulty])difficulty="normal";
