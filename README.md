@@ -75,6 +75,10 @@ regression fails fast with a clear message instead of hanging.
 
 ## Changelog
 
+### 1.8.1
+- 🔖 Version bumped to 1.8.1 (footer + `GAME_VERSION`) to mesh with the
+  volume-control feature set shipped in 1.8.0.
+
 ### 1.8.0
 - 🔊 Added in-game MASTER / SFX / MUSIC volume sliders to the PAUSE screen,
   wired live to the audio graph and persisted to localStorage.

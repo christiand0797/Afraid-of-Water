@@ -387,7 +387,7 @@ const ALL_SKINS=[
 ];
 let leaderboard=(()=>{try{const v=JSON.parse(localStorage.getItem("aow_lb")||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}})();
 let playerName=safeStorage.get("aow_name")||"Anonymous";
-const VERSION="1.8.0";
+const VERSION="1.8.1";
 
 const UPGRADES=[
   {id:"maxLives",name:"Max Lives",emoji:"❤️",desc:"+1 max life",max:5,prices:[100,200,400,800,1200]},
@@ -443,7 +443,7 @@ function difficultyRamp(){
 }
 
 // Game version — shown in footer + could gate future migrations
-const GAME_VERSION="1.7.1";
+const GAME_VERSION="1.8.1";
 
 // Achievements system (trophies that persist locally)
 const ACHIEVEMENTS=[
@@ -706,7 +706,7 @@ function buzz(pattern){if(!hapticsOn)return;try{if(navigator.vibrate)navigator.v
 // Jump SFX — pure bounce tones (NO meow). Meows only play when the cat falls / dies.
 function sfxJump(){playTone(420,"sine",0.05,0.2);setTimeout(()=>playTone(640,"triangle",0.07,0.14),22)}
 function sfxDouble(){playTone(560,"triangle",0.04,0.14);setTimeout(()=>playTone(820,"sine",0.09,0.11),28)}
-function sfxCollect(){if(playBuf("coin",0.5))return;playTone(1400,"sine",0.04,0.14);setTimeout(()=>playTone(2100,"triangle",0.08,0.11),40)}
+function sfxCollect(){if(playBuf("coin",0.26))return;playTone(1400,"sine",0.04,0.10);setTimeout(()=>playTone(2100,"triangle",0.08,0.08),40)}
 function sfxImpact(){playTone(90,"triangle",0.12,0.14);playTone(55,"sine",0.15,0.08)}
 function sfxLaserArm(){playTone(1200,"sine",0.04,0.06);playTone(1800,"sine",0.08,0.05)}
 function sfxLaserOff(){playTone(600,"sine",0.05,0.04)}
@@ -948,7 +948,7 @@ function reaperCollect(done){
     setTimeout(()=>{if(done)done()},320);
   },1950);
 }
-function sfxBuy(){if(playBuf("coin",0.6))return;playTone(800,"sine",0.08,0.2);setTimeout(()=>playTone(1200,"sine",0.12,0.15),50)}
+function sfxBuy(){if(playBuf("coin",0.3))return;playTone(800,"sine",0.08,0.12);setTimeout(()=>playTone(1200,"sine",0.12,0.09),50)}
 function sfxDive(){playTone(200,"sine",0.15,0.2);setTimeout(()=>playTone(120,"sine",0.2,0.15),80)}
 function sfxBubble(){playTone(400+Math.random()*200,"sine",0.05,0.08)}
 
@@ -1674,7 +1674,9 @@ cameraX=0;cameraY=0;lightningFlash=0;shakeAmount=0;
       grounded:false,dir:1,jumps:0,maxJumps:2,
       body:skin.body||skin.color||"#e07a2f",dark:skin.dark||"#c45f1a",style:skin.style||"cat"
     };
-    water={worldY:(canvas.height||640)-48,baseSpeed:0.88*(currentDiff.waterMul||1)};
+    // Initial flood line — starts low so a fresh run is gently paced,
+    // then ramps with score via the per-level baseSpeed formula below.
+    water={worldY:(canvas.height||640)-48,baseSpeed:1.28*(currentDiff.waterMul||1)};
     platforms=[];sharks=[];tentacles=[];debris=[];rain=[];particles=[];collectibles=[];fog=[];popups=[];seaCreatures=[];
     birds=[];windowNPCs=[];fallingBricks=[];hangingSigns=[];pigeons=[];steamVents=[];acBlows=[];securityLasers=[];satDishes=[];chimneys=[];attackDogs=[];laserTurrets=[];jetpackTimer=0;capeTimer=0;armorTimer=0;
     drifts=[];floaters=[];craneHooks=[];newspaperSwarm=[];
@@ -1885,7 +1887,7 @@ function gameLoopFrame(){
   const newLevel=Math.min(6, Math.floor(score/280)+1);
   if(newLevel>level){
     level=newLevel;levelEl.innerText=level;
-    water.baseSpeed=(0.88+level*0.22)*(currentDiff.waterMul||1);
+    water.baseSpeed=(1.28+level*0.26)*(currentDiff.waterMul||1);
     if(level===5)cat.maxJumps=3;
     // Theme banner already fired by syncClimbTheme on zone change
   }

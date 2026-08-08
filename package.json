@@ -1,17 +1,2 @@
-{
-  "name": "afraid-of-water",
-  "version": "1.8.0",
-  "description": "Afraid of Water — climb, don't get wet. HTML5 canvas game with a global leaderboard.",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "test": "node _debug.js"
-  },
-  "dependencies": {
-    "express": "^4.19.2"
-  },
-  "engines": {
-    "node": ">=18"
-  }
-}
+{"name":"afraid-of-water","version":"1.8.1","description":"Afraid of Water — climb, don't get wet. HTML5 canvas game with a global leaderboard.","main":"server.js","scripts":{"start":"node server.js","test":"node _debug.js"},"dependencies":{"express":"^4.19.2"},"engines":{"node":">=18"}}
 
