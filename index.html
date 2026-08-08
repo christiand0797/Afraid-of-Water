@@ -783,15 +783,12 @@ function playNoise(dur,type,freq,q,vol,sweepTo){
 // Each SFX tries to play a real audio buffer first; if a file isn't loaded
 // (offline / slow / decode error) it gracefully falls back to the Web Audio synth.
 const SOUNDS={
-  meow1:["assets/sounds/meow1.ogg"],
-  meow2:["assets/sounds/meow2.ogg"],
   thunder:["assets/sounds/thunder.ogg"],
   rain:["assets/sounds/rain.ogg"],
   coin:["assets/sounds/coin.ogg"]
 };
 // Large files deferred
 const SOUNDS_DEFER={
-  meow3:["assets/sounds/meow3.ogg"],
   splash:["assets/sounds/splash.ogg"],
   music:["assets/sounds/music.ogg"]
 };
@@ -907,10 +904,6 @@ function killRain(){
   try{if(rainSrc){rainSrc.stop();rainSrc=null}}catch(e){rainSrc=null}
   rainUsingReal=false;
 }
-// Each SFX tries a real bundled sound first, then falls back to the cheap synth.
-// pickMeow() rotates through the real cat meows that are bundled. Only meow3.ogg
-// ships right now, so all three slots point at it to guarantee a real meow on jumps.
-function pickMeow(){const ms=["meow1","meow2","meow3"];const avail=ms.filter(k=>soundBufs[k]);return (avail.length?avail:ms)[Math.floor(Math.random()*(avail.length||ms.length))]}
 // Water splash — a short filtered noise "plish" with a quick downward sweep.
 // Subtle so it never reintroduces the old static/glitch. Uses the real splash.ogg
 // buffer when loaded, otherwise falls back to a quiet synth noise burst.
@@ -920,13 +913,7 @@ function sfxSplash(){
   playNoise(0.22,"bandpass",900,1.2,0.22,180);
 }
 function sfxThunder(){if(playBuf("thunder",0.75))return;playTone(52,"triangle",1.2,0.14);setTimeout(()=>playTone(40,"sine",1.5,0.1),80)}
-// Meow ONLY when the cat falls / is washed away
-function sfxMeow(){if(playBuf(pickMeow(),0.65))return;playSlide(540,880,0.08,0.17);setTimeout(()=>playSlide(880,500,0.14,0.16),80)}
-function sfxYowl(){if(playBuf(pickMeow(),0.75))return;playSlide(720,480,0.22,0.2);setTimeout(()=>playSlide(500,130,0.16,0.14),110)}
-// Happy meow — a bright, quick meow. Used for win/collect celebratory moments.
-// Tries a bundled real meow first, else a short rising-falling chirp.
-function sfxMeowHappy(){if(playBuf(pickMeow(),0.6))return;playSlide(620,980,0.07,0.15);setTimeout(()=>playSlide(980,760,0.09,0.13),70)}
-function sfxFall(){sfxYowl()}
+function sfxFall(){ /* no-op — meow removed */ }
 function sfxLand(){sfxImpact()}
 // Ocean swell — smooth brown-noise bed (no white-noise loop = no glitch/static).
 // Brown noise is filtered low & slow (low rumble) then gently pushed by an LFO
@@ -2362,7 +2349,7 @@ if(c.kind==="jetpack"){
       }
 if(c.kind==="gold"){
         const bonus=15*coinMul;
-coins+=bonus;sfxCollect();try{sfxMeowHappy()}catch(e){}createParticles(c.worldX,c.worldY,"#f1c40f",16,9);refreshCoinUI();buzz(20);
+coins+=bonus;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",16,9);refreshCoinUI();buzz(20);
         totalFish++;safeStorage.set("aow_fish",totalFish);statFish++;if(totalFish>=50)unlockAchievement("collect_50");
         riseText(c.worldX+c.w/2,c.worldY,"GOLD +"+bonus,"#f1c40f");
         comboBanner=70;comboBannerText="🪙 GOLD FISH!";comboBannerColor="#f1c40f";
@@ -2392,7 +2379,7 @@ coins+=bonus;sfxCollect();try{sfxMeowHappy()}catch(e){}createParticles(c.worldX,
       comboMult=Math.min(1+Math.floor(streak/4),8);
       if(comboMult>prevMult&&comboMult>=2){comboBanner=80;comboBannerText="COMBO x"+comboMult;comboBannerColor="#f1c40f";buzz(18);createParticles(c.worldX,c.worldY,"#f1c40f",18,9);}
 score+=340*comboMult;if(score>highestScore)highestScore=score;
-      coins+=(3+comboMult)*coinMul;sfxCollect();if(comboMult>=2)try{sfxMeowHappy()}catch(e){}createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
+coins+=(3+comboMult)*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
       totalFish++;safeStorage.set("aow_fish",totalFish);if(totalFish>=50)unlockAchievement("collect_50");
       riseText(c.worldX+c.w/2,c.worldY,"+"+Math.round(340*comboMult));
       if(comboMult>1)riseText(c.worldX+c.w/2+14,c.worldY+14,"x"+comboMult,"#e67e22");
@@ -2544,9 +2531,8 @@ function loseLife(){
     invulnTimer=45;
     return;
   }
-  state="OVER";
+state="OVER";
   resetKeys();
-  sfxFall(); // cat meow only when washed away / falling
   shakeAmount=20;
   buzz([30,40,60]);
   try{stopWaves()}catch(e){}
