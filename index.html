@@ -913,6 +913,15 @@ function sfxSplash(){
   // short band-passed noise plish, pitched down quickly
   playNoise(0.22,"bandpass",900,1.2,0.22,180);
 }
+// Subtle "happy meow" — a soft rising two-note purr via the pure Web Audio
+// synth (no bundled cat samples, which were removed for being glitchy). Played
+// on high-value pickups without drowning out the rest of the mix.
+function sfxMeowHappy(){
+  if(!soundOn||!audioCtx)return;
+  playTone(520,"sine",0.06,0.10);
+  setTimeout(()=>playTone(660,"sine",0.07,0.09),55);
+  setTimeout(()=>playTone(880,"sine",0.10,0.07),115);
+}
 function sfxThunder(){if(playBuf("thunder",0.75))return;playTone(52,"triangle",1.2,0.14);setTimeout(()=>playTone(40,"sine",1.5,0.1),80)}
 function sfxFall(){ /* no-op — meow removed */ }
 function sfxLand(){sfxImpact()}
@@ -2355,7 +2364,7 @@ if(c.kind==="jetpack"){
       }
 if(c.kind==="gold"){
         const bonus=15*coinMul;
-coins+=bonus;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",16,9);refreshCoinUI();buzz(20);
+coins+=bonus;sfxCollect();try{sfxMeowHappy()}catch(e){}createParticles(c.worldX,c.worldY,"#f1c40f",16,9);refreshCoinUI();buzz(20);
         totalFish++;safeStorage.set("aow_fish",totalFish);statFish++;if(totalFish>=50)unlockAchievement("collect_50");
         riseText(c.worldX+c.w/2,c.worldY,"GOLD +"+bonus,"#f1c40f");
         comboBanner=70;comboBannerText="🪙 GOLD FISH!";comboBannerColor="#f1c40f";
