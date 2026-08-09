@@ -592,7 +592,8 @@ function applyOwnedUpgrades(){
     cat.speed=7.0*(1+getUpgradeLevel("speed")*0.1);
     cat.jumpPower=(cat.jumpPower||12)*(1); // base applied at spawn
   }
-  save();
+  // NOTE: do NOT call save() here — save() already calls applyOwnedUpgrades(),
+  // so calling save() here caused infinite recursion (stack overflow).
 }
 
 // Ad system: uses native AdMobBridge when available (Capacitor/Android),
@@ -2055,8 +2056,13 @@ score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
       const p=platforms[i];
       if(p.broken)continue;
       p.worldX+=p.vx||0;
-      const bLeft=p.buildingIdx*460+40;
-      if(p.worldX<bLeft+8||p.worldX+p.w>bLeft+390)p.vx=-(p.vx||0);
+      // Mirror the building geometry used in generation + drawing.
+      // Generation/draw place building `bo` at bx=bo*540+90 with width 360,
+      // so the moving-platform walls must match (previously used a stale
+      // buildingIdx*460+40 formula → platforms jittered through buildings).
+      const bLeft=p.buildingIdx*540+90;
+      const bW=360;
+      if(p.worldX<bLeft+8||p.worldX+p.w>bLeft+bW-8)p.vx=-(p.vx||0);
       if(cat.vy>0&&cat.worldY+cat.h>=p.worldY&&cat.worldY+cat.h<=p.worldY+p.h+Math.abs(cat.vy)+2&&cat.worldX+cat.w>p.worldX&&cat.worldX<p.worldX+p.w){
         cat.grounded=true;cat.vy=0;cat.worldY=p.worldY-cat.h;cat.worldX+=(p.vx||0)*0.85;cat.jumps=0;
         if(!wasG){

@@ -1,4 +1,7 @@
 AfraidOfWater_Website.zip
+Afraid-of-Water-main.zip
 node_modules/
 data/leaderboard.json
 *.log
+_audit*.ps1
+_search*.ps1

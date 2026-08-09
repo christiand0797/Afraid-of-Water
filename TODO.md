@@ -1,16 +1,20 @@
-# TODO — Finish & Ship v1.8.2
+# TODO — Bug sweep & polish sweep
 
 ## Objective
-Complete the remaining release steps for v1.8.2 (version bump sync, changelog,
-sound_todo.md) and push to GitHub on `main`.
+Fix all identified bugs in the shipped game (`index.html`), keep the backend
+clean, and sync metadata.
 
-## Steps
-- [x] Bump `package.json` version 1.8.1 → 1.8.2
-- [x] Add 1.8.2 section to `README.md` changelog
-- [x] Create `sound_todo.md` (completed sound polish checklist)
-- [x] Run `npm test` to verify no JS errors
-- [x] Commit and push to GitHub on `main`
+## Bugs found & fixed
+- [x] **Infinite recursion**: `save()` → `applyOwnedUpgrades()` → `save()` (stack
+      overflow on every save). Fix: stop `applyOwnedUpgrades()` from re-entering
+      `save()`.
+- [x] **Platform bounce-wall mismatch**: generator uses `bo*540+90` (BSPAN 540),
+      collision uses `buildingIdx*460+40`. Fix collision to match the real wall.
+- [x] **Stale `package-lock.json`**: root version `1.6.1` vs `1.8.2`. Re-sync.
 
-## Result
-Committed `8e67368` and pushed `9fc63b8..8e67368` to `origin/main` on GitHub
-(https://github.com/christiand0797/Afraid-of-Water).
+## Verification
+- [x] `npm test` passes (headless harness, no top-level error, no runaway loop).
+
+## Wrap-up
+- [x] Update comments/README if wording described the old recursion bug.
+
