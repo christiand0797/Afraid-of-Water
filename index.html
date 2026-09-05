@@ -1366,8 +1366,13 @@ THEMES.forEach(function(t){
 const unlocked=highestScore>=t.unlock;
 const card=document.createElement("div");
 card.className="card"+(selectedTheme===t.id?" selected":"");
+card.setAttribute("role", "button");
+card.setAttribute("aria-label", t.name + " level, " + (unlocked?(selectedTheme===t.id?"Selected":"Unlocked"):"Locked, unlocks at " + t.unlock + "m"));
+card.tabIndex = 0;
+card.style.opacity = unlocked ? "1" : "0.55";
+if(!unlocked) card.setAttribute("aria-disabled", "true");
 card.innerHTML=`<div style="font-size:26px">${t.emoji}</div><div>${t.name}</div><div class="price">${unlocked?(selectedTheme===t.id?"SELECTED":"TAP"):"🔒 "+t.unlock+"m"}</div>`;
-if(unlocked){const sel=function(e){e.preventDefault();selectedTheme=t.id;currentTheme=t;save();renderLevels()};card.addEventListener("touchend",sel);card.addEventListener("click",sel)}
+if(unlocked){const sel=function(e){e.preventDefault();selectedTheme=t.id;currentTheme=t;save();renderLevels()};card.addEventListener("touchend",sel);card.addEventListener("click",sel);card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){sel(e);}})}
 g.appendChild(card);
 });
 }
