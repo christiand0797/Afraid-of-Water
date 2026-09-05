@@ -120,7 +120,7 @@ body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
 <button class="hud-btn" id="muteBtn" title="Sound">🔊</button>
 <button class="hud-btn" id="pauseBtn" title="Pause">⏸️</button>
 </div>
-<div id="toast" class="hidden" style="position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(20,30,44,.95);border:2px solid #f1c40f;color:#fff;font-size:10px;padding:10px 16px;border-radius:10px;z-index:60;text-align:center;max-width:86%;box-shadow:0 4px 20px rgba(0,0,0,.6);pointer-events:none"></div>
+<div id="toast" class="hidden" role="status" aria-live="polite" style="position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(20,30,44,.95);border:2px solid #f1c40f;color:#fff;font-size:10px;padding:10px 16px;border-radius:10px;z-index:60;text-align:center;max-width:86%;box-shadow:0 4px 20px rgba(0,0,0,.6);pointer-events:none"></div>
 <div id="startScreen" class="screen">
 <div class="screen-scroll">
 <div class="main-title">AFRAID OF WATER</div>
@@ -1366,20 +1366,31 @@ THEMES.forEach(function(t){
 const unlocked=highestScore>=t.unlock;
 const card=document.createElement("div");
 card.className="card"+(selectedTheme===t.id?" selected":"");
+card.setAttribute("role", "button");
+card.setAttribute("aria-label", t.name + " level, " + (unlocked?(selectedTheme===t.id?"Selected":"Unlocked"):"Locked, unlocks at " + t.unlock + "m"));
+card.tabIndex = 0;
+card.style.opacity = unlocked ? "1" : "0.55";
+if(!unlocked) card.setAttribute("aria-disabled", "true");
 card.innerHTML=`<div style="font-size:26px">${t.emoji}</div><div>${t.name}</div><div class="price">${unlocked?(selectedTheme===t.id?"SELECTED":"TAP"):"🔒 "+t.unlock+"m"}</div>`;
-if(unlocked){const sel=function(e){e.preventDefault();selectedTheme=t.id;currentTheme=t;save();renderLevels()};card.addEventListener("touchend",sel);card.addEventListener("click",sel)}
+if(unlocked){const sel=function(e){e.preventDefault();selectedTheme=t.id;currentTheme=t;save();renderLevels()};card.addEventListener("touchend",sel);card.addEventListener("click",sel);card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){sel(e);}})}
 g.appendChild(card);
 });
 }
 function renderStore(){
 const g=$("storeGrid");g.innerHTML="";
 const lifeCard=document.createElement("div");lifeCard.className="card";
+lifeCard.setAttribute("role", "button");
+lifeCard.setAttribute("aria-label", "Refill Life, 150 coins");
+lifeCard.tabIndex = 0;
 lifeCard.innerHTML='<div style="font-size:22px">❤️</div><div>Refill Life</div><div class="price">🪙 150</div>';
 const buyLife=function(e){e.preventDefault();if(coins>=150&&lives<maxLives){coins-=150;lives++;save();updateLifeWarn();refreshCoinUI();sfxBuy();if(livesUI)livesUI.innerText=lives}};
-lifeCard.addEventListener("touchend",buyLife);lifeCard.addEventListener("click",buyLife);g.appendChild(lifeCard);
+lifeCard.addEventListener("touchend",buyLife);lifeCard.addEventListener("click",buyLife);lifeCard.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){buyLife(e);}});g.appendChild(lifeCard);
 UPGRADES.forEach(function(u){
 const lvl=getUpgradeLevel(u.id),maxed=lvl>=u.max,price=maxed?0:u.prices[Math.min(lvl,u.prices.length-1)];
 const card=document.createElement("div");card.className="card";
+card.setAttribute("role", "button");
+card.setAttribute("aria-label", u.name + " upgrade, " + (maxed?"Max level":("Cost " + price + " coins")));
+card.tabIndex = 0;
 card.innerHTML=`<div style="font-size:22px">${u.emoji}</div><div>${u.name}</div><div style="font-size:8px;color:#95a5a6">${u.desc}</div><div class="price">${maxed?"MAX":"Lv"+(lvl+1)+" 🪙 "+price}</div>`;
 if(!maxed){
 const buy=function(e){
@@ -1391,18 +1402,30 @@ save();refreshCoinUI();renderStore();sfxBuy();
 if(u.id==="scuba")btnDive.classList.remove("hidden");
 } else alert("Need "+price+" coins");
 };
-card.addEventListener("touchend",buy);card.addEventListener("click",buy);
+card.addEventListener("touchend",buy);card.addEventListener("click",buy);card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){buy(e);}});
 }
 g.appendChild(card);
 });
 }
 function skinIconHTML(s,sz){
-sz=sz||28;const b=s.body||"#e07a2f",d=s.dark||"#333";
+sz=sz||28;const b=s.body||"#e07a2f",d=s.dark||"#333",st=s.style||"cat";
+let ears="";
+if(st==="dog" || st==="fox"){
+  ears=`<div style="position:absolute;left:35%;top:10%;width:12%;height:22%;background:${d};border-radius:3px"></div><div style="position:absolute;left:70%;top:10%;width:12%;height:22%;background:${d};border-radius:3px"></div>`;
+}else if(st==="rabbit"){
+  ears=`<div style="position:absolute;left:42%;top:-10%;width:8%;height:24%;background:${d};border-radius:2px"></div><div style="position:absolute;left:64%;top:-10%;width:8%;height:24%;background:${d};border-radius:2px"></div>`;
+}else if(st==="bear"){
+  ears=`<div style="position:absolute;left:38%;top:5%;width:12%;height:12%;background:${d};border-radius:50%"></div><div style="position:absolute;left:64%;top:5%;width:12%;height:12%;background:${d};border-radius:50%"></div>`;
+}else if(st==="ninja"){
+  ears=`<div style="position:absolute;left:42%;top:4%;width:8%;height:8%;background:${d};border-radius:2px"></div><div style="position:absolute;left:64%;top:4%;width:8%;height:8%;background:${d};border-radius:2px"></div><div style="position:absolute;left:42%;top:15%;width:30%;height:10%;background:#f1c40f"></div>`;
+}else{
+  ears=`<div style="position:absolute;left:42%;top:1%;width:10%;height:12%;background:${d}"></div><div style="position:absolute;left:60%;top:1%;width:10%;height:12%;background:${d}"></div>`;
+}
+
 return `<div style="width:${sz}px;height:${sz}px;margin:0 auto 4px;position:relative">
 <div style="position:absolute;left:18%;top:30%;width:64%;height:40%;background:${b};border-radius:3px"></div>
 <div style="position:absolute;left:38%;top:8%;width:44%;height:28%;background:${b};border-radius:3px"></div>
-<div style="position:absolute;left:42%;top:1%;width:10%;height:12%;background:${d}"></div>
-<div style="position:absolute;left:60%;top:1%;width:10%;height:12%;background:${d}"></div>
+${ears}
 <div style="position:absolute;left:48%;top:16%;width:7%;height:7%;background:#111;border-radius:50%"></div>
 <div style="position:absolute;left:64%;top:16%;width:7%;height:7%;background:#111;border-radius:50%"></div>
 <div style="position:absolute;left:14%;top:70%;width:14%;height:16%;background:${d}"></div>
@@ -1415,10 +1438,13 @@ ALL_SKINS.forEach(function(s){
 const owned=unlockedSkins.includes(s.id);
 const card=document.createElement("div");
 card.className="card"+(currentSkinId===s.id?" selected":"");
+card.setAttribute("role", "button");
+card.setAttribute("aria-label", s.name + " character, " + (owned?(currentSkinId===s.id?"Selected":"Owned"):("Cost " + s.price + " coins")));
+card.tabIndex = 0;
 card.style.opacity=owned||s.price===0?"1":"0.55";
 card.innerHTML=skinIconHTML(s,32)+'<div style="font-size:8px">'+s.name+'</div><div class="price">'+(owned?(currentSkinId===s.id?"ON":"OWN"):("🪙 "+s.price))+'</div>';
 const act=function(e){e.preventDefault();if(owned){currentSkinId=s.id;save();renderSkins();updateSkinBar()}else if(coins>=s.price){coins-=s.price;unlockedSkins.push(s.id);currentSkinId=s.id;save();refreshCoinUI();renderSkins();updateSkinBar();sfxBuy()}else alert("Need "+s.price+" coins")};
-card.addEventListener("touchend",act);card.addEventListener("click",act);list.appendChild(card);
+card.addEventListener("touchend",act);card.addEventListener("click",act);card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){act(e);}});list.appendChild(card);
 });
 }
 function updateSkinBar(){
