@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Creepster&family=Press+Start+2P&display=swap" media="print" onload="this.media='all'">
 <style>
 *{box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+:focus-visible{outline:2px solid #f1c40f;outline-offset:2px}
 html,body{margin:0;padding:0;overflow:hidden;width:100%;height:100%;background:#010408;color:#fff;font-family:'Press Start 2P',system-ui,sans-serif;position:fixed;overscroll-behavior:none;-webkit-text-size-adjust:100%}
 canvas{display:block;width:100vw;height:100vh;position:absolute;top:0;left:0;z-index:1;touch-action:none}
 #ui{position:absolute;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;display:flex;justify-content:space-between;align-items:flex-start;font-size:10px;text-shadow:2px 2px 0 #000;pointer-events:none;z-index:10;line-height:1.5}
@@ -117,8 +118,8 @@ body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
 <div id="dangerWarn"></div>
 <div id="floodMeter" style="position:absolute;top:50%;left:6px;transform:translateY(-50%);width:5px;height:46%;background:rgba(20,30,44,.6);border:1px solid rgba(255,255,255,.15);border-radius:3px;z-index:11;pointer-events:none;overflow:hidden"><div id="floodFill" style="position:absolute;left:0;right:0;bottom:0;height:0%;background:linear-gradient(180deg,#f39c12,#e74c3c);transition:height .15s linear"></div></div>
 <div id="hudBtns" class="hidden">
-<button class="hud-btn" id="muteBtn" title="Sound">🔊</button>
-<button class="hud-btn" id="pauseBtn" title="Pause">⏸️</button>
+<button class="hud-btn" id="muteBtn" aria-label="Toggle Sound" title="Sound">🔊</button>
+<button class="hud-btn" id="pauseBtn" aria-label="Pause Game" title="Pause">⏸️</button>
 </div>
 <div id="toast" class="hidden" style="position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(20,30,44,.95);border:2px solid #f1c40f;color:#fff;font-size:10px;padding:10px 16px;border-radius:10px;z-index:60;text-align:center;max-width:86%;box-shadow:0 4px 20px rgba(0,0,0,.6);pointer-events:none"></div>
 <div id="startScreen" class="screen">
@@ -157,7 +158,7 @@ body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
 <button class="diff-btn" id="lbTabLocal" style="min-width:92px">📱 LOCAL</button>
 </div>
 <div id="lbNameWrap" style="margin:4px 0 8px">
-<input id="lbName" type="text" maxlength="16" placeholder="Your name (global)" style="padding:8px 10px;border-radius:8px;border:2px solid #34495e;background:#141c28;color:#fff;font-family:'Press Start 2P',sans-serif;font-size:9px;width:200px;text-align:center;outline:none">
+<input id="lbName" aria-label="Global leaderboard name" type="text" maxlength="16" placeholder="Your name (global)" style="padding:8px 10px;border-radius:8px;border:2px solid #34495e;background:#141c28;color:#fff;font-family:'Press Start 2P',sans-serif;font-size:9px;width:200px;text-align:center;outline:none">
 </div>
 <div id="lbStatus" class="small" style="color:#f1c40f;margin:2px 0">Loading…</div>
 <div id="lbList" style="margin:10px 0;min-height:120px;font-size:11px"></div>
@@ -231,9 +232,9 @@ body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
 <div class="small">The water waits for no one.</div>
 <button class="menu-btn teal" id="resumeBtn">▶ RESUME</button>
 <button class="menu-btn" id="pauseMuteBtn">🔊 Sound: ON</button>
-<div class="vol-row"><span class="vol-label"><b>MASTER</b><br>🎚 all audio</span><input id="volMasterSlider" type="range" min="0" max="100" value="100"><span class="vol-val" id="volMasterVal">100%</span></div>
-<div class="vol-row"><span class="vol-label"><b>SFX</b><br>🔔 effects</span><input id="volSfxSlider" type="range" min="0" max="100" value="100"><span class="vol-val" id="volSfxVal">100%</span></div>
-<div class="vol-row"><span class="vol-label"><b>MUSIC</b><br>🎵 melody</span><input id="volMusicSlider" type="range" min="0" max="100" value="85"><span class="vol-val" id="volMusicVal">85%</span></div>
+<div class="vol-row"><span class="vol-label"><b>MASTER</b><br>🎚 all audio</span><input id="volMasterSlider" aria-label="Master Volume" type="range" min="0" max="100" value="100"><span class="vol-val" id="volMasterVal">100%</span></div>
+<div class="vol-row"><span class="vol-label"><b>SFX</b><br>🔔 effects</span><input id="volSfxSlider" aria-label="SFX Volume" type="range" min="0" max="100" value="100"><span class="vol-val" id="volSfxVal">100%</span></div>
+<div class="vol-row"><span class="vol-label"><b>MUSIC</b><br>🎵 melody</span><input id="volMusicSlider" aria-label="Music Volume" type="range" min="0" max="100" value="85"><span class="vol-val" id="volMusicVal">85%</span></div>
 <button class="menu-btn" id="shakeToggle">🔃 Shake: ON</button>
 <button class="menu-btn" id="hapticToggle">📳 Vibration: ON</button>
 <button class="menu-btn" id="quitBtn">☰ QUIT TO MENU</button>
@@ -262,12 +263,12 @@ body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
 </div>
 <div id="controls" class="hidden">
 <div class="control-group">
-<div class="btn" id="btnLeft">◀</div>
-<div class="btn" id="btnRight">▶</div>
+<div class="btn" id="btnLeft" role="button" aria-label="Move Left">◀</div>
+<div class="btn" id="btnRight" role="button" aria-label="Move Right">▶</div>
 </div>
 <div style="display:flex;flex-direction:column;align-items:center;pointer-events:auto">
-<div class="btn" id="btnDive" title="Dive">🤿</div>
-<div class="btn" id="btnJump">▲</div>
+<div class="btn" id="btnDive" role="button" aria-label="Dive" title="Dive">🤿</div>
+<div class="btn" id="btnJump" role="button" aria-label="Jump">▲</div>
 </div>
 </div>
 <script>
