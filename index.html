@@ -1398,12 +1398,24 @@ g.appendChild(card);
 });
 }
 function skinIconHTML(s,sz){
-sz=sz||28;const b=s.body||"#e07a2f",d=s.dark||"#333";
+sz=sz||28;const b=s.body||"#e07a2f",d=s.dark||"#333",st=s.style||"cat";
+let ears="";
+if(st==="dog"){
+  ears=`<div style="position:absolute;left:35%;top:10%;width:12%;height:22%;background:${d};border-radius:3px"></div><div style="position:absolute;left:70%;top:10%;width:12%;height:22%;background:${d};border-radius:3px"></div>`;
+}else if(st==="rabbit"){
+  ears=`<div style="position:absolute;left:42%;top:-10%;width:8%;height:24%;background:${d};border-radius:2px"></div><div style="position:absolute;left:64%;top:-10%;width:8%;height:24%;background:${d};border-radius:2px"></div>`;
+}else if(st==="bear"){
+  ears=`<div style="position:absolute;left:38%;top:5%;width:12%;height:12%;background:${d};border-radius:50%"></div><div style="position:absolute;left:64%;top:5%;width:12%;height:12%;background:${d};border-radius:50%"></div>`;
+}else if(st==="ninja"){
+  ears=`<div style="position:absolute;left:42%;top:4%;width:8%;height:8%;background:${d};border-radius:2px"></div><div style="position:absolute;left:64%;top:4%;width:8%;height:8%;background:${d};border-radius:2px"></div><div style="position:absolute;left:42%;top:15%;width:30%;height:10%;background:#f1c40f"></div>`;
+}else{
+  ears=`<div style="position:absolute;left:42%;top:1%;width:10%;height:12%;background:${d}"></div><div style="position:absolute;left:60%;top:1%;width:10%;height:12%;background:${d}"></div>`;
+}
+
 return `<div style="width:${sz}px;height:${sz}px;margin:0 auto 4px;position:relative">
 <div style="position:absolute;left:18%;top:30%;width:64%;height:40%;background:${b};border-radius:3px"></div>
 <div style="position:absolute;left:38%;top:8%;width:44%;height:28%;background:${b};border-radius:3px"></div>
-<div style="position:absolute;left:42%;top:1%;width:10%;height:12%;background:${d}"></div>
-<div style="position:absolute;left:60%;top:1%;width:10%;height:12%;background:${d}"></div>
+${ears}
 <div style="position:absolute;left:48%;top:16%;width:7%;height:7%;background:#111;border-radius:50%"></div>
 <div style="position:absolute;left:64%;top:16%;width:7%;height:7%;background:#111;border-radius:50%"></div>
 <div style="position:absolute;left:14%;top:70%;width:14%;height:16%;background:${d}"></div>
