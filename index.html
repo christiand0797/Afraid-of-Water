@@ -1514,7 +1514,7 @@ if(sc>=180)return THEMES.find(function(t){return t.id==="tokyo"});
 return THEMES.find(function(t){return t.id==="nyc"})||THEMES[0];
 }
 function syncClimbTheme(){
-if(state!=="PLAYING")return;
+if(state!=="PLAYING"||selectedTheme!=="nyc")return;
 const next=themeForScore(score);
 if(next&&currentTheme&&next.id!==currentTheme.id){
 currentTheme=next;
