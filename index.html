@@ -1873,9 +1873,11 @@ if(armorTimer>0)armorTimer--;
 const flying=jetpackTimer>0||capeTimer>0;
 const swimMul=diving?(1.1+getUpgradeLevel("fins")*0.2):1;
 const spdMul=(1+getUpgradeLevel("speed")*0.1)*(flying?1.15:1);
-if(keys.left){cat.vx=-cat.speed*swimMul*spdMul;cat.dir=-1}
-else if(keys.right){cat.vx=cat.speed*swimMul*spdMul;cat.dir=1}
-else cat.vx*=diving?0.9:0.74;
+if(keys.left){cat.vx-=1.4*swimMul*spdMul;cat.dir=-1}
+else if(keys.right){cat.vx+=1.4*swimMul*spdMul;cat.dir=1}
+const maxSpeed=cat.speed*swimMul*spdMul;
+cat.vx=Math.max(-maxSpeed,Math.min(maxSpeed,cat.vx));
+cat.vx*=diving?0.9:0.82;
 if(flying&&!diving){
 if(keys.up||keys.left||keys.right){
 cat.vy=Math.min(cat.vy, jetpackTimer>0?-7.5:-6.2);
@@ -1911,6 +1913,7 @@ if(bc<2)collectibles.push({worldX:cat.worldX+(Math.random()-0.5)*300,worldY:cat.
 } else {
 cat.vy+=cat.gravity;
 }
+cat.vy=Math.min(cat.vy,18);
 cat.worldX+=cat.vx;cat.worldY+=cat.vy;
 cameraX+=((cat.worldX-canvas.width/2)-cameraX)*0.12;
 cameraY+=((cat.worldY-canvas.height*(diving?0.55:0.47))-cameraY)*0.11;
@@ -2081,11 +2084,11 @@ cat.grounded=false;
 if(n.worldY>water.worldY+80)windowNPCs.splice(i,1);
 }
 if(level>=2&&Math.random()<0.01*difficultyRamp()&&fallingBricks.length<4){
-fallingBricks.push({worldX:cat.worldX+(Math.random()-0.5)*200,worldY:cat.worldY-180-Math.random()*80,vy:1.5+Math.random(),rot:0});
+fallingBricks.push({worldX:cat.worldX+(Math.random()-0.5)*200,worldY:cat.worldY-180-Math.random()*80,vx:(Math.random()-0.5)*3,vy:1.5+Math.random(),rot:0});
 }
 for(let i=fallingBricks.length-1;i>=0;i--){
 const br=fallingBricks[i];
-br.vy+=0.12;br.worldY+=br.vy;br.rot+=0.08;
+br.vx*=0.99;br.worldX+=br.vx;br.vy+=0.12;br.worldY+=br.vy;br.rot+=0.08;
 if(Math.hypot(cat.worldX+cat.w/2-br.worldX,cat.worldY+cat.h/2-br.worldY)<22){
 if(armorTimer>0||shieldActive){
 createParticles(br.worldX,br.worldY,"#3498db",10,8);
@@ -2342,6 +2345,7 @@ const f=floaters[i];
 const fY=f.worldY+(Math.sin(f.seed)>0?2:-2);
 if(cat.vy>=0&&cat.worldY+cat.h>=fY&&cat.worldY+cat.h<=fY+Math.abs(cat.vy)+4&&cat.worldX+cat.w>f.x-f.w/2&&cat.worldX<f.x+f.w/2){
 cat.grounded=true;cat.vy=0;cat.worldY=fY-cat.h;
+f.seed+=0.3;
 }
 }
 if(shakeAmount>0)shakeAmount*=0.83;
