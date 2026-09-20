@@ -158,7 +158,7 @@ body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
 <button class="diff-btn" id="lbTabLocal" style="min-width:92px">📱 LOCAL</button>
 </div>
 <div id="lbNameWrap" style="margin:4px 0 8px">
-<input id="lbName" type="text" maxlength="16" placeholder="Your name (global)" style="padding:8px 10px;border-radius:8px;border:2px solid #34495e;background:#141c28;color:#fff;font-family:'Press Start 2P',sans-serif;font-size:9px;width:200px;text-align:center;outline:none">
+<input id="lbName" type="text" maxlength="16" placeholder="Your name (global)" aria-label="Global Leaderboard Name" style="padding:8px 10px;border-radius:8px;border:2px solid #34495e;background:#141c28;color:#fff;font-family:'Press Start 2P',sans-serif;font-size:9px;width:200px;text-align:center;outline:none">
 </div>
 <div id="lbStatus" class="small" style="color:#f1c40f;margin:2px 0">Loading…</div>
 <div id="lbList" style="margin:10px 0;min-height:120px;font-size:11px"></div>
@@ -232,9 +232,9 @@ body.lastLife{animation:lastLifePulse 1.1s ease-in-out infinite}
 <div class="small">The water waits for no one.</div>
 <button class="menu-btn teal" id="resumeBtn">▶ RESUME</button>
 <button class="menu-btn" id="pauseMuteBtn">🔊 Sound: ON</button>
-<div class="vol-row"><span class="vol-label"><b>MASTER</b><br>🎚 all audio</span><input id="volMasterSlider" type="range" min="0" max="100" value="100"><span class="vol-val" id="volMasterVal">100%</span></div>
-<div class="vol-row"><span class="vol-label"><b>SFX</b><br>🔔 effects</span><input id="volSfxSlider" type="range" min="0" max="100" value="100"><span class="vol-val" id="volSfxVal">100%</span></div>
-<div class="vol-row"><span class="vol-label"><b>MUSIC</b><br>🎵 melody</span><input id="volMusicSlider" type="range" min="0" max="100" value="85"><span class="vol-val" id="volMusicVal">85%</span></div>
+<div class="vol-row"><span class="vol-label"><b>MASTER</b><br>🎚 all audio</span><input id="volMasterSlider" type="range" min="0" max="100" value="100" aria-label="Master Volume"><span class="vol-val" id="volMasterVal">100%</span></div>
+<div class="vol-row"><span class="vol-label"><b>SFX</b><br>🔔 effects</span><input id="volSfxSlider" type="range" min="0" max="100" value="100" aria-label="Sound Effects Volume"><span class="vol-val" id="volSfxVal">100%</span></div>
+<div class="vol-row"><span class="vol-label"><b>MUSIC</b><br>🎵 melody</span><input id="volMusicSlider" type="range" min="0" max="100" value="85" aria-label="Music Volume"><span class="vol-val" id="volMusicVal">85%</span></div>
 <button class="menu-btn" id="shakeToggle">🔃 Shake: ON</button>
 <button class="menu-btn" id="hapticToggle">📳 Vibration: ON</button>
 <button class="menu-btn" id="quitBtn">☰ QUIT TO MENU</button>
@@ -1367,20 +1367,23 @@ THEMES.forEach(function(t){
 const unlocked=highestScore>=t.unlock;
 const card=document.createElement("div");
 card.className="card"+(selectedTheme===t.id?" selected":"");
+card.setAttribute("tabindex","0");card.setAttribute("role","button");
 card.innerHTML=`<div style="font-size:26px">${t.emoji}</div><div>${t.name}</div><div class="price">${unlocked?(selectedTheme===t.id?"SELECTED":"TAP"):"🔒 "+t.unlock+"m"}</div>`;
-if(unlocked){const sel=function(e){e.preventDefault();selectedTheme=t.id;currentTheme=t;save();renderLevels()};card.addEventListener("touchend",sel);card.addEventListener("click",sel)}
+if(unlocked){const sel=function(e){e.preventDefault();selectedTheme=t.id;currentTheme=t;save();renderLevels()};card.addEventListener("touchend",sel);card.addEventListener("click",sel);card.addEventListener("keydown",function(e){if(e.code==="Enter"||e.code==="Space"){e.preventDefault();sel(e)}})}
 g.appendChild(card);
 });
 }
 function renderStore(){
 const g=$("storeGrid");g.innerHTML="";
 const lifeCard=document.createElement("div");lifeCard.className="card";
+lifeCard.setAttribute("tabindex","0");lifeCard.setAttribute("role","button");
 lifeCard.innerHTML='<div style="font-size:22px">❤️</div><div>Refill Life</div><div class="price">🪙 150</div>';
 const buyLife=function(e){e.preventDefault();if(coins>=150&&lives<maxLives){coins-=150;lives++;save();updateLifeWarn();refreshCoinUI();sfxBuy();if(livesUI)livesUI.innerText=lives}};
-lifeCard.addEventListener("touchend",buyLife);lifeCard.addEventListener("click",buyLife);g.appendChild(lifeCard);
+lifeCard.addEventListener("touchend",buyLife);lifeCard.addEventListener("click",buyLife);lifeCard.addEventListener("keydown",function(e){if(e.code==="Enter"||e.code==="Space"){e.preventDefault();buyLife(e)}});g.appendChild(lifeCard);
 UPGRADES.forEach(function(u){
 const lvl=getUpgradeLevel(u.id),maxed=lvl>=u.max,price=maxed?0:u.prices[Math.min(lvl,u.prices.length-1)];
 const card=document.createElement("div");card.className="card";
+card.setAttribute("tabindex","0");card.setAttribute("role","button");
 card.innerHTML=`<div style="font-size:22px">${u.emoji}</div><div>${u.name}</div><div style="font-size:8px;color:#95a5a6">${u.desc}</div><div class="price">${maxed?"MAX":"Lv"+(lvl+1)+" 🪙 "+price}</div>`;
 if(!maxed){
 const buy=function(e){
@@ -1392,7 +1395,7 @@ save();refreshCoinUI();renderStore();sfxBuy();
 if(u.id==="scuba")btnDive.classList.remove("hidden");
 } else alert("Need "+price+" coins");
 };
-card.addEventListener("touchend",buy);card.addEventListener("click",buy);
+card.addEventListener("touchend",buy);card.addEventListener("click",buy);card.addEventListener("keydown",function(e){if(e.code==="Enter"||e.code==="Space"){e.preventDefault();buy(e)}});
 }
 g.appendChild(card);
 });
@@ -1416,10 +1419,11 @@ ALL_SKINS.forEach(function(s){
 const owned=unlockedSkins.includes(s.id);
 const card=document.createElement("div");
 card.className="card"+(currentSkinId===s.id?" selected":"");
+card.setAttribute("tabindex","0");card.setAttribute("role","button");
 card.style.opacity=owned||s.price===0?"1":"0.55";
 card.innerHTML=skinIconHTML(s,32)+'<div style="font-size:8px">'+s.name+'</div><div class="price">'+(owned?(currentSkinId===s.id?"ON":"OWN"):("🪙 "+s.price))+'</div>';
 const act=function(e){e.preventDefault();if(owned){currentSkinId=s.id;save();renderSkins();updateSkinBar()}else if(coins>=s.price){coins-=s.price;unlockedSkins.push(s.id);currentSkinId=s.id;save();refreshCoinUI();renderSkins();updateSkinBar();sfxBuy()}else alert("Need "+s.price+" coins")};
-card.addEventListener("touchend",act);card.addEventListener("click",act);list.appendChild(card);
+card.addEventListener("touchend",act);card.addEventListener("click",act);card.addEventListener("keydown",function(e){if(e.code==="Enter"||e.code==="Space"){e.preventDefault();act(e)}});list.appendChild(card);
 });
 }
 function updateSkinBar(){
