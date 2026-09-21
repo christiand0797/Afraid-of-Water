@@ -1915,8 +1915,8 @@ cat.vy+=cat.gravity;
 }
 cat.vy=Math.min(cat.vy,18);
 cat.worldX+=cat.vx;cat.worldY+=cat.vy;
-cameraX+=((cat.worldX-canvas.width/2)-cameraX)*0.12;
-cameraY+=((cat.worldY-canvas.height*(diving?0.55:0.47))-cameraY)*0.11;
+cameraX+=((cat.worldX+cat.vx*15-canvas.width/2)-cameraX)*0.12;
+cameraY+=((cat.worldY+cat.vy*10-canvas.height*(diving?0.55:0.47))-cameraY)*0.11;
 score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
 if(score>highestScore){highestScore=score;safeStorage.set("afraidWaterHS",highestScore)}
 scoreEl.innerText=score+"m";highScoreUI.innerText=highestScore;
@@ -1970,9 +1970,11 @@ const bLeft=p.buildingIdx*540+90;
 const bW=360;
 if(p.vx&&(p.worldX<bLeft+8||p.worldX+p.w>bLeft+bW-8))p.vx=-p.vx;
 if(cat.vy>0&&cat.worldY+cat.h>=p.worldY&&cat.worldY+cat.h<=p.worldY+p.h+Math.abs(cat.vy)+2&&cat.worldX+cat.w>p.worldX&&cat.worldX<p.worldX+p.w){
+const impactSpeed=cat.vy;
 cat.grounded=true;cat.vy=0;cat.worldY=p.worldY-cat.h;cat.worldX+=(p.vx||0)*0.85;cat.jumps=0;
 if(!wasG){
 sfxLand();createSplash(cat.worldX+cat.w/2,cat.worldY+cat.h,5);
+if(impactSpeed>13)shakeAmount=Math.max(shakeAmount,(impactSpeed-10)*1.8);
 }
 }
 }
