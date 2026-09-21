@@ -632,7 +632,7 @@ sfxBuy();
 function watchAdLife(){playRewardedAd("life")}
 function watchAdSkin(){playRewardedAd("skin")}
 function watchAdCoins(){playRewardedAd("coins")}
-let state="START",score=0,time=0,level=1,cameraX=0,cameraY=0,lightningFlash=0,shakeAmount=0;
+let state="START",score=0,bonusScore=0,time=0,level=1,cameraX=0,cameraY=0,lightningFlash=0,shakeAmount=0;
 let shakeOn=safeStorage.get("aow_shake")!=="0";
 let hapticsOn=safeStorage.get("aow_haptic")!=="0";
 let paused=false;let dangerWarn=0;
@@ -1652,7 +1652,7 @@ milestone=0;milestoneBanner={text:"",t:0};
 waterDelay=150;
 surgeSplash=0;
 ambientParts=[];
-state="PLAYING";score=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;ampTimer=0;bestAtStart=highestScore||0;surgeTimer=0;surgeNext=0;nextBountyTarget=500;
+state="PLAYING";score=0;bonusScore=0;time=0;level=1;paused=false;streak=0;comboMult=1;bestStreakRun=0;ampTimer=0;bestAtStart=highestScore||0;surgeTimer=0;surgeNext=0;nextBountyTarget=500;
 try{stopMusic()}catch(e){}
 if(soundOn){try{startMusic()}catch(e){}try{startWaves()}catch(e){}}
 try{applyVolumes()}catch(e){}
@@ -1917,7 +1917,7 @@ cat.vy=Math.min(cat.vy,18);
 cat.worldX+=cat.vx;cat.worldY+=cat.vy;
 cameraX+=((cat.worldX+cat.vx*15-canvas.width/2)-cameraX)*0.12;
 cameraY+=((cat.worldY+cat.vy*10-canvas.height*(diving?0.55:0.47))-cameraY)*0.11;
-score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9));
+score=Math.max(0,Math.floor((canvas.height-220-cat.worldY)/9))+bonusScore;
 if(score>highestScore){highestScore=score;safeStorage.set("afraidWaterHS",highestScore)}
 scoreEl.innerText=score+"m";highScoreUI.innerText=highestScore;
 tickAwards();
@@ -2232,7 +2232,7 @@ streak++;streakTimer=120;comboFlash=1;if(streak>bestStreakRun)bestStreakRun=stre
 const prevMult=comboMult;
 comboMult=Math.min(1+Math.floor(streak/4),8);
 if(comboMult>prevMult&&comboMult>=2){comboBanner=80;comboBannerText="COMBO x"+comboMult;comboBannerColor="#f1c40f";buzz(18);createParticles(c.worldX,c.worldY,"#f1c40f",18,9);}
-score+=340*comboMult;if(score>highestScore)highestScore=score;
+bonusScore+=340*comboMult;score+=340*comboMult;if(score>highestScore)highestScore=score;
 coins+=(3+comboMult)*coinMul;sfxCollect();createParticles(c.worldX,c.worldY,"#f1c40f",12);refreshCoinUI();buzz(6+(comboMult>1?4:0));
 totalFish++;safeStorage.set("aow_fish",totalFish);if(totalFish>=50)unlockAchievement("collect_50");
 riseText(c.worldX+8,c.worldY,"+"+Math.round(340*comboMult));
