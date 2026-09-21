@@ -1738,7 +1738,7 @@ if(r>0.92)t="stairs";
 else if(r>0.84)t="scaffolding";
 else if(r>0.68)t="fire-escape";
 else if(r>0.52)t="ac";
-platforms.push({worldX:mainX,worldY:cy,w:mainW,h:14,type:t,vx:0,buildingIdx:bo,hp:99,broken:false});
+platforms.push({worldX:mainX,worldY:cy,w:mainW,h:14,type:t,vx:(Math.random()>0.85&&t!=="stairs")?(Math.random()>0.5?1:-1)*(0.8+Math.random()*1.5):0,buildingIdx:bo,hp:99,broken:false});
 if(Math.random()>0.55){
 const left=Math.random()>0.5;
 platforms.push({worldX:left?bx+8:bx+BW-56,worldY:cy-5,w:48,h:9,type:"fire-escape",vx:0,buildingIdx:bo,hp:99,broken:false});
