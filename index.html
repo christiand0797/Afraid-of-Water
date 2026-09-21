@@ -1995,6 +1995,7 @@ worldX:cat.worldX+(Math.random()>0.5?380:-380),
 worldY:cat.worldY-10,
 vx:0,dir:1,state:"run",life:400
 });
+playTone(180,"triangle",0.15,0.08);setTimeout(function(){playTone(140,"triangle",0.12,0.1)},150);
 }
 for(let i=attackDogs.length-1;i>=0;i--){
 const d=attackDogs[i];d.life--;
@@ -2075,7 +2076,7 @@ if(sw.life<=0||!sw.sheets.length)newspaperSwarm.splice(i,1);
 for(let i=windowNPCs.length-1;i>=0;i--){
 const n=windowNPCs[i];if(n.swinging>0)n.swinging--;n.cooldown--;
 if(n.cooldown<=0&&Math.abs(n.worldX-cat.worldX)<110&&Math.abs(n.worldY-cat.worldY)<55){
-n.swinging=22;n.cooldown=70;
+n.swinging=22;n.cooldown=70;playTone(280,"sine",0.1,0.08);
 if(Math.abs(n.worldX-cat.worldX)<70&&Math.abs(n.worldY-cat.worldY)<45){
 const dir=n.worldX<cat.worldX?1:-1;
 const force=(currentDiff.npcForce||22)*(currentDiff.hazardMul||1);
