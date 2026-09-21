@@ -161,12 +161,21 @@ app.post("/api/score", (req, res) => {
     return res.status(400).json({ error: "Invalid score" });
   }
   const list = loadScores();
-  const entry = { name, score, date: Date.now() };
-  list.push(entry);
+  let entry = { name, score, date: Date.now() };
+  const existingIdx = list.findIndex(e => e.name === name);
+  if (existingIdx >= 0) {
+    if (score > list[existingIdx].score) {
+      list[existingIdx] = entry;
+    } else {
+      entry = list[existingIdx];
+    }
+  } else {
+    list.push(entry);
+  }
   list.sort((a, b) => b.score - a.score);
   const trimmed = list.slice(0, MAX_ENTRIES);
   persistScores(trimmed);
-  const rank = trimmed.findIndex((e) => e === entry) + 1;
+  const rank = trimmed.findIndex((e) => e.name === entry.name && e.score === entry.score) + 1;
   res.set("Cache-Control", "no-store");
   res.json({ entry, rank: rank > 0 ? rank : null });
 });
