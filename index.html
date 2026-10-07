@@ -2165,7 +2165,10 @@ const pullR=magnetR*2.4;
 const dist=Math.hypot(cx2-px,cy2-py);
 if(dist>6&&dist<pullR){
 const pull=5*(0.4+comboMult*0.1);
-c.worldX+=(cx2-px)/dist*pull;c.worldY+=(cy2-py)/dist*pull;
+c.vx=c.vx||0;c.vy=c.vy||0;
+c.vx+=(cx2-px)/dist*pull*0.4;c.vy+=(cy2-py)/dist*pull*0.4;
+c.vx*=0.9;c.vy*=0.9;
+c.worldX+=c.vx;c.worldY+=c.vy;
 }
 }
 if(Math.hypot(cat.worldX+cat.w/2-(c.worldX+8),cat.worldY+cat.h/2-(c.worldY+8))<magnetR){
@@ -2254,7 +2257,8 @@ tentacles.push({
 worldX:cat.worldX+(Math.random()*200-100),
 height:0,
 target:140+Math.random()*100,
-state:"rising",
+state:"warning",
+warningTimer:40,
 swipe:0,
 aimX:cat.worldX
 });
@@ -2263,7 +2267,11 @@ for(let i=tentacles.length-1;i>=0;i--){
 const t=tentacles[i];
 t.aimX=cat.worldX;
 t.worldX+=(t.aimX-t.worldX)*0.04;
-if(t.state==="rising"){
+if(t.state==="warning"){
+t.warningTimer--;
+if(time%4===0)createParticles(t.worldX,water.worldY,"#6c3483",2,8);
+if(t.warningTimer<=0)t.state="rising";
+} else if(t.state==="rising"){
 t.height+=6.2;
 t.swipe=Math.sin(time*0.2)*18;
 if(t.height>t.target){t.state="lunge";t.lungeTimer=18}
@@ -2305,7 +2313,9 @@ r.y+=(16+r.z*9)*r.speed;r.x-=weather.wind*(0.35+r.z*0.3);
 if(r.y>canvas.height+25){r.y=-15-Math.random()*50;r.x=Math.random()*canvas.width+(Math.random()-0.5)*180}
 }
 for(let i=particles.length-1;i>=0;i--){
-const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=diving?-0.02:0.13;p.life-=0.035;if(p.life<=0)particles.splice(i,1);
+const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=diving?-0.02:0.13;p.life-=0.035;
+if(p.y>water.worldY){p.vy*=-0.3;p.y=water.worldY;p.vx*=0.8}
+if(p.life<=0)particles.splice(i,1);
 }
 try{updateAmbient()}catch(e){}
 if(time%100===0){
