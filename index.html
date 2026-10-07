@@ -388,7 +388,9 @@ const ALL_SKINS=[
 {id:"panda",name:"Red Panda",body:"#c0392b",dark:"#7b2a18",price:380,style:"cat"},
 {id:"owl",name:"Night Owl",body:"#7d3c98",dark:"#4a235a",price:420,style:"cat"},
 {id:"ghost",name:"Ghost Cat",body:"#dcdde1",dark:"#aab0b8",price:460,style:"cat"},
-{id:"penguin",name:"Ice Penguin",body:"#2c3e50",dark:"#1a1f29",price:500,style:"cat"}
+{id:"penguin",name:"Ice Penguin",body:"#2c3e50",dark:"#1a1f29",price:500,style:"cat"},
+{id:"pig",name:"Plump Pig",body:"#f8bbd0",dark:"#f48fb1",price:320,style:"pig"},
+{id:"sheep",name:"Fluffy Sheep",body:"#ecf0f1",dark:"#2c3e50",price:400,style:"sheep"}
 ];
 let leaderboard=(()=>{try{const v=JSON.parse(localStorage.getItem("aow_lb")||"[]");return Array.isArray(v)?v:[]}catch(e){return[]}})();
 let playerName=safeStorage.get("aow_name")||"Anonymous";
@@ -3242,6 +3244,27 @@ limb(4,5,fr,8,4.5,dark,"#111");
 roundR(-3,-18,16,12,5,dark);
 ctx.fillStyle="#111";ctx.fillRect(-2,-14,14,6);
 ctx.fillStyle="#f1c40f";ctx.fillRect(2,-13,3,2);ctx.fillRect(8,-13,3,2);
+} else if(st==="pig"){
+limb(-10,4,bl,7,5.5,dark,shadeClr(dark,-15));
+limb(6,4,br,7,5.5,dark,shadeClr(dark,-15));
+const pg=ctx.createLinearGradient(0,-8,0,10);pg.addColorStop(0,shadeClr(body,15));pg.addColorStop(1,dark);
+roundR(-16,-8,32,18,9,pg);
+limb(-9,5,fl,7,5.5,body,dark);
+limb(5,5,fr,7,5.5,body,dark);
+roundR(-1,-16,14,14,7,body);
+ctx.fillStyle=dark;ctx.fillRect(8,-12,6,8);
+ctx.fillStyle="#111";ctx.beginPath();ctx.arc(10,-9,1,0,Math.PI*2);ctx.arc(12,-9,1,0,Math.PI*2);ctx.fill();
+ctx.beginPath();ctx.arc(4,-11,1.5,0,Math.PI*2);ctx.arc(9,-11,1.5,0,Math.PI*2);ctx.fill();
+} else if(st==="sheep"){
+limb(-9,5,bl,8,4,dark,"#111");
+limb(5,5,br,8,4,dark,"#111");
+const sg=ctx.createLinearGradient(0,-10,0,12);sg.addColorStop(0,"#fff");sg.addColorStop(1,"#bdc3c7");
+ctx.fillStyle=sg;
+ctx.beginPath();ctx.arc(-8,0,12,0,Math.PI*2);ctx.arc(8,0,12,0,Math.PI*2);ctx.arc(0,-4,14,0,Math.PI*2);ctx.fill();
+limb(-8,6,fl,8,4,dark,"#111");
+limb(4,6,fr,8,4,dark,"#111");
+roundR(6,-12,12,10,4,dark);
+ctx.fillStyle="#111";ctx.beginPath();ctx.arc(14,-9,1.5,0,Math.PI*2);ctx.arc(10,-9,1.5,0,Math.PI*2);ctx.fill();
 } else {
 const eyeC=(currentSkinId==="black"||currentSkinId==="tuxedo")?"#f1c40f":(currentSkinId==="white"?"#5dade2":"#7cb45a");
 const eyeClosed=time%130<6;
